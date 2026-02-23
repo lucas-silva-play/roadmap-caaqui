@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadmap Timeline</title>
+    <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <style>
+        :root {
+            --color-bg-primary: #fcfcf9;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #13343b;
+            --color-text-secondary: #626c71;
+            --color-primary: #21808d;
+            --color-primary-hover: #1d7480;
+            --color-border: rgba(94, 82, 64, 0.2);
+            --color-success: #21808d;
+            --color-warning: #e68161;
+            --color-error: #c0152f;
+            --color-info: #626c71;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-bg-primary: #1f2121;
+                --color-bg-secondary: #262828;
+                --color-text-primary: #f5f5f5;
+                --color-text-secondary: #a7a9a9;
+                --color-primary: #32b8c6;
+                --color-primary-hover: #2da6b2;
+                --color-border: rgba(119, 124, 124, 0.3);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--color-text-primary);
+        }
+
+        .subtitle {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .config-panel {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(33, 128, 141, 0.1);
+        }
+
+        .hint {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-top: 6px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 128, 141, 0.2);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(94, 82, 64, 0.12);
+            color: var(--color-text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(94, 82, 64, 0.2);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        .status-loading {
+            background: rgba(98, 108, 113, 0.15);
+            color: var(--color-info);
+            border: 1px solid rgba(98, 108, 113, 0.25);
+        }
+
+        .status-success {
+            background: rgba(33, 128, 141, 0.15);
+            color: var(--color-success);
+            border: 1px solid rgba(33, 128, 141, 0.25);
+        }
+
+        .status-error {
+            background: rgba(192, 21, 47, 0.15);
+            color: var(--color-error);
+            border: 1px solid rgba(192, 21, 47, 0.25);
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #timeline-container {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            height: 600px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .zoom-btn:hover {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .zoom-btn:active {
+            transform: scale(0.95);
+        }
+
+        #visualization {
+            height: 100%;
+        }
+
+        .vis-timeline {
+            border: none;
+        }
+
+        .vis-item {
+            border-radius: 6px;
+            border-width: 2px;
+            font-size: 0.9rem;
+            min-height: 55px;
+        }
+
+        .vis-item.vis-range {
+            border-radius: 6px;
+        }
+
+        .vis-item.status-planejado {
+            background-color: rgba(98, 108, 113, 0.15);
+            border-color: var(--color-info);
+            color: var(--color-text-primary);
+        }
+
+        .vis-item.status-em-andamento {
+            background-color: rgba(33, 128, 141, 0.15);
+            border-color: var(--color-primary);
+            color: var(--color-text-primary);
+        }
+
+        .vis-item.status-concluido {
+            background-color: rgba(33, 128, 141, 0.25);
+            border-color: var(--color-success);
+            color: var(--color-text-primary);
+        }
+
+        .vis-item.status-atrasado {
+            background-color: rgba(192, 21, 47, 0.15);
+            border-color: var(--color-error);
+            color: var(--color-text-primary);
+        }
+
+        .vis-item.status-pausado {
+            background-color: rgba(230, 129, 97, 0.15);
+            border-color: var(--color-warning);
+            color: var(--color-text-primary);
+        }
+
+        .vis-item.extension-bar {
+            background-color: rgba(230, 129, 97, 0.4);
+            border-color: var(--color-warning);
+            border-width: 2px;
+        }
+
+        .vis-item.target-divider {
+            background-color: transparent;
+            border-left: 3px solid #c0152f;
+            border-right: none;
+            border-top: none;
+            border-bottom: none;
+            width: 3px;
+        }
+
+        .vis-item.target-divider .vis-item-content {
+            display: none;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .example-link {
+            display: inline-block;
+            color: var(--color-primary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .example-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .config-panel {
+                padding: 20px;
+            }
+
+            #timeline-container {
+                height: 400px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Roadmap Timeline</h1>
+            <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
+        </header>
+
+        <div class="config-panel">
+            <div class="form-group">
+                <label for="spreadsheet-url">URL da Planilha do Google Sheets</label>
+                <input type="text" id="spreadsheet-url" placeholder="https://docs.google.com/spreadsheets/d/SEU_ID/edit">
+                <p class="hint">
+                    A planilha deve ser pública (qualquer pessoa com o link pode visualizar).
+                    <a href="#" class="example-link" id="show-example">Ver planilha de exemplo</a>
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="stack-filter">Filtrar por Stack</label>
+                <select id="stack-filter">
+                    <option value="all">Todos</option>
+                </select>
+                <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
+            </div>
+
+            <div class="form-group">
+                <label for="view-mode">Modo de Visualização</label>
+                <select id="view-mode">
+                    <option value="week">Semana</option>
+                    <option value="month" selected>Mês</option>
+                    <option value="quarter">Trimestre</option>
+                    <option value="year">Ano</option>
+                </select>
+                <p class="hint">Ajuste a escala de tempo do roadmap</p>
+            </div>
+
+            <div id="status-message"></div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="load-data">
+                    <span>Carregar Roadmap</span>
+                </button>
+                <button class="btn btn-secondary" id="refresh-data" style="display: none;">
+                    <span>🔄 Atualizar Dados</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="timeline-container">
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+                <button class="zoom-btn" id="zoom-out" title="Diminuir zoom">−</button>
+                <button class="zoom-btn" id="zoom-fit" title="Ajustar ao conteúdo">⊡</button>
+            </div>
+            <div id="visualization"></div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(98, 108, 113, 0.15); border-color: #626c71;"></div>
+                <span>Planejado</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(33, 128, 141, 0.15); border-color: #21808d;"></div>
+                <span>Em Andamento</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(33, 128, 141, 0.25); border-color: #21808d;"></div>
+                <span>Concluído</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(192, 21, 47, 0.15); border-color: #c0152f;"></div>
+                <span>Atrasado</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(230, 129, 97, 0.15); border-color: #e68161;"></div>
+                <span>Pausado</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timeline = null;
+        let currentSpreadsheetId = null;
+        let currentSheetName = 'Sheet1';
+        let allParsedData = null;
+        let availableStacks = new Set();
+
+        // Show example spreadsheet
+        document.getElementById('show-example').addEventListener('click', (e) => {
+            e.preventDefault();
+            const exampleUrl = 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
+            document.getElementById('spreadsheet-url').value = exampleUrl;
+        });
+
+        // Extract spreadsheet ID from URL
+        function extractSpreadsheetId(url) {
+            // Try regular URL format first
+            const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            if (match) return match[1];
+            
+            // Check if it's published URL - return null to handle separately
+            if (url.includes('/e/2PACX-') && url.includes('/pub')) {
+                return null; // Will be handled by fullUrl in fetchSheetData
+            }
+            
+            return null;
+        }
+
+        // Show status message
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status-message');
+            const iconMap = {
+                loading: '<div class="spinner"></div>',
+                success: '✓',
+                error: '✗'
+            };
+            
+            statusDiv.innerHTML = `
+                <div class="status-indicator status-${type}">
+                    ${iconMap[type]}
+                    <span>${message}</span>
+                </div>
+            `;
+        }
+
+        // Clear status message
+        function clearStatus() {
+            document.getElementById('status-message').innerHTML = '';
+        }
+
+        // Fetch data from Google Sheets (CSV export with CORS proxy)
+        async function fetchSheetData(spreadsheetId, sheetName, fullUrl) {
+            let url;
+            
+            // Check if it's a published URL format (/e/2PACX-.../pub)
+            if (fullUrl && fullUrl.includes('/e/2PACX-') && fullUrl.includes('/pub')) {
+                // Extract the published key and gid from URL
+                const pubMatch = fullUrl.match(/\/e\/(2PACX-[^\/]+)/);
+                const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
+                
+                if (pubMatch) {
+                    const pubKey = pubMatch[1];
+                    const gid = gidMatch ? gidMatch[1] : '0';
+                    url = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
+                } else {
+                    throw new Error('Formato de URL publicada inválido');
+                }
+            } else if (spreadsheetId) {
+                // Regular spreadsheet ID
+                url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            } else {
+                throw new Error('URL inválida');
+            }
+            
+            try {
+                // Use CORS proxy for published URLs to avoid CORS issues
+                const corsProxy = 'https://corsproxy.io/?';
+                const fetchUrl = (fullUrl && fullUrl.includes('/pub')) ? corsProxy + encodeURIComponent(url) : url;
+                
+                const response = await fetch(fetchUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao acessar a planilha. Verifique se ela é pública ou publicada na web.');
+                }
+                
+                const csvText = await response.text();
+                
+                // Check if we got HTML instead of CSV
+                if (csvText.trim().startsWith('<!DOCTYPE') || csvText.includes('<html')) {
+                    throw new Error('A planilha não está acessível. Para planilhas normais: Compartilhar → Qualquer pessoa com o link (Leitor). Para usar URL publicada: Arquivo → Compartilhar → Publicar na web.');
+                }
+                
+                return parseCSV(csvText);
+            } catch (error) {
+                console.error('Erro detalhado:', error);
+                if (error.message === 'Failed to fetch') {
+                    throw new Error('Erro de conexão. Para planilhas publicadas, certifique-se de que ela está em: Arquivo → Compartilhar → Publicar na web. Se o erro persistir, tente tornar a planilha pública através de Compartilhar → Qualquer pessoa com o link.');
+                }
+                throw error;
+            }
+        }
+
+        // Parse CSV text
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim());
+            const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            const rows = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((header, idx) => {
+                    row[header] = values[idx] || '';
+                });
+                rows.push(row);
+            }
+            
+            return rows;
+        }
+
+        // Parse CSV line handling quoted values
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+
+        // Parse sheet data to timeline format
+        function parseSheetData(rows, filterStack = 'all') {
+            const items = [];
+            const groups = [];
+            const groupSet = new Set();
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                
+                const resumo = row['Resumo'] || '';
+                const dataInicio = row['Start date'] ? parseBRDate(row['Start date']) : null;
+                const dataTarget = row['Target end'] ? parseBRDate(row['Target end']) : null;
+                const dataFinish = row['Finish Date'] ? parseBRDate(row['Finish Date']) : null;
+                const status = row['Status'] || 'planejado';
+                const stacksRaw = row['Stacks'] || 'Sem Stack';
+                
+                // Must have resumo, start date, and finish date
+                if (!resumo || !dataInicio || !dataFinish) continue;
+                
+                // Parse stacks separated by semicolon
+                const stacksArray = stacksRaw.split(';').map(s => s.trim()).filter(s => s);
+                
+                // Add all stacks to available stacks set
+                stacksArray.forEach(stack => availableStacks.add(stack));
+                
+                // Extract text between [] for display
+                const titleMatch = resumo.match(/\[([^\]]+)\]/);
+                const displayTitle = titleMatch ? titleMatch[1] : resumo;
+                
+                const statusClass = status.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '-');
+                
+                // Filter by selected stack if not "all"
+                const stacksToShow = filterStack === 'all' ? stacksArray : stacksArray.filter(s => s === filterStack);
+                
+                if (stacksToShow.length === 0) continue;
+                
+                // Create item for each stack
+                stacksToShow.forEach((stack, stackIdx) => {
+                    // Add group if not exists
+                    if (!groupSet.has(stack)) {
+                        groupSet.add(stack);
+                        groups.push({
+                            id: stack,
+                            content: stack
+                        });
+                    }
+                    
+                    // Create single bar with gradient: blue until target, orange for extension
+                    const itemId = `item-${i}-${stackIdx}`;
+                const totalDuration = dataFinish - dataInicio;
+                const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
+                
+                // Calculate percentage for gradient split
+                const targetPercent = (targetDuration / totalDuration) * 100;
+                
+                let customStyle = '';
+                if (dataTarget && dataTarget < dataFinish) {
+                    // Two-color gradient: blue until target, orange after
+                    customStyle = `background: linear-gradient(to right, 
+                        rgba(33, 128, 141, 0.15) 0%, 
+                        rgba(33, 128, 141, 0.15) ${targetPercent}%, 
+                        rgba(255, 103, 31, 0.6) ${targetPercent}%, 
+                        rgba(255, 103, 31, 0.6) 100%) !important; 
+                        border-color: #21808d !important;`;
+                } else {
+                    // Single blue color
+                    customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: #21808d !important;`;
+                }
+                
+                // Status badge styling based on status
+                const statusBadgeColors = {
+                    'planejado': 'background: rgba(98, 108, 113, 0.3); color: #626c71;',
+                    'em-andamento': 'background: rgba(33, 128, 141, 0.3); color: #21808d;',
+                    'concluido': 'background: rgba(33, 128, 141, 0.4); color: #21808d;',
+                    'atrasado': 'background: rgba(192, 21, 47, 0.3); color: #c0152f;',
+                    'pausado': 'background: rgba(230, 129, 97, 0.3); color: #e68161;'
+                };
+                
+                const badgeStyle = statusBadgeColors[statusClass] || statusBadgeColors['planejado'];
+                
+                    items.push({
+                        id: itemId,
+                        content: `<div style="padding: 4px 8px; display: flex; flex-direction: column; gap: 3px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <strong>${displayTitle}</strong>
+                                <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; ${badgeStyle} font-weight: 500;">${status}</span>
+                            </div>
+                            <div style="font-size: 0.75rem; opacity: 0.8;">
+                                Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}
+                            </div>
+                        </div>`,
+                        start: dataInicio,
+                        end: dataFinish,
+                        group: stack,
+                        className: `status-${statusClass}`,
+                        style: customStyle,
+                        title: `${resumo}\nInício: ${formatDate(dataInicio)}\nTarget: ${formatDate(dataTarget)}\nFinalizado: ${formatDate(dataFinish)}\nStatus: ${status}\nStack: ${stack}`
+                    });
+                });
+            }
+            
+            return { items, groups };
+        }
+
+        // Parse Brazilian date format (DD/MM/YYYY) or Google Sheets format
+        function parseBRDate(dateValue) {
+            if (typeof dateValue === 'string') {
+                // Try Brazilian format DD/MM/YYYY
+                const brMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                if (brMatch) {
+                    const [, dd, mm, yyyy] = brMatch;
+                    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+                }
+                
+                // Try to parse date string (format: Date(year, month, day))
+                const match = dateValue.match(/Date\((\d+),(\d+),(\d+)\)/);
+                if (match) {
+                    return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
+                }
+                
+                // Try standard date string
+                return new Date(dateValue);
+            } else if (typeof dateValue === 'number') {
+                // Google Sheets serial number (days since Dec 30, 1899)
+                return new Date((dateValue - 25569) * 86400 * 1000);
+            }
+            return new Date(dateValue);
+        }
+
+        // Format date for display
+        function formatDate(date) {
+            return date.toLocaleDateString('pt-BR', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+            });
+        }
+
+        // Create or update timeline
+        function createTimeline(data) {
+            const container = document.getElementById('visualization');
+            
+            const options = {
+                width: '100%',
+                height: '100%',
+                margin: {
+                    item: 20,
+                    axis: 40
+                },
+                orientation: 'top',
+                stack: true,
+                stackSubgroups: false,
+                showCurrentTime: true,
+                zoomMin: 1000 * 60 * 60 * 24 * 7, // 1 week
+                zoomMax: 1000 * 60 * 60 * 24 * 365 * 2, // 2 years
+                locale: 'pt-BR',
+                verticalScroll: true,
+                horizontalScroll: true,
+                zoomKey: 'ctrlKey',
+                format: {
+                    minorLabels: {
+                        millisecond:'SSS',
+                        second:     's',
+                        minute:     'HH:mm',
+                        hour:       'HH:mm',
+                        weekday:    'ddd DD',
+                        day:        'DD',
+                        week:       'w',
+                        month:      'MMM',
+                        year:       'YYYY'
+                    },
+                    majorLabels: {
+                        millisecond:'HH:mm:ss',
+                        second:     'DD/MM/YYYY',
+                        minute:     'ddd DD/MM',
+                        hour:       'ddd DD/MM',
+                        weekday:    'MMMM YYYY',
+                        day:        'MMMM YYYY',
+                        week:       'MMMM YYYY',
+                        month:      'YYYY',
+                        year:       ''
+                    }
+                }
+            };
+            
+            if (timeline) {
+                timeline.setItems(data.items);
+                timeline.setGroups(data.groups);
+                timeline.fit();
+            } else {
+                timeline = new vis.Timeline(container, data.items, data.groups, options);
+            }
+        }
+
+        // Update stack filter dropdown
+        function updateStackFilter() {
+            const filterSelect = document.getElementById('stack-filter');
+            const currentValue = filterSelect.value;
+            
+            filterSelect.innerHTML = '<option value="all">Todos</option>';
+            
+            const sortedStacks = Array.from(availableStacks).sort();
+            sortedStacks.forEach(stack => {
+                const option = document.createElement('option');
+                option.value = stack;
+                option.textContent = stack;
+                filterSelect.appendChild(option);
+            });
+            
+            // Restore previous selection if it still exists
+            if (currentValue !== 'all' && availableStacks.has(currentValue)) {
+                filterSelect.value = currentValue;
+            }
+        }
+
+        // Apply filter
+        function applyFilter() {
+            if (!allParsedData) return;
+            
+            const selectedStack = document.getElementById('stack-filter').value;
+            availableStacks.clear();
+            const timelineData = parseSheetData(allParsedData, selectedStack);
+            createTimeline(timelineData);
+            updateStackFilter();
+        }
+
+        // Change view mode
+        function changeViewMode() {
+            if (!timeline) return;
+            
+            const viewMode = document.getElementById('view-mode').value;
+            const now = new Date();
+            let start, end;
+            
+            switch(viewMode) {
+                case 'week':
+                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+                    break;
+                case 'month':
+                    start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+                    end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+                    break;
+                case 'quarter':
+                    start = new Date(now.getFullYear(), now.getMonth() - 4, 1);
+                    end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+                    break;
+                case 'year':
+                    start = new Date(now.getFullYear() - 1, 0, 1);
+                    end = new Date(now.getFullYear() + 1, 11, 31);
+                    break;
+            }
+            
+            timeline.setWindow(start, end);
+        }
+
+        // Zoom functions
+        function zoomIn() {
+            if (timeline) {
+                timeline.zoomIn(0.2);
+            }
+        }
+
+        function zoomOut() {
+            if (timeline) {
+                timeline.zoomOut(0.2);
+            }
+        }
+
+        function zoomFit() {
+            if (timeline) {
+                timeline.fit();
+            }
+        }
+
+        // Load data from spreadsheet
+        async function loadData() {
+            const url = document.getElementById('spreadsheet-url').value.trim();
+            const sheetName = 'Sheet1';
+            
+            if (!url) {
+                showStatus('error', 'Por favor, insira a URL da planilha');
+                return;
+            }
+            
+            const spreadsheetId = extractSpreadsheetId(url);
+            const isPublished = url.includes('/e/2PACX-') && url.includes('/pub');
+            
+            if (!spreadsheetId && !isPublished) {
+                showStatus('error', 'URL inválida. Use uma URL normal (/d/SEU_ID/edit) ou publicada (/e/2PACX-.../pub)');
+                return;
+            }
+            
+            showStatus('loading', 'Carregando dados da planilha...');
+            
+            try {
+                const data = await fetchSheetData(spreadsheetId, sheetName, url);
+                allParsedData = data;
+                availableStacks.clear();
+                
+                const timelineData = parseSheetData(data);
+                
+                if (timelineData.items.length === 0) {
+                    showStatus('error', 'Nenhum dado encontrado na planilha');
+                    return;
+                }
+                
+                createTimeline(timelineData);
+                updateStackFilter();
+                currentSpreadsheetId = spreadsheetId;
+                currentSheetName = sheetName;
+                
+                showStatus('success', `${timelineData.items.length} atividades carregadas com sucesso`);
+                document.getElementById('refresh-data').style.display = 'inline-flex';
+                
+                setTimeout(clearStatus, 3000);
+            } catch (error) {
+                showStatus('error', error.message);
+            }
+        }
+
+        // Refresh data
+        async function refreshData() {
+            const url = document.getElementById('spreadsheet-url').value.trim();
+            if (!url) return;
+            
+            showStatus('loading', 'Atualizando dados...');
+            
+            try {
+                const data = await fetchSheetData(currentSpreadsheetId, currentSheetName, url);
+                allParsedData = data;
+                availableStacks.clear();
+                
+                const selectedStack = document.getElementById('stack-filter').value;
+                const timelineData = parseSheetData(data, selectedStack);
+                
+                if (timelineData.items.length === 0) {
+                    showStatus('error', 'Nenhum dado encontrado');
+                    return;
+                }
+                
+                createTimeline(timelineData);
+                updateStackFilter();
+                showStatus('success', 'Dados atualizados com sucesso');
+                setTimeout(clearStatus, 3000);
+            } catch (error) {
+                showStatus('error', error.message);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('load-data').addEventListener('click', loadData);
+        document.getElementById('refresh-data').addEventListener('click', refreshData);
+        document.getElementById('stack-filter').addEventListener('change', applyFilter);
+        document.getElementById('view-mode').addEventListener('change', changeViewMode);
+        document.getElementById('zoom-in').addEventListener('click', zoomIn);
+        document.getElementById('zoom-out').addEventListener('click', zoomOut);
+        document.getElementById('zoom-fit').addEventListener('click', zoomFit);
+        
+        // Allow Enter key to load data
+        document.getElementById('spreadsheet-url').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadData();
+        });
+    </script>
+</body>
+</html>
