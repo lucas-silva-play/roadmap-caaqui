@@ -393,7 +393,7 @@
         <div class="config-panel">
             <div class="form-group">
                 <label for="spreadsheet-url">URL da Planilha do Google Sheets</label>
-                <input type="text" id="spreadsheet-url" placeholder="https://docs.google.com/spreadsheets/d/SEU_ID/edit">
+                <input type="text" id="spreadsheet-url" placeholder="https://docs.google.com/spreadsheets/d/SEU_ID/edit" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv">
                 <p class="hint">
                     A planilha deve ser pública (qualquer pessoa com o link pode visualizar).
                     <a href="#" class="example-link" id="show-example">Ver planilha de exemplo</a>
@@ -503,62 +503,68 @@
             document.getElementById('status-message').innerHTML = '';
         }
 
-        // ── FUNÇÃO CORRIGIDA: tenta 4 estratégias em sequência ──────────────
         async function fetchSheetData(spreadsheetId, sheetName, fullUrl) {
-            const corsProxy = 'https://corsproxy.io/?';
+            // Proxies em ordem de tentativa
+            const proxies = [
+                url => url,                                                          // direto, sem proxy
+                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                url => `https://thingproxy.freeboard.io/fetch/${url}`,
+            ];
+
+            async function tryFetch(targetUrl) {
+                for (const proxy of proxies) {
+                    try {
+                        const res = await fetch(proxy(targetUrl));
+                        if (!res.ok) continue;
+                        const text = await res.text();
+                        if (text.trim().startsWith('<!DOCTYPE') || text.includes('<html')) continue;
+                        if (text.trim().length === 0) continue;
+                        return text;
+                    } catch (_) {
+                        continue;
+                    }
+                }
+                return null;
+            }
 
             // Caso 1: URL publicada (/e/2PACX-.../pub)
             if (fullUrl && fullUrl.includes('/e/2PACX-') && fullUrl.includes('/pub')) {
                 const pubMatch = fullUrl.match(/\/e\/(2PACX-[^\/]+)/);
-                const gidMatch  = fullUrl.match(/[?&]gid=(\d+)/);
+                const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
                 if (!pubMatch) throw new Error('Formato de URL publicada inválido');
 
                 const pubKey = pubMatch[1];
                 const gid    = gidMatch ? gidMatch[1] : '0';
                 const csvUrl = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
 
-                const res = await fetch(corsProxy + encodeURIComponent(csvUrl));
-                if (!res.ok) throw new Error('Erro ao acessar a planilha publicada.');
-                const text = await res.text();
-                if (text.trim().startsWith('<!DOCTYPE') || text.includes('<html'))
-                    throw new Error('A planilha publicada retornou HTML. Verifique o link.');
-                return parseCSV(text);
+                const text = await tryFetch(csvUrl);
+                if (text) return parseCSV(text);
+
+                throw new Error('Não foi possível acessar a planilha publicada. Verifique se ela ainda está publicada em: Arquivo → Compartilhar → Publicar na web.');
             }
 
             if (!spreadsheetId) throw new Error('URL inválida');
 
-            // Caso 2: Planilha normal — tenta 4 endpoints em ordem
-            const candidates = [
-                // direto, sem proxy
+            // Caso 2: planilha normal — tenta gviz/tq e export
+            const endpoints = [
                 `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`,
                 `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=${encodeURIComponent(sheetName)}`,
-                // via proxy corsproxy.io
-                corsProxy + encodeURIComponent(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`),
-                corsProxy + encodeURIComponent(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=${encodeURIComponent(sheetName)}`),
             ];
 
-            for (const url of candidates) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) continue;
-                    const text = await res.text();
-                    if (text.trim().startsWith('<!DOCTYPE') || text.includes('<html')) continue;
-                    if (text.trim().length === 0) continue;
-                    return parseCSV(text);
-                } catch (_) {
-                    continue;
-                }
+            for (const endpoint of endpoints) {
+                const text = await tryFetch(endpoint);
+                if (text) return parseCSV(text);
             }
 
             throw new Error(
-                'Não foi possível acessar a planilha. Verifique:\n' +
-                '1. Abra a planilha no Google Sheets\n' +
-                '2. Clique em "Compartilhar" → "Qualquer pessoa com o link" → "Leitor"\n' +
-                '3. Copie o link e cole aqui\n\n' +
-                'Alternativa: Arquivo → Compartilhar → Publicar na web → CSV'
+                'Não foi possível acessar a planilha após várias tentativas.\n\n' +
+                'Solução mais confiável:\n' +
+                '1. Na planilha, vá em Arquivo → Compartilhar → Publicar na web\n' +
+                '2. Selecione a aba → formato CSV → clique em Publicar\n' +
+                '3. Copie a URL gerada (começa com /e/2PACX-...) e cole aqui'
             );
         }
-        // ────────────────────────────────────────────────────────────────────
 
         function parseCSV(csvText) {
             const lines = csvText.split('\n').filter(line => line.trim());
@@ -855,4 +861,3 @@
     </script>
 </body>
 </html>
-
