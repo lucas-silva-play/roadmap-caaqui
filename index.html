@@ -18,7 +18,9 @@
       --color-primary-hover:#d85c14;
       --color-border: rgba(94,82,64,0.20);
 
-      --grid-vertical-color: rgba(0,0,0,0.10);
+      /* Aumentei um pouco para ficar evidente */
+      --grid-vertical-color: rgba(0,0,0,0.16);
+      --grid-vertical-major-color: rgba(0,0,0,0.22);
 
       --stack-col-width: 200px;
       --today-blue: #1e88e5;
@@ -48,9 +50,11 @@
     .menu-center{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; flex: 1; }
     .menu-right{ min-width: 200px; display:flex; justify-content:flex-end; }
 
+    /* LOGO: não começa mais escondido */
     .menu-logo{
-      height:34px; width:auto;
-      display:none; /* só mostra quando carregar */
+      height:34px;
+      width:auto;
+      display:block;
     }
     .menu-logo-fallback{
       display:none;
@@ -237,47 +241,39 @@
 
     #visualization{ height:100%; }
 
-    /* ===== Fundo ===== */
-    .vis-timeline,
-    .vis-panel,
-    .vis-time-axis,
-    .vis-labelset{ background:#fff !important; }
+    /* ===== Camadas do vis-timeline (IMPORTANTE p/ a grid aparecer) ===== */
+    .vis-timeline{ border:none; background:#fff !important; }
 
-    /* Importante: não “pintar” o itemset, senão pode esconder a grid */
+    /* Painel que contém a grade precisa ser visível */
+    .vis-panel.vis-background{ background:#fff !important; }
+
+    /* Painel central NÃO deve pintar por cima da grade */
+    .vis-panel.vis-center{ background: transparent !important; }
+    .vis-panel.vis-center .vis-content{ background: transparent !important; }
+
+    /* axis e labels */
+    .vis-time-axis,
+    .vis-labelset,
+    .vis-panel.vis-left,
+    .vis-panel.vis-top{
+      background:#fff !important;
+    }
+
+    /* itemset transparente (deixa ver a grade do background) */
     .vis-itemset{ background: transparent !important; }
 
-    .vis-timeline{ border:none; }
-
-    /* ===== GRID VERTICAL (FIX) =====
-       O CSS base garante .vis-time-axis .vis-grid.vis-vertical, mas o “corpo”
-       pode renderizar grid dentro de .vis-itemset .vis-background também. [page:1]
-    */
-
-    /* eixo (topo) */
-    .vis-time-axis .vis-grid.vis-vertical{
+    /* ===== GRID VERTICAL (fix “à prova de seletor”) ===== */
+    .vis-timeline .vis-grid.vis-vertical{
       border-left: 1px solid var(--grid-vertical-color) !important;
+      border-left-style: solid !important;
     }
-    .vis-time-axis .vis-grid.vis-vertical.vis-major{
-      border-left-color: rgba(0,0,0,0.16) !important;
+    .vis-timeline .vis-grid.vis-vertical.vis-major{
+      border-left-color: var(--grid-vertical-major-color) !important;
     }
-
-    /* corpo do roadmap (fundo do itemset) */
-    .vis-itemset .vis-background .vis-grid.vis-vertical{
-      position:absolute !important;
-      top:0 !important;
-      height:100% !important;
-      border-left: 1px solid var(--grid-vertical-color) !important;
-    }
-    .vis-itemset .vis-background .vis-grid.vis-vertical.vis-major{
-      border-left-color: rgba(0,0,0,0.16) !important;
-    }
-
-    /* rtl (se ocorrer) */
-    .vis-itemset .vis-background .vis-grid.vis-vertical-rtl{
-      position:absolute !important;
-      top:0 !important;
-      height:100% !important;
+    /* RTL (quando existir) */
+    .vis-timeline .vis-grid.vis-vertical-rtl{
       border-right: 1px solid var(--grid-vertical-color) !important;
+      border-right-style: solid !important;
     }
 
     /* Remove current time padrão */
@@ -312,7 +308,7 @@
       min-height:55px;
     }
 
-    /* Stacks: centralizado e mais estreito */
+    /* Stacks */
     .vis-labelset { min-width: var(--stack-col-width) !important; }
     .vis-panel.vis-left { min-width: var(--stack-col-width) !important; }
 
@@ -519,6 +515,7 @@
       });
     })();
 
+    // Logo robusto (corrige caso carregue do cache e não dispare "load")
     (function setupLogo(){
       const img = document.getElementById("menu-logo");
       const fallback = document.getElementById("menu-logo-fallback");
@@ -527,17 +524,17 @@
         img.style.display = "none";
         fallback.style.display = "inline-block";
       }
-
-      img.addEventListener("load", () => {
+      function showImg(){
         fallback.style.display = "none";
         img.style.display = "block";
-      });
+      }
 
-      img.addEventListener("error", () => showFallback());
+      img.addEventListener("load", showImg);
+      img.addEventListener("error", showFallback);
 
-      setTimeout(() => {
-        if (!img.complete || (img.naturalWidth === 0)) showFallback();
-      }, 200);
+      // Se já veio do cache:
+      if (img.complete && img.naturalWidth > 0) showImg();
+      if (img.complete && img.naturalWidth === 0) showFallback();
     })();
 
     let timeline = null;
@@ -661,9 +658,7 @@
       }
 
       const id = extractSpreadsheetId(url);
-      if (!id) {
-        throw new Error("URL inválida. Use um link publicado (output=csv) ou um link /spreadsheets/d/ID/...");
-      }
+      if (!id) throw new Error("URL inválida.");
 
       return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
     }
@@ -681,16 +676,13 @@
 
       for (let i = 0; i < line.length; i++) {
         const c = line[i];
-
-        if (c === '"' ) {
+        if (c === '"') {
           if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
           else inQuotes = !inQuotes;
         } else if (c === "," && !inQuotes) {
           result.push(current);
           current = "";
-        } else {
-          current += c;
-        }
+        } else current += c;
       }
       result.push(current);
       return result.map(v => v.trim());
@@ -714,28 +706,15 @@
 
     function parseBRDate(dateValue) {
       if (!dateValue) return null;
-
       if (typeof dateValue === "string") {
         const v = dateValue.trim();
-
         const br = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (br) {
-          const [, dd, mm, yyyy] = br;
-          return new Date(Number(yyyy), Number(mm)-1, Number(dd));
-        }
-
+        if (br) return new Date(Number(br[3]), Number(br[2])-1, Number(br[1]));
         const gviz = v.match(/Date\((\d+),(\d+),(\d+)\)/);
         if (gviz) return new Date(Number(gviz[1]), Number(gviz[2]), Number(gviz[3]));
-
         const d = new Date(v);
         return isNaN(d) ? null : d;
       }
-
-      if (typeof dateValue === "number") {
-        const d = new Date((dateValue - 25569) * 86400 * 1000);
-        return isNaN(d) ? null : d;
-      }
-
       const d = new Date(dateValue);
       return isNaN(d) ? null : d;
     }
@@ -862,6 +841,8 @@
         groupWidth: getComputedStyle(document.documentElement).getPropertyValue("--stack-col-width").trim() || "200px",
         margin: { axis: 40, item: { horizontal: 10, vertical: 18 } },
         showCurrentTime: false,
+        showMajorLabels: true,
+        showMinorLabels: true,
         zoomMin: 1000 * 60 * 60 * 24 * 7,
         zoomMax: 1000 * 60 * 60 * 24 * 365 * 2,
         locale: "pt-BR",
@@ -878,6 +859,8 @@
         timeline = new vis.Timeline(container, data.items, data.groups, options);
       }
 
+      // força um redraw depois do fit (ajuda quando CSS muda)
+      timeline.redraw();
       startTodayMarkerClock();
     }
 
@@ -911,11 +894,12 @@
 
       timeline.setWindow(start, end);
       ensureTodayMarker();
+      timeline.redraw();
     }
 
     function zoomIn(){ if (timeline) timeline.zoomIn(0.2); }
     function zoomOut(){ if (timeline) timeline.zoomOut(0.2); }
-    function zoomFit(){ if (timeline) timeline.fit(); }
+    function zoomFit(){ if (timeline) timeline.fit(); if (timeline) timeline.redraw(); }
 
     async function loadData() {
       const url = document.getElementById("spreadsheet-url").value.trim();
@@ -944,9 +928,7 @@
       }
     }
 
-    async function refreshData() {
-      await loadData();
-    }
+    async function refreshData() { await loadData(); }
 
     document.getElementById("load-data").addEventListener("click", loadData);
     document.getElementById("refresh-data").addEventListener("click", refreshData);
