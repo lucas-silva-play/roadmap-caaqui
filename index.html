@@ -1,4 +1,4 @@
-<!DOC<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -12,7 +12,7 @@
     :root {
       color-scheme: light;
 
-      /* Base (forçado claro / branco) */
+      /* Base: sempre branco */
       --color-bg-primary: #ffffff;
       --color-bg-secondary: #ffffff;
 
@@ -30,7 +30,7 @@
       --color-error: #c0152f;
       --color-info: #626c71;
 
-      /* Grade vertical (mais fina e transparente) */
+      /* Grade vertical */
       --grid-vertical-color: rgba(19, 52, 59, 0.10);
       --grid-vertical-width: 1px;
     }
@@ -49,6 +49,14 @@
 
     header { margin-bottom: 30px; }
 
+    .page-logo {
+      display: block;
+      height: 48px;
+      width: auto;
+      max-width: 240px;
+      margin-bottom: 12px;
+    }
+
     h1 {
       font-size: 2rem;
       font-weight: 600;
@@ -58,13 +66,27 @@
 
     .subtitle { color: var(--color-text-secondary); font-size: 0.95rem; }
 
-    .config-panel {
+    /* Cards separados: Fonte / Filtros */
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .panel {
       background: var(--color-bg-secondary);
       border: 1px solid var(--color-border);
       border-radius: 12px;
       padding: 24px;
-      margin-bottom: 24px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--color-text-primary);
     }
 
     .form-group { margin-bottom: 20px; }
@@ -112,13 +134,11 @@
     }
 
     .btn-primary { background: var(--color-primary); color: white; }
-
     .btn-primary:hover {
       background: var(--color-primary-hover);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(236, 103, 24, 0.22);
     }
-
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
     .btn-secondary {
@@ -126,8 +146,9 @@
       color: var(--color-text-primary);
       border: 1px solid rgba(94, 82, 64, 0.10);
     }
-
     .btn-secondary:hover { background: rgba(94, 82, 64, 0.14); }
+
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
     .status-indicator {
       display: inline-flex;
@@ -145,13 +166,11 @@
       color: var(--color-info);
       border: 1px solid rgba(98, 108, 113, 0.25);
     }
-
     .status-success {
       background: rgba(33, 128, 141, 0.15);
       color: var(--color-success);
       border: 1px solid rgba(33, 128, 141, 0.25);
     }
-
     .status-error {
       background: rgba(192, 21, 47, 0.15);
       color: var(--color-error);
@@ -166,7 +185,6 @@
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
-
     @keyframes spin { to { transform: rotate(360deg); } }
 
     #timeline-container {
@@ -211,7 +229,6 @@
       color: white;
       border-color: var(--color-primary);
     }
-
     .zoom-btn:active { transform: scale(0.95); }
 
     #visualization { height: 100%; }
@@ -227,14 +244,11 @@
 
     .vis-timeline { border: none; }
 
-    /* Grade vertical: fina e transparente */
+    /* Grade vertical fina e transparente (fica no background do timeline) */
     .vis-panel.vis-background .vis-grid.vis-vertical,
     .vis-time-axis .vis-grid.vis-vertical {
       border-left: var(--grid-vertical-width) solid var(--grid-vertical-color) !important;
     }
-
-    /* NÃO forçar z-index nos itens (isso ajuda a evitar comportamentos esquisitos de sobreposição) */
-    /* .vis-item { position: relative; z-index: 5; } */
 
     .vis-item {
       border-radius: 6px;
@@ -250,37 +264,32 @@
       border-color: var(--color-info);
       color: var(--color-text-primary);
     }
-
     .vis-item.status-em-andamento {
       background-color: rgba(33, 128, 141, 0.15);
       border-color: var(--color-primary);
       color: var(--color-text-primary);
     }
-
     .vis-item.status-concluido {
       background-color: rgba(33, 128, 141, 0.25);
       border-color: var(--color-success);
       color: var(--color-text-primary);
     }
-
     .vis-item.status-atrasado {
       background-color: rgba(192, 21, 47, 0.15);
       border-color: var(--color-error);
       color: var(--color-text-primary);
     }
-
     .vis-item.status-pausado {
       background-color: rgba(230, 129, 97, 0.15);
       border-color: var(--color-warning);
       color: var(--color-text-primary);
     }
 
-    /* Coluna Stacks: maior, bold e centralizado verticalmente */
+    /* Coluna Stacks: maior, bold, centralizado verticalmente */
     .vis-labelset .vis-label {
       display: flex;
       align-items: center;
     }
-
     .vis-labelset .vis-label .vis-inner {
       font-size: 1.03rem;
       font-weight: 700;
@@ -288,8 +297,6 @@
       padding: 10px 10px;
       line-height: 1.2;
     }
-
-    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
     /* Modal */
     .modal-overlay {
@@ -359,16 +366,16 @@
       font-size: 0.85rem;
       margin-top: 6px;
     }
-
     .example-link:hover { text-decoration: underline; }
 
     @media (max-width: 768px) {
       body { padding: 16px; }
       h1 { font-size: 1.5rem; }
-      .config-panel { padding: 20px; }
+      .page-logo { height: 38px; }
       #timeline-container { height: 400px; }
       .actions { flex-direction: column; }
       .btn { width: 100%; }
+      .panel { padding: 20px; }
     }
   </style>
 </head>
@@ -376,56 +383,66 @@
 <body>
   <div class="container">
     <header>
+      <img class="page-logo" src="logo.jpg" alt="Caaqui" />
       <h1>Roadmap - Projetos Caaqui</h1>
       <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
     </header>
 
-    <div class="config-panel">
-      <!-- Input real fica escondido (a URL só é alterada no modal) -->
-      <input
-        type="text"
-        id="spreadsheet-url"
-        value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
-        style="display:none;"
-      />
+    <div class="panel-grid">
+      <!-- Card 1: Fonte de dados -->
+      <div class="panel" id="data-source-panel">
+        <div class="panel-title">Fonte de dados</div>
 
-      <div class="form-group">
-        <label>Fonte de dados</label>
-        <button class="btn btn-secondary" id="change-source" type="button">Alterar fonte do dado</button>
-        <p class="hint">
-          Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
-          <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
-        </p>
+        <!-- Input real fica escondido (a URL só aparece no modal) -->
+        <input
+          type="text"
+          id="spreadsheet-url"
+          value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
+          style="display:none;"
+        />
+
+        <div class="form-group">
+          <button class="btn btn-secondary" id="change-source" type="button">Alterar fonte do dado</button>
+          <p class="hint">
+            Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
+            <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
+          </p>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="stack-filter">Filtrar por Stack</label>
-        <select id="stack-filter">
-          <option value="all">Todos</option>
-        </select>
-        <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
-      </div>
+      <!-- Card 2: Filtros -->
+      <div class="panel" id="filters-panel">
+        <div class="panel-title">Filtros</div>
 
-      <div class="form-group">
-        <label for="view-mode">Modo de Visualização</label>
-        <select id="view-mode">
-          <option value="week">Semana</option>
-          <option value="month" selected>Mês</option>
-          <option value="quarter">Trimestre</option>
-          <option value="year">Ano</option>
-        </select>
-        <p class="hint">Ajuste a escala de tempo do roadmap</p>
-      </div>
+        <div class="form-group">
+          <label for="stack-filter">Filtrar por Stack</label>
+          <select id="stack-filter">
+            <option value="all">Todos</option>
+          </select>
+          <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
+        </div>
 
-      <div id="status-message"></div>
+        <div class="form-group">
+          <label for="view-mode">Modo de Visualização</label>
+          <select id="view-mode">
+            <option value="week">Semana</option>
+            <option value="month" selected>Mês</option>
+            <option value="quarter">Trimestre</option>
+            <option value="year">Ano</option>
+          </select>
+          <p class="hint">Ajuste a escala de tempo do roadmap</p>
+        </div>
 
-      <div class="actions">
-        <button class="btn btn-primary" id="load-data" type="button">
-          <span>Carregar Roadmap</span>
-        </button>
-        <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;">
-          <span>🔄 Atualizar Dados</span>
-        </button>
+        <div id="status-message"></div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="load-data" type="button">
+            <span>Carregar Roadmap</span>
+          </button>
+          <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;">
+            <span>🔄 Atualizar Dados</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -596,7 +613,6 @@
         });
         rows.push(row);
       }
-
       return rows;
     }
 
@@ -745,15 +761,11 @@
         stack: true,
         stackSubgroups: true,
 
-        // Ajuda a evitar “quebras”/sobreposições quando a altura do grupo não acompanha os itens
         groupHeightMode: "fitItems",
 
         margin: {
           axis: 40,
-          item: {
-            horizontal: 10,
-            vertical: 18,
-          },
+          item: { horizontal: 10, vertical: 18 },
         },
 
         showCurrentTime: true,
