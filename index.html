@@ -429,7 +429,7 @@
 
         <!-- PÁGINA: GERAL -->
         <div id="page-geral" style="display:block;">
-            <input type="text" id="spreadsheet-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEctXM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv" style="display:none;" />
+            <input type="text" id="spreadsheet-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv" style="display:none;" />
 
             <div class="panel" id="filters-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -749,7 +749,6 @@
                 throw new Error("URL inválida.");
             }
 
-            // Acesso direto via navegador. O Sheets suporta CORS.
             const res = await fetch(csvUrl);
             if (!res.ok) {
                 throw new Error(`Erro ao acessar planilha: ${res.status}. Certifique-se de que a planilha está publicada na web.`);
@@ -778,11 +777,11 @@
 
                 if (!resumo || !dataInicio || !dataFinish) continue;
 
-                // CORREÇÃO: Limpeza de arrays JSON e suporte a separação por Vírgula, Barra (/) ou Quebra de linha (\n)
+                // CORREÇÃO AQUI: Adicionado Ponto e Vírgula ";" ao regex de separação
                 const stacksRaw = String(row['Stacks'] || row['Stack'] || 'Sem Stack');
-                const cleanedStacks = stacksRaw.replace(/[\[\]"']/g, ''); // Remove "[", "]", aspas se for formato array
+                const cleanedStacks = stacksRaw.replace(/[\[\]"']/g, ''); 
                 
-                const stacksArray = cleanedStacks.split(/[,/\n]+/).map(s => s.trim()).filter(Boolean);
+                const stacksArray = cleanedStacks.split(/[,/;\n]+/).map(s => s.trim()).filter(Boolean);
                 stacksArray.forEach(stack => availableStacks[pageKey].add(stack));
 
                 const titleMatch = resumo.match(/\[(.*?)\]/);
