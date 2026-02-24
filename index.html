@@ -28,16 +28,15 @@
       --color-error: #c0152f;
       --color-info: #626c71;
 
-      /* Grade vertical: cinza bem sutil */
+      /* Grade vertical (sutil) */
       --grid-vertical-color: rgba(0, 0, 0, 0.08);
       --grid-vertical-width: 1px;
 
-      /* Coluna stacks */
-      --stack-col-width: 260px;
+      /* Coluna stacks (um pouco mais estreita) */
+      --stack-col-width: 220px;
 
       /* Hoje (marcador azul) */
       --today-blue: #1e88e5;
-      --today-blue-soft: rgba(30, 136, 229, 0.14);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,9 +51,8 @@
 
     .container { max-width: 1400px; margin: 0 auto; }
 
-    header { margin-bottom: 18px; }
+    header { margin-bottom: 14px; }
 
-    /* Se o logo quebrar, coloque o arquivo logo.jpg junto do HTML (mesma pasta) ou ajuste o src. */
     .page-logo {
       display: block;
       height: 48px;
@@ -72,12 +70,12 @@
 
     .subtitle { color: var(--color-text-secondary); font-size: 0.95rem; }
 
-    /* Topbar (botão discreto, fora dos cards) */
+    /* Topbar */
     .topbar {
       display: flex;
       justify-content: flex-end;
       align-items: center;
-      margin: 10px 0 14px;
+      margin: 10px 0 16px;
     }
 
     .btn {
@@ -93,6 +91,7 @@
       transition: all 0.2s ease;
       gap: 8px;
       user-select: none;
+      white-space: nowrap;
     }
 
     .btn-primary { background: var(--color-primary); color: #fff; }
@@ -109,7 +108,7 @@
     }
     .btn-secondary:hover { background: rgba(94, 82, 64, 0.14); }
 
-    /* Botão mais discreto (ghost) */
+    /* Botão discreto (ghost) */
     .btn-ghost {
       padding: 10px 14px;
       border-radius: 10px;
@@ -127,20 +126,14 @@
 
     .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 6px; }
 
-    /* Cards separados */
-    .panel-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
+    /* Card único: filtros */
     .panel {
       background: var(--color-bg-secondary);
       border: 1px solid var(--color-border);
       border-radius: 12px;
       padding: 24px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      margin-bottom: 24px;
     }
 
     .panel-title {
@@ -196,13 +189,11 @@
       color: var(--color-info);
       border: 1px solid rgba(98, 108, 113, 0.25);
     }
-
     .status-success {
       background: rgba(33, 128, 141, 0.15);
       color: var(--color-success);
       border: 1px solid rgba(33, 128, 141, 0.25);
     }
-
     .status-error {
       background: rgba(192, 21, 47, 0.15);
       color: var(--color-error);
@@ -277,7 +268,7 @@
 
     .vis-timeline { border: none; }
 
-    /* Grade vertical (major/minor) em cinza sutil */
+    /* Grade vertical (major/minor) */
     .vis-time-axis .vis-grid.vis-vertical.vis-minor,
     .vis-time-axis .vis-grid.vis-vertical.vis-major,
     .vis-panel.vis-background .vis-grid.vis-vertical.vis-minor,
@@ -287,30 +278,33 @@
       border-left-style: solid !important;
     }
 
-    /* Esconde a linha padrão do "agora" (a gente substitui por HOJE) */
+    /* Remove marcador padrão do "agora" */
     .vis-current-time { display: none !important; }
 
-    /* Custom time bar (HOJE) */
-    .vis-custom-time {
+    /* Custom HOJE (sem sombra azulada) */
+    .vis-custom-time.today {
       background-color: var(--today-blue) !important;
       width: 2px !important;
       z-index: 3;
-      box-shadow: 0 0 0 4px var(--today-blue-soft);
+      box-shadow: none !important;
       cursor: help;
     }
 
-    .vis-custom-time .vis-custom-time-marker {
+    .vis-custom-time.today .vis-custom-time-marker {
       background: var(--today-blue) !important;
       color: #fff !important;
       font-weight: 800;
       font-size: 12px;
       padding: 4px 8px;
       border-radius: 999px;
-      box-shadow: 0 10px 22px rgba(30, 136, 229, 0.20);
+      box-shadow: none !important;
       transform: translate(-50%, 0);
       letter-spacing: 0.2px;
+      user-select: none;
+      cursor: help;
     }
 
+    /* Itens */
     .vis-item {
       border-radius: 6px;
       border-width: 2px;
@@ -344,19 +338,27 @@
       color: var(--color-text-primary);
     }
 
-    /* Coluna Stacks: mais larga e visível */
+    /* Coluna Stacks: mais estreita, e texto centralizado vertical/horizontal */
     .vis-labelset { min-width: var(--stack-col-width) !important; }
     .vis-panel.vis-left { min-width: var(--stack-col-width) !important; }
 
     .vis-labelset .vis-label {
       display: flex;
       align-items: center;
+      justify-content: center;
     }
+
     .vis-labelset .vis-label .vis-inner {
-      font-size: 1.05rem;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+
+      font-size: 1.03rem;
       font-weight: 750;
       color: var(--color-text-primary);
-      padding: 10px 12px;
+      padding: 10px 10px;
       line-height: 1.2;
     }
 
@@ -426,7 +428,7 @@
       color: var(--color-primary);
       text-decoration: none;
       font-size: 0.85rem;
-      margin-top: 6px;
+      margin-top: 10px;
     }
     .example-link:hover { text-decoration: underline; }
 
@@ -440,7 +442,7 @@
       .panel { padding: 20px; }
       .topbar { justify-content: stretch; }
       .btn-ghost { width: 100%; }
-      :root { --stack-col-width: 220px; }
+      :root { --stack-col-width: 190px; }
     }
   </style>
 </head>
@@ -448,7 +450,8 @@
 <body>
   <div class="container">
     <header>
-      <img class="page-logo" src="logo.jpg" alt="Caaqui" onerror="this.style.display='none';" />
+      <!-- Para o logo aparecer: o arquivo precisa estar acessível como "logo.jpg" no mesmo diretório/rota do HTML -->
+      <img class="page-logo" src="logo.jpg?v=2" alt="Caaqui" />
       <h1>Roadmap - Projetos Caaqui</h1>
       <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
     </header>
@@ -457,7 +460,7 @@
       <button class="btn btn-ghost" id="change-source" type="button">Alterar fonte do dado</button>
     </div>
 
-    <!-- Input real (escondido): URL só aparece no modal -->
+    <!-- Fonte (mantém funcionalidade via modal), mas sem exibir "campo" na tela -->
     <input
       type="text"
       id="spreadsheet-url"
@@ -465,43 +468,34 @@
       style="display:none;"
     />
 
-    <div class="panel-grid">
-      <div class="panel" id="data-source-panel">
-        <div class="panel-title">Fonte de dados</div>
-        <p class="hint">
-          Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
-          <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
-        </p>
+    <!-- Card único: filtros -->
+    <div class="panel" id="filters-panel">
+      <div class="panel-title">Filtros</div>
+
+      <div class="form-group">
+        <label for="stack-filter">Filtrar por Stack</label>
+        <select id="stack-filter">
+          <option value="all">Todos</option>
+        </select>
+        <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
       </div>
 
-      <div class="panel" id="filters-panel">
-        <div class="panel-title">Filtros</div>
+      <div class="form-group">
+        <label for="view-mode">Modo de Visualização</label>
+        <select id="view-mode">
+          <option value="week">Semana</option>
+          <option value="month" selected>Mês</option>
+          <option value="quarter">Trimestre</option>
+          <option value="year">Ano</option>
+        </select>
+        <p class="hint">Ajuste a escala de tempo do roadmap</p>
+      </div>
 
-        <div class="form-group">
-          <label for="stack-filter">Filtrar por Stack</label>
-          <select id="stack-filter">
-            <option value="all">Todos</option>
-          </select>
-          <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
-        </div>
+      <div id="status-message"></div>
 
-        <div class="form-group">
-          <label for="view-mode">Modo de Visualização</label>
-          <select id="view-mode">
-            <option value="week">Semana</option>
-            <option value="month" selected>Mês</option>
-            <option value="quarter">Trimestre</option>
-            <option value="year">Ano</option>
-          </select>
-          <p class="hint">Ajuste a escala de tempo do roadmap</p>
-        </div>
-
-        <div id="status-message"></div>
-
-        <div class="actions">
-          <button class="btn btn-primary" id="load-data" type="button"><span>Carregar Roadmap</span></button>
-          <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;"><span>🔄 Atualizar Dados</span></button>
-        </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="load-data" type="button"><span>Carregar Roadmap</span></button>
+        <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;"><span>🔄 Atualizar Dados</span></button>
       </div>
     </div>
 
@@ -515,7 +509,7 @@
     </div>
   </div>
 
-  <!-- Modal de alteração da fonte -->
+  <!-- Modal: alterar fonte -->
   <div class="modal-overlay" id="source-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
       <div class="modal-header">
@@ -532,6 +526,8 @@
           autocomplete="off"
         />
         <p class="hint">Você pode colar uma URL publicada que termine com <code>output=csv</code>.</p>
+
+        <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
       </div>
 
       <div class="modal-actions">
@@ -548,20 +544,26 @@
     let allParsedData = null;
     let availableStacks = new Set();
 
-    // Marcador HOJE
+    // HOJE (custom time bar)
     const TODAY_ID = "today";
     let todayTimer = null;
 
     function formatTodayTitle(now = new Date()) {
-      // Tooltip nativo (title): exibe data e hora (amigável) ao passar o mouse
+      // Tooltip: só a data (como você pediu)
       const d = now.toLocaleDateString("pt-BR");
-      const t = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      return `Hoje: ${d} às ${t}`;
+      return `Hoje: ${d}`;
+    }
+
+    function setTodayMarkerTooltip(titleText) {
+      // Garante tooltip também no "pill" HOJE (em alguns browsers, ajuda)
+      const el = document.querySelector(".vis-custom-time.today .vis-custom-time-marker");
+      if (el) el.setAttribute("title", titleText);
     }
 
     function ensureTodayMarker() {
       if (!timeline) return;
       const now = new Date();
+      const titleText = formatTodayTitle(now);
 
       try {
         timeline.getCustomTime(TODAY_ID);
@@ -570,8 +572,15 @@
       }
 
       timeline.setCustomTime(now, TODAY_ID);
+
+      // Marker + classe via id ("today") para CSS .vis-custom-time.today
       timeline.setCustomTimeMarker("HOJE", TODAY_ID, false);
-      timeline.setCustomTimeTitle(formatTodayTitle(now), TODAY_ID);
+
+      // Tooltip no bar (title attribute)
+      timeline.setCustomTimeTitle(titleText, TODAY_ID);
+
+      // Tooltip também no marker
+      setTimeout(() => setTodayMarkerTooltip(titleText), 0);
     }
 
     function startTodayMarkerClock() {
@@ -580,14 +589,7 @@
       todayTimer = setInterval(ensureTodayMarker, 60 * 1000);
     }
 
-    // Link de exemplo
-    document.getElementById("show-example").addEventListener("click", (e) => {
-      e.preventDefault();
-      const exampleUrl = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit";
-      document.getElementById("spreadsheet-url").value = exampleUrl;
-    });
-
-    // Modal: abrir/fechar
+    // Modal
     const modalOverlay = document.getElementById("source-modal");
     const openBtn = document.getElementById("change-source");
     const closeBtn = document.getElementById("modal-close");
@@ -628,6 +630,14 @@
 
     sourceInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") saveBtn.click();
+    });
+
+    // Exemplo (dentro do modal)
+    document.getElementById("show-example").addEventListener("click", (e) => {
+      e.preventDefault();
+      const exampleUrl = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit";
+      document.getElementById("spreadsheet-url").value = exampleUrl;
+      sourceInput.value = exampleUrl;
     });
 
     function extractSpreadsheetId(url) {
@@ -841,11 +851,11 @@
         stackSubgroups: true,
         groupHeightMode: "fitItems",
 
-        groupWidth: getComputedStyle(document.documentElement).getPropertyValue("--stack-col-width").trim() || "260px",
+        groupWidth: getComputedStyle(document.documentElement).getPropertyValue("--stack-col-width").trim() || "220px",
 
         margin: { axis: 40, item: { horizontal: 10, vertical: 18 } },
 
-        // Desliga o marcador padrão (a gente cria HOJE customizado)
+        // Desliga linha padrão de "agora" (substituímos por HOJE custom)
         showCurrentTime: false,
 
         zoomMin: 1000 * 60 * 60 * 24 * 7,
@@ -864,7 +874,6 @@
         timeline = new vis.Timeline(container, data.items, data.groups, options);
       }
 
-      // Garante o HOJE após renderização/atualização
       startTodayMarkerClock();
     }
 
@@ -1011,3 +1020,4 @@
   </script>
 </body>
 </html>
+
