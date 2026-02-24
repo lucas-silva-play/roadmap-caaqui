@@ -268,7 +268,6 @@
             border: none;
         }
 
-        /* Elementos que devem ter fundo branco para esconder a grade vertical do conteúdo por trás */
         .vis-panel.vis-bottom, 
         .vis-panel.vis-top, 
         .vis-panel.vis-left, 
@@ -279,22 +278,18 @@
             background: #ffffff !important;
         }
 
-        /* O container central PRECISA ser transparente para revelar as linhas de grade do background */
         .vis-panel.vis-center,
         .vis-itemset {
             background: transparent !important;
         }
 
-        /* Grade vertical sutil (linhas cinzas verticais do roadmap) */
         .vis-panel.vis-background .vis-grid.vis-vertical,
         .vis-time-axis .vis-grid.vis-vertical {
             border-left: 1px solid rgba(0, 0, 0, 0.08) !important;
         }
 
-        /* Remove o current time padrão */
         .vis-current-time { display: none !important; }
 
-        /* HOJE customizado */
         .vis-custom-time.today {
             background-color: var(--today-blue) !important;
             width: 2px !important;
@@ -329,7 +324,7 @@
         .vis-item.status-atrasado { background-color: rgba(192,21,47,0.15); border-color: var(--color-error); color: var(--color-text-primary); }
         .vis-item.status-pausado { background-color: rgba(230,129,97,0.15); border-color: var(--color-warning); color: var(--color-text-primary); }
 
-        /* Stacks centralizar horizontal e verticalmente */
+        /* Stacks */
         .vis-labelset { min-width: var(--stack-col-width) !important; }
         .vis-panel.vis-left { min-width: var(--stack-col-width) !important; }
         .vis-labelset .vis-label { display: flex; align-items: center; justify-content: center; }
@@ -421,7 +416,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- CORREÇÃO 1: Nome do arquivo ajustado para logo.png (conforme seu repo) -->
             <img id="page-logo" class="page-logo" src="logo.png" alt="Caaqui" />
             
             <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
@@ -435,7 +429,7 @@
 
         <!-- PÁGINA: GERAL -->
         <div id="page-geral" style="display:block;">
-            <input type="text" id="spreadsheet-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv" style="display:none;" />
+            <input type="text" id="spreadsheet-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEctXM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv" style="display:none;" />
 
             <div class="panel" id="filters-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -568,13 +562,10 @@
                 linkGeral.classList.remove('is-active');
             }
 
-            // Força a re-renderização do timeline gráfico para consertar bug de largura após um container oculto mudar para visível
+            // Força a re-renderização do timeline gráfico para consertar bug de largura
             setTimeout(() => {
-                if (page === 'geral' && timelines.geral) {
-                    timelines.geral.redraw();
-                } else if (page === 'detalhamento' && timelines.detalhamento) {
-                    timelines.detalhamento.redraw();
-                }
+                if (page === 'geral' && timelines.geral) timelines.geral.redraw();
+                else if (page === 'detalhamento' && timelines.detalhamento) timelines.detalhamento.redraw();
             }, 50);
         }
 
@@ -600,17 +591,13 @@
                      container.querySelector(`.vis-custom-time[data-custom-time="${TODAY_ID}"]`);
             if (!el) {
                 const all = container.querySelectorAll('.vis-custom-time');
-                if (all && all.length > 0) {
-                    el = all[all.length - 1];
-                }
+                if (all && all.length > 0) el = all[all.length - 1];
             }
             if (el) {
                 el.classList.add('today');
                 el.setAttribute('title', titleText);
                 const marker = container.querySelector('.vis-custom-time.today .vis-custom-time-marker');
-                if (marker) {
-                    marker.setAttribute('title', titleText);
-                }
+                if (marker) marker.setAttribute('title', titleText);
             }
         }
 
@@ -641,11 +628,7 @@
         function showStatus(type, message, pageKey) {
             const suffix = pageKey === 'geral' ? '' : '-detalhes';
             const statusDiv = document.getElementById('status-message' + suffix);
-            const iconMap = {
-                loading: '<div class="spinner"></div>',
-                success: '✓',
-                error: '⚠'
-            };
+            const iconMap = { loading: '<div class="spinner"></div>', success: '✓', error: '⚠' };
             statusDiv.innerHTML = `
                 <div class="status-indicator status-${type}">
                     ${iconMap[type]} <span>${message}</span>
@@ -664,6 +647,7 @@
             return null;
         }
 
+        // --- NOVO PARSER CSV MAIS ROBUSTO ---
         function parseCSVLine(line) {
             const result = [];
             let current = '';
@@ -684,14 +668,37 @@
         }
 
         function parseCSV(csvText) {
-            const lines = csvText.split('\n').filter(line => line.trim() !== '');
-            const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            const lines = [];
+            let currentLine = '';
+            let inQuotes = false;
+            
+            // Respeita quebras de linha (Alt+Enter) que estejam dentro de aspas no Google Sheets
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+                if (char === '"') inQuotes = !inQuotes;
+                
+                if (char === '\n' && !inQuotes) {
+                    lines.push(currentLine);
+                    currentLine = '';
+                } else if (char === '\r') {
+                    // Ignora \r do Windows
+                } else {
+                    currentLine += char;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+
+            if (lines.length === 0) return [];
+
+            const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').trim());
             const rows = [];
+            
             for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
                 const values = parseCSVLine(lines[i]);
                 const row = {};
                 headers.forEach((header, idx) => {
-                    row[header] = values[idx];
+                    row[header] = values[idx] || '';
                 });
                 rows.push(row);
             }
@@ -742,18 +749,15 @@
                 throw new Error("URL inválida.");
             }
 
-            // CORREÇÃO 2: Bypass do proxy /api/sheets
-            // O código abaixo faz o fetch direto para o Google Sheets (que suporta CORS)
+            // Acesso direto via navegador. O Sheets suporta CORS.
             const res = await fetch(csvUrl);
             if (!res.ok) {
-                const msg = await res.text().catch(() => '');
-                throw new Error(`Erro ao acessar planilha: ${res.status}. Certifique-se de que ela está publicada.`);
+                throw new Error(`Erro ao acessar planilha: ${res.status}. Certifique-se de que a planilha está publicada na web.`);
             }
             const csvText = await res.text();
             
-            // Verificação extra para garantir que não recebemos HTML de erro do Google
             if (csvText.trim().startsWith('<!DOCTYPE html>') || csvText.trim().startsWith('<html')) {
-                throw new Error(`O link retornou uma página HTML em vez de um CSV. Verifique se a planilha está pública.`);
+                throw new Error(`O link retornou uma página bloqueada em vez de um CSV. Verifique se a planilha está pública.`);
             }
 
             return parseCSV(csvText);
@@ -771,11 +775,14 @@
                 const dataTarget = row['Target end'] ? parseBRDate(row['Target end']) : null;
                 const dataFinish = row['Finish Date'] ? parseBRDate(row['Finish Date']) : null;
                 const status = row['Status'] || 'planejado';
-                const stacksRaw = row['Stacks'] || 'Sem Stack';
 
                 if (!resumo || !dataInicio || !dataFinish) continue;
 
-                const stacksArray = stacksRaw.split(',').map(s => s.trim()).filter(Boolean);
+                // CORREÇÃO: Limpeza de arrays JSON e suporte a separação por Vírgula, Barra (/) ou Quebra de linha (\n)
+                const stacksRaw = String(row['Stacks'] || row['Stack'] || 'Sem Stack');
+                const cleanedStacks = stacksRaw.replace(/[\[\]"']/g, ''); // Remove "[", "]", aspas se for formato array
+                
+                const stacksArray = cleanedStacks.split(/[,/\n]+/).map(s => s.trim()).filter(Boolean);
                 stacksArray.forEach(stack => availableStacks[pageKey].add(stack));
 
                 const titleMatch = resumo.match(/\[(.*?)\]/);
