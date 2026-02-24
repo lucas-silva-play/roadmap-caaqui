@@ -1,981 +1,925 @@
-<!DOCTYPE html>
+<!DOC<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roadmap - Projetos Caaqui</title>
-    <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
-    <style>
-        :root {
-            --color-bg-primary: #fcfcf9;
-            --color-bg-secondary: #ffffff;
-            --color-text-primary: #13343b;
-            --color-text-secondary: #626c71;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roadmap - Projetos Caaqui</title>
 
-            /* Botões */
-            --color-primary: #ec6718;
-            --color-primary-hover: #d85c14;
+  <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
 
-            --color-border: rgba(94, 82, 64, 0.2);
-            --color-success: #21808d;
-            --color-warning: #e68161;
-            --color-error: #c0152f;
-            --color-info: #626c71;
+  <style>
+    :root {
+      color-scheme: light;
 
-            /* Grade vertical */
-            --grid-vertical-color: rgba(19, 52, 59, 0.08); /* light */
-            --grid-vertical-width: 1px;
-        }
+      /* Base (forçado claro / branco) */
+      --color-bg-primary: #ffffff;
+      --color-bg-secondary: #ffffff;
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --color-bg-primary: #1f2121;
-                --color-bg-secondary: #262828;
-                --color-text-primary: #f5f5f5;
-                --color-text-secondary: #a7a9a9;
+      --color-text-primary: #13343b;
+      --color-text-secondary: #626c71;
 
-                --color-primary: #ec6718;
-                --color-primary-hover: #d85c14;
+      /* Botões */
+      --color-primary: #ec6718;
+      --color-primary-hover: #d85c14;
 
-                --color-border: rgba(119, 124, 124, 0.3);
+      --color-border: rgba(94, 82, 64, 0.2);
 
-                --grid-vertical-color: rgba(245, 245, 245, 0.10); /* dark */
-                --grid-vertical-width: 1px;
-            }
-        }
+      --color-success: #21808d;
+      --color-warning: #e68161;
+      --color-error: #c0152f;
+      --color-info: #626c71;
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+      /* Grade vertical (mais fina e transparente) */
+      --grid-vertical-color: rgba(19, 52, 59, 0.10);
+      --grid-vertical-width: 1px;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            padding: 20px;
-            line-height: 1.6;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .container { max-width: 1400px; margin: 0 auto; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      padding: 20px;
+      line-height: 1.6;
+    }
 
-        header { margin-bottom: 30px; }
+    .container { max-width: 1400px; margin: 0 auto; }
 
-        h1 {
-            font-size: 2rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--color-text-primary);
-        }
+    header { margin-bottom: 30px; }
 
-        .subtitle { color: var(--color-text-secondary); font-size: 0.95rem; }
+    h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--color-text-primary);
+    }
 
-        .config-panel {
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
+    .subtitle { color: var(--color-text-secondary); font-size: 0.95rem; }
 
-        .form-group { margin-bottom: 20px; }
-        .form-group:last-child { margin-bottom: 0; }
+    .config-panel {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
 
-        label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--color-text-primary);
-            font-size: 0.9rem;
-        }
+    .form-group { margin-bottom: 20px; }
+    .form-group:last-child { margin-bottom: 0; }
 
-        input, select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            transition: border-color 0.2s ease;
-        }
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--color-text-primary);
+      font-size: 0.9rem;
+    }
 
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(236, 103, 24, 0.12);
-        }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      transition: border-color 0.2s ease;
+    }
 
-        .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 6px; }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(236, 103, 24, 0.12);
+    }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            gap: 8px;
-        }
+    .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 6px; }
 
-        .btn-primary { background: var(--color-primary); color: white; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      gap: 8px;
+    }
 
-        .btn-primary:hover {
-            background: var(--color-primary-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(236, 103, 24, 0.22);
-        }
+    .btn-primary { background: var(--color-primary); color: white; }
 
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-primary:hover {
+      background: var(--color-primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(236, 103, 24, 0.22);
+    }
 
-        .btn-secondary {
-            background: rgba(94, 82, 64, 0.12);
-            color: var(--color-text-primary);
-            border: 1px solid rgba(94, 82, 64, 0.12);
-        }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .btn-secondary:hover { background: rgba(94, 82, 64, 0.2); }
+    .btn-secondary {
+      background: rgba(94, 82, 64, 0.08);
+      color: var(--color-text-primary);
+      border: 1px solid rgba(94, 82, 64, 0.10);
+    }
 
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            margin-bottom: 16px;
-        }
+    .btn-secondary:hover { background: rgba(94, 82, 64, 0.14); }
 
-        .status-loading {
-            background: rgba(98, 108, 113, 0.15);
-            color: var(--color-info);
-            border: 1px solid rgba(98, 108, 113, 0.25);
-        }
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
 
-        .status-success {
-            background: rgba(33, 128, 141, 0.15);
-            color: var(--color-success);
-            border: 1px solid rgba(33, 128, 141, 0.25);
-        }
+    .status-loading {
+      background: rgba(98, 108, 113, 0.15);
+      color: var(--color-info);
+      border: 1px solid rgba(98, 108, 113, 0.25);
+    }
 
-        .status-error {
-            background: rgba(192, 21, 47, 0.15);
-            color: var(--color-error);
-            border: 1px solid rgba(192, 21, 47, 0.25);
-        }
+    .status-success {
+      background: rgba(33, 128, 141, 0.15);
+      color: var(--color-success);
+      border: 1px solid rgba(33, 128, 141, 0.25);
+    }
 
-        .spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid currentColor;
-            border-right-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
+    .status-error {
+      background: rgba(192, 21, 47, 0.15);
+      color: var(--color-error);
+      border: 1px solid rgba(192, 21, 47, 0.25);
+    }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
 
-        #timeline-container {
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-            padding: 20px;
-            height: 600px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-            position: relative;
-        }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        .zoom-controls {
-            position: absolute;
-            top: 30px;
-            right: 30px;
-            display: flex;
-            gap: 8px;
-            z-index: 20;
-        }
+    #timeline-container {
+      background: #ffffff;
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 20px;
+      height: 600px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+      position: relative;
+    }
 
-        .zoom-btn {
-            width: 36px;
-            height: 36px;
-            border: 1px solid var(--color-border);
-            background: var(--color-bg-secondary);
-            color: var(--color-text-primary);
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-        }
+    .zoom-controls {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      display: flex;
+      gap: 8px;
+      z-index: 20;
+    }
 
-        .zoom-btn:hover {
-            background: var(--color-primary);
-            color: white;
-            border-color: var(--color-primary);
-        }
+    .zoom-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--color-border);
+      background: #ffffff;
+      color: var(--color-text-primary);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
 
-        .zoom-btn:active { transform: scale(0.95); }
+    .zoom-btn:hover {
+      background: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+    }
 
-        #visualization { height: 100%; }
+    .zoom-btn:active { transform: scale(0.95); }
 
-        .vis-timeline { border: none; }
+    #visualization { height: 100%; }
 
-        /* ===== Grade vertical: fina, transparente e atrás das barras ===== */
-        .vis-panel.vis-background { z-index: 0 !important; }
-        .vis-panel.vis-center { z-index: 1 !important; }
+    /* Força branco nos painéis do vis-timeline */
+    .vis-timeline,
+    .vis-panel,
+    .vis-time-axis,
+    .vis-itemset,
+    .vis-labelset {
+      background: #ffffff !important;
+    }
 
-        .vis-panel.vis-background .vis-grid.vis-vertical,
-        .vis-time-axis .vis-grid.vis-vertical {
-            border-left: var(--grid-vertical-width) solid var(--grid-vertical-color) !important;
-        }
+    .vis-timeline { border: none; }
 
-        /* Coloca os itens acima da grade */
-        .vis-item { position: relative; z-index: 5; }
-        /* =============================================================== */
+    /* Grade vertical: fina e transparente */
+    .vis-panel.vis-background .vis-grid.vis-vertical,
+    .vis-time-axis .vis-grid.vis-vertical {
+      border-left: var(--grid-vertical-width) solid var(--grid-vertical-color) !important;
+    }
 
-        .vis-item {
-            border-radius: 6px;
-            border-width: 2px;
-            font-size: 0.9rem;
-            min-height: 55px;
-        }
+    /* NÃO forçar z-index nos itens (isso ajuda a evitar comportamentos esquisitos de sobreposição) */
+    /* .vis-item { position: relative; z-index: 5; } */
 
-        .vis-item.vis-range { border-radius: 6px; }
+    .vis-item {
+      border-radius: 6px;
+      border-width: 2px;
+      font-size: 0.9rem;
+      min-height: 55px;
+    }
 
-        .vis-item.status-planejado {
-            background-color: rgba(98, 108, 113, 0.15);
-            border-color: var(--color-info);
-            color: var(--color-text-primary);
-        }
+    .vis-item.vis-range { border-radius: 6px; }
 
-        .vis-item.status-em-andamento {
-            background-color: rgba(33, 128, 141, 0.15);
-            border-color: var(--color-primary);
-            color: var(--color-text-primary);
-        }
+    .vis-item.status-planejado {
+      background-color: rgba(98, 108, 113, 0.15);
+      border-color: var(--color-info);
+      color: var(--color-text-primary);
+    }
 
-        .vis-item.status-concluido {
-            background-color: rgba(33, 128, 141, 0.25);
-            border-color: var(--color-success);
-            color: var(--color-text-primary);
-        }
+    .vis-item.status-em-andamento {
+      background-color: rgba(33, 128, 141, 0.15);
+      border-color: var(--color-primary);
+      color: var(--color-text-primary);
+    }
 
-        .vis-item.status-atrasado {
-            background-color: rgba(192, 21, 47, 0.15);
-            border-color: var(--color-error);
-            color: var(--color-text-primary);
-        }
+    .vis-item.status-concluido {
+      background-color: rgba(33, 128, 141, 0.25);
+      border-color: var(--color-success);
+      color: var(--color-text-primary);
+    }
 
-        .vis-item.status-pausado {
-            background-color: rgba(230, 129, 97, 0.15);
-            border-color: var(--color-warning);
-            color: var(--color-text-primary);
-        }
+    .vis-item.status-atrasado {
+      background-color: rgba(192, 21, 47, 0.15);
+      border-color: var(--color-error);
+      color: var(--color-text-primary);
+    }
 
-        .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .vis-item.status-pausado {
+      background-color: rgba(230, 129, 97, 0.15);
+      border-color: var(--color-warning);
+      color: var(--color-text-primary);
+    }
 
-        /* ===== Fonte de dados (discreta) ===== */
-        .source-row {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-        }
+    /* Coluna Stacks: maior, bold e centralizado verticalmente */
+    .vis-labelset .vis-label {
+      display: flex;
+      align-items: center;
+    }
 
-        .source-pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 10px 12px;
-            border: 1px solid var(--color-border);
-            border-radius: 10px;
-            background: var(--color-bg-primary);
-            color: var(--color-text-secondary);
-            font-size: 0.9rem;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+    .vis-labelset .vis-label .vis-inner {
+      font-size: 1.03rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      padding: 10px 10px;
+      line-height: 1.2;
+    }
 
-        /* ===== Modal ===== */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            z-index: 9999;
-        }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
-        .modal-overlay.is-open { display: flex; }
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
 
-        .modal {
-            width: min(720px, 100%);
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 14px;
-            box-shadow: 0 18px 60px rgba(0,0,0,0.35);
-            overflow: hidden;
-        }
+    .modal-overlay.is-open { display: flex; }
 
-        .modal-header {
-            padding: 18px 20px;
-            border-bottom: 1px solid var(--color-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-        }
+    .modal {
+      width: min(720px, 100%);
+      background: #ffffff;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+      overflow: hidden;
+    }
 
-        .modal-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--color-text-primary);
-        }
+    .modal-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
 
-        .modal-close {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            border: 1px solid var(--color-border);
-            background: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            cursor: pointer;
-            font-size: 1.1rem;
-            line-height: 1;
-        }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
 
-        .modal-body { padding: 18px 20px; }
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
 
-        .modal-actions {
-            padding: 16px 20px;
-            border-top: 1px solid var(--color-border);
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+    .modal-body { padding: 18px 20px; }
 
-        .example-link {
-            display: inline-block;
-            color: var(--color-primary);
-            text-decoration: none;
-            font-size: 0.85rem;
-            margin-top: 6px;
-        }
+    .modal-actions {
+      padding: 16px 20px;
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-        .example-link:hover { text-decoration: underline; }
+    .example-link {
+      display: inline-block;
+      color: var(--color-primary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
 
-        @media (max-width: 768px) {
-            body { padding: 16px; }
-            h1 { font-size: 1.5rem; }
-            .config-panel { padding: 20px; }
-            #timeline-container { height: 400px; }
-            .actions { flex-direction: column; }
-            .btn { width: 100%; }
-            .source-row { gap: 10px; }
-        }
-    </style>
+    .example-link:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      body { padding: 16px; }
+      h1 { font-size: 1.5rem; }
+      .config-panel { padding: 20px; }
+      #timeline-container { height: 400px; }
+      .actions { flex-direction: column; }
+      .btn { width: 100%; }
+    }
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>Roadmap - Projetos Caaqui</h1>
-            <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
-        </header>
+  <div class="container">
+    <header>
+      <h1>Roadmap - Projetos Caaqui</h1>
+      <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
+    </header>
 
-        <div class="config-panel">
-            <!-- Input real fica "escondido" e é usado pelo app -->
-            <input
-                type="text"
-                id="spreadsheet-url"
-                value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
-                style="display:none;"
-            >
+    <div class="config-panel">
+      <!-- Input real fica escondido (a URL só é alterada no modal) -->
+      <input
+        type="text"
+        id="spreadsheet-url"
+        value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
+        style="display:none;"
+      />
 
-            <div class="form-group">
-                <label>Fonte de dados</label>
-                <div class="source-row">
-                    <div class="source-pill" id="current-source"></div>
-                    <button class="btn btn-secondary" id="change-source" type="button">Alterar fonte do dado</button>
-                </div>
-                <p class="hint">
-                    Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
-                    <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
-                </p>
-            </div>
+      <div class="form-group">
+        <label>Fonte de dados</label>
+        <button class="btn btn-secondary" id="change-source" type="button">Alterar fonte do dado</button>
+        <p class="hint">
+          Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
+          <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
+        </p>
+      </div>
 
-            <div class="form-group">
-                <label for="stack-filter">Filtrar por Stack</label>
-                <select id="stack-filter">
-                    <option value="all">Todos</option>
-                </select>
-                <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
-            </div>
+      <div class="form-group">
+        <label for="stack-filter">Filtrar por Stack</label>
+        <select id="stack-filter">
+          <option value="all">Todos</option>
+        </select>
+        <p class="hint">Filtre os itens por stack (App, Web, Data, etc.)</p>
+      </div>
 
-            <div class="form-group">
-                <label for="view-mode">Modo de Visualização</label>
-                <select id="view-mode">
-                    <option value="week">Semana</option>
-                    <option value="month" selected>Mês</option>
-                    <option value="quarter">Trimestre</option>
-                    <option value="year">Ano</option>
-                </select>
-                <p class="hint">Ajuste a escala de tempo do roadmap</p>
-            </div>
+      <div class="form-group">
+        <label for="view-mode">Modo de Visualização</label>
+        <select id="view-mode">
+          <option value="week">Semana</option>
+          <option value="month" selected>Mês</option>
+          <option value="quarter">Trimestre</option>
+          <option value="year">Ano</option>
+        </select>
+        <p class="hint">Ajuste a escala de tempo do roadmap</p>
+      </div>
 
-            <div id="status-message"></div>
+      <div id="status-message"></div>
 
-            <div class="actions">
-                <button class="btn btn-primary" id="load-data" type="button">
-                    <span>Carregar Roadmap</span>
-                </button>
-                <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;">
-                    <span>🔄 Atualizar Dados</span>
-                </button>
-            </div>
-        </div>
-
-        <div id="timeline-container">
-            <div class="zoom-controls">
-                <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
-                <button class="zoom-btn" id="zoom-out" title="Diminuir zoom">−</button>
-                <button class="zoom-btn" id="zoom-fit" title="Ajustar ao conteúdo">⊡</button>
-            </div>
-            <div id="visualization"></div>
-        </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="load-data" type="button">
+          <span>Carregar Roadmap</span>
+        </button>
+        <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;">
+          <span>🔄 Atualizar Dados</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Modal de alteração da fonte -->
-    <div class="modal-overlay" id="source-modal" aria-hidden="true">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
-            <div class="modal-header">
-                <div class="modal-title" id="source-modal-title">Alterar fonte do dado</div>
-                <button class="modal-close" id="modal-close" type="button" aria-label="Fechar">×</button>
-            </div>
-
-            <div class="modal-body">
-                <label for="source-input">URL do Google Sheets (ou CSV publicado)</label>
-                <input
-                    type="text"
-                    id="source-input"
-                    placeholder="Cole aqui o link (ex.: https://docs.google.com/.../pub?...&output=csv)"
-                    autocomplete="off"
-                >
-                <p class="hint">
-                    Você pode colar uma URL publicada que termine com <code>output=csv</code>.
-                </p>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="modal-cancel" type="button">Cancelar</button>
-                <button class="btn btn-primary" id="modal-save" type="button">Salvar</button>
-            </div>
-        </div>
+    <div id="timeline-container">
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Diminuir zoom">−</button>
+        <button class="zoom-btn" id="zoom-fit" title="Ajustar ao conteúdo">⊡</button>
+      </div>
+      <div id="visualization"></div>
     </div>
+  </div>
 
-    <script>
-        let timeline = null;
-        let currentSpreadsheetId = null;
-        let currentSheetName = 'Sheet1';
-        let allParsedData = null;
-        let availableStacks = new Set();
+  <!-- Modal de alteração da fonte -->
+  <div class="modal-overlay" id="source-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
+      <div class="modal-header">
+        <div class="modal-title" id="source-modal-title">Alterar fonte do dado</div>
+        <button class="modal-close" id="modal-close" type="button" aria-label="Fechar">×</button>
+      </div>
 
-        function setCurrentSourceLabel(url) {
-            const el = document.getElementById('current-source');
-            if (!url) {
-                el.textContent = 'Nenhuma fonte configurada';
-                return;
-            }
+      <div class="modal-body">
+        <label for="source-input">URL do Google Sheets (ou CSV publicado)</label>
+        <input
+          type="text"
+          id="source-input"
+          placeholder="Cole aqui o link (ex.: https://docs.google.com/.../pub?...&output=csv)"
+          autocomplete="off"
+        />
+        <p class="hint">Você pode colar uma URL publicada que termine com <code>output=csv</code>.</p>
+      </div>
 
-            // Deixa discreto: mostra apenas início + final
-            const short = url.length > 80
-                ? url.slice(0, 50) + '…' + url.slice(-20)
-                : url;
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="modal-save" type="button">Salvar</button>
+      </div>
+    </div>
+  </div>
 
-            el.textContent = `Fonte atual: ${short}`;
-            el.title = url;
+  <script>
+    let timeline = null;
+    let currentSpreadsheetId = null;
+    let currentSheetName = "Sheet1";
+    let allParsedData = null;
+    let availableStacks = new Set();
+
+    // Link de exemplo
+    document.getElementById("show-example").addEventListener("click", (e) => {
+      e.preventDefault();
+      const exampleUrl = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit";
+      document.getElementById("spreadsheet-url").value = exampleUrl;
+    });
+
+    // Modal: abrir/fechar
+    const modalOverlay = document.getElementById("source-modal");
+    const openBtn = document.getElementById("change-source");
+    const closeBtn = document.getElementById("modal-close");
+    const cancelBtn = document.getElementById("modal-cancel");
+    const saveBtn = document.getElementById("modal-save");
+    const sourceInput = document.getElementById("source-input");
+
+    function openModal() {
+      const current = document.getElementById("spreadsheet-url").value.trim();
+      sourceInput.value = current;
+      modalOverlay.classList.add("is-open");
+      modalOverlay.setAttribute("aria-hidden", "false");
+      setTimeout(() => sourceInput.focus(), 0);
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove("is-open");
+      modalOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    openBtn.addEventListener("click", openModal);
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+
+    modalOverlay.addEventListener("click", (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modalOverlay.classList.contains("is-open")) closeModal();
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const newUrl = sourceInput.value.trim();
+      document.getElementById("spreadsheet-url").value = newUrl;
+      closeModal();
+    });
+
+    sourceInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") saveBtn.click();
+    });
+
+    function extractSpreadsheetId(url) {
+      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) return match[1];
+      if (url.includes("/e/2PACX-") && url.includes("/pub")) return null;
+      return null;
+    }
+
+    function showStatus(type, message) {
+      const statusDiv = document.getElementById("status-message");
+      const iconMap = {
+        loading: '<div class="spinner"></div>',
+        success: "✓",
+        error: "✗",
+      };
+
+      statusDiv.innerHTML = `
+        <div class="status-indicator status-${type}">
+          ${iconMap[type]}
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    function clearStatus() {
+      document.getElementById("status-message").innerHTML = "";
+    }
+
+    async function fetchSheetData(spreadsheetId, sheetName, fullUrl) {
+      const isAlreadyCsv = fullUrl && fullUrl.includes("output=csv");
+      const isPublished = fullUrl && fullUrl.includes("/e/2PACX-") && fullUrl.includes("/pub");
+
+      let csvUrl = null;
+
+      if (isAlreadyCsv) {
+        csvUrl = fullUrl;
+      } else if (isPublished) {
+        const pubMatch = fullUrl.match(/\/e\/(2PACX-[^/]+)/);
+        const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
+        if (!pubMatch) throw new Error("Formato de URL publicada inválido");
+
+        const pubKey = pubMatch[1];
+        const gid = gidMatch ? gidMatch[1] : "0";
+        csvUrl = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
+      } else if (spreadsheetId) {
+        csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+      } else {
+        throw new Error("URL inválida");
+      }
+
+      const apiUrl = `/api/sheets?url=${encodeURIComponent(csvUrl)}`;
+      const res = await fetch(apiUrl);
+
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(`Erro ao acessar planilha via API (${res.status}). ${msg}`);
+      }
+
+      const csvText = await res.text();
+      return parseCSV(csvText);
+    }
+
+    function parseCSV(csvText) {
+      const lines = csvText.split("\n").filter((line) => line.trim());
+      const headers = lines[0].split(",").map((h) => h.replace(/"/g, "").trim());
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const row = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] || "";
+        });
+        rows.push(row);
+      }
+
+      return rows;
+    }
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === "," && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
         }
+      }
+      result.push(current.trim());
+      return result;
+    }
 
-        // Link de exemplo
-        document.getElementById('show-example').addEventListener('click', (e) => {
-            e.preventDefault();
-            const exampleUrl = 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
-            document.getElementById('spreadsheet-url').value = exampleUrl;
-            setCurrentSourceLabel(exampleUrl);
-        });
+    function parseSheetData(rows, filterStack = "all") {
+      const items = [];
+      const groups = [];
+      const groupSet = new Set();
 
-        // Modal: abrir/fechar
-        const modalOverlay = document.getElementById('source-modal');
-        const openBtn = document.getElementById('change-source');
-        const closeBtn = document.getElementById('modal-close');
-        const cancelBtn = document.getElementById('modal-cancel');
-        const saveBtn = document.getElementById('modal-save');
-        const sourceInput = document.getElementById('source-input');
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
 
-        function openModal() {
-            const current = document.getElementById('spreadsheet-url').value.trim();
-            sourceInput.value = current;
-            modalOverlay.classList.add('is-open');
-            modalOverlay.setAttribute('aria-hidden', 'false');
-            setTimeout(() => sourceInput.focus(), 0);
-        }
+        const resumo = row["Resumo"] || "";
+        const dataInicio = row["Start date"] ? parseBRDate(row["Start date"]) : null;
+        const dataTarget = row["Target end"] ? parseBRDate(row["Target end"]) : null;
+        const dataFinish = row["Finish Date"] ? parseBRDate(row["Finish Date"]) : null;
+        const status = row["Status"] || "planejado";
+        const stacksRaw = row["Stacks"] || "Sem Stack";
 
-        function closeModal() {
-            modalOverlay.classList.remove('is-open');
-            modalOverlay.setAttribute('aria-hidden', 'true');
-        }
+        if (!resumo || !dataInicio || !dataFinish) continue;
 
-        openBtn.addEventListener('click', openModal);
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
+        const stacksArray = stacksRaw.split(";").map((s) => s.trim()).filter((s) => s);
+        stacksArray.forEach((stack) => availableStacks.add(stack));
 
-        // Fecha ao clicar fora do modal
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) closeModal();
-        });
+        const titleMatch = resumo.match(/\[([^\]]+)\]/);
+        const displayTitle = titleMatch ? titleMatch[1] : resumo;
 
-        // Fecha com ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal();
-        });
+        const statusClass = status
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, "-");
 
-        // Salvar URL no input escondido
-        saveBtn.addEventListener('click', () => {
-            const newUrl = sourceInput.value.trim();
-            document.getElementById('spreadsheet-url').value = newUrl;
-            setCurrentSourceLabel(newUrl);
-            closeModal();
-        });
+        const stacksToShow = filterStack === "all" ? stacksArray : stacksArray.filter((s) => s === filterStack);
+        if (stacksToShow.length === 0) continue;
 
-        // Enter no input do modal = salvar
-        sourceInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') saveBtn.click();
-        });
+        stacksToShow.forEach((stack, stackIdx) => {
+          if (!groupSet.has(stack)) {
+            groupSet.add(stack);
+            groups.push({ id: stack, content: stack });
+          }
 
-        // Extract spreadsheet ID from URL
-        function extractSpreadsheetId(url) {
-            const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-            if (match) return match[1];
+          const itemId = `item-${i}-${stackIdx}`;
+          const totalDuration = dataFinish - dataInicio;
+          const targetDuration = dataTarget ? dataTarget - dataInicio : totalDuration;
+          const targetPercent = (targetDuration / totalDuration) * 100;
 
-            if (url.includes('/e/2PACX-') && url.includes('/pub')) return null;
+          let customStyle = "";
+          if (dataTarget && dataTarget < dataFinish) {
+            customStyle = `background: linear-gradient(to right,
+              rgba(33, 128, 141, 0.15) 0%,
+              rgba(33, 128, 141, 0.15) ${targetPercent}%,
+              rgba(255, 103, 31, 0.6) ${targetPercent}%,
+              rgba(255, 103, 31, 0.6) 100%) !important;
+              border-color: var(--color-primary) !important;`;
+          } else {
+            customStyle = `background-color: rgba(33, 128, 141, 0.15) !important;
+              border-color: var(--color-primary) !important;`;
+          }
 
-            return null;
-        }
+          const statusBadgeColors = {
+            "planejado": "background: rgba(98, 108, 113, 0.3); color: #626c71;",
+            "em-andamento": "background: rgba(236, 103, 24, 0.22); color: #ec6718;",
+            "concluido": "background: rgba(236, 103, 24, 0.30); color: #ec6718;",
+            "atrasado": "background: rgba(192, 21, 47, 0.3); color: #c0152f;",
+            "pausado": "background: rgba(230, 129, 97, 0.3); color: #e68161;",
+          };
 
-        // Show status message
-        function showStatus(type, message) {
-            const statusDiv = document.getElementById('status-message');
-            const iconMap = {
-                loading: '<div class="spinner"></div>',
-                success: '✓',
-                error: '✗'
-            };
+          const badgeStyle = statusBadgeColors[statusClass] || statusBadgeColors["planejado"];
 
-            statusDiv.innerHTML = `
-                <div class="status-indicator status-${type}">
-                    ${iconMap[type]}
-                    <span>${message}</span>
+          items.push({
+            id: itemId,
+            content: `<div style="padding: 4px 8px; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <strong>${displayTitle}</strong>
+                  <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; ${badgeStyle} font-weight: 600;">${status}</span>
                 </div>
-            `;
+                <div style="font-size: 0.75rem; opacity: 0.85;">
+                  Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}
+                </div>
+              </div>`,
+            start: dataInicio,
+            end: dataFinish,
+            group: stack,
+            className: `status-${statusClass}`,
+            style: customStyle,
+            title: `${resumo}\nInício: ${formatDate(dataInicio)}\nTarget: ${formatDate(dataTarget)}\nFinalizado: ${formatDate(dataFinish)}\nStatus: ${status}\nStack: ${stack}`,
+          });
+        });
+      }
+
+      return { items, groups };
+    }
+
+    function parseBRDate(dateValue) {
+      if (typeof dateValue === "string") {
+        const brMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (brMatch) {
+          const [, dd, mm, yyyy] = brMatch;
+          return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
         }
 
-        // Clear status message
-        function clearStatus() {
-            document.getElementById('status-message').innerHTML = '';
+        const match = dateValue.match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (match) return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
+
+        return new Date(dateValue);
+      } else if (typeof dateValue === "number") {
+        return new Date((dateValue - 25569) * 86400 * 1000);
+      }
+      return new Date(dateValue);
+    }
+
+    function formatDate(date) {
+      if (!date || isNaN(date)) return "—";
+      return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    }
+
+    function createTimeline(data) {
+      const container = document.getElementById("visualization");
+
+      const options = {
+        width: "100%",
+        height: "100%",
+        orientation: "top",
+
+        stack: true,
+        stackSubgroups: true,
+
+        // Ajuda a evitar “quebras”/sobreposições quando a altura do grupo não acompanha os itens
+        groupHeightMode: "fitItems",
+
+        margin: {
+          axis: 40,
+          item: {
+            horizontal: 10,
+            vertical: 18,
+          },
+        },
+
+        showCurrentTime: true,
+        zoomMin: 1000 * 60 * 60 * 24 * 7,
+        zoomMax: 1000 * 60 * 60 * 24 * 365 * 2,
+        locale: "pt-BR",
+        verticalScroll: true,
+        horizontalScroll: true,
+        zoomKey: "ctrlKey",
+        format: {
+          minorLabels: { millisecond:"SSS", second:"s", minute:"HH:mm", hour:"HH:mm", weekday:"ddd DD", day:"DD", week:"w", month:"MMM", year:"YYYY" },
+          majorLabels: { millisecond:"HH:mm:ss", second:"DD/MM/YYYY", minute:"ddd DD/MM", hour:"ddd DD/MM", weekday:"MMMM YYYY", day:"MMMM YYYY", week:"MMMM YYYY", month:"YYYY", year:"" }
+        },
+      };
+
+      if (timeline) {
+        timeline.setItems(data.items);
+        timeline.setGroups(data.groups);
+        timeline.fit();
+      } else {
+        timeline = new vis.Timeline(container, data.items, data.groups, options);
+      }
+    }
+
+    function updateStackFilter() {
+      const filterSelect = document.getElementById("stack-filter");
+      const currentValue = filterSelect.value;
+
+      filterSelect.innerHTML = '<option value="all">Todos</option>';
+
+      const sortedStacks = Array.from(availableStacks).sort();
+      sortedStacks.forEach((stack) => {
+        const option = document.createElement("option");
+        option.value = stack;
+        option.textContent = stack;
+        filterSelect.appendChild(option);
+      });
+
+      if (currentValue !== "all" && availableStacks.has(currentValue)) {
+        filterSelect.value = currentValue;
+      }
+    }
+
+    function applyFilter() {
+      if (!allParsedData) return;
+
+      const selectedStack = document.getElementById("stack-filter").value;
+      availableStacks.clear();
+      const timelineData = parseSheetData(allParsedData, selectedStack);
+      createTimeline(timelineData);
+      updateStackFilter();
+    }
+
+    function changeViewMode() {
+      if (!timeline) return;
+
+      const viewMode = document.getElementById("view-mode").value;
+      const now = new Date();
+      let start, end;
+
+      switch (viewMode) {
+        case "week":
+          start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+          end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+          break;
+        case "month":
+          start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+          break;
+        case "quarter":
+          start = new Date(now.getFullYear(), now.getMonth() - 4, 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+          break;
+        case "year":
+          start = new Date(now.getFullYear() - 1, 0, 1);
+          end = new Date(now.getFullYear() + 1, 11, 31);
+          break;
+      }
+
+      timeline.setWindow(start, end);
+    }
+
+    function zoomIn() { if (timeline) timeline.zoomIn(0.2); }
+    function zoomOut() { if (timeline) timeline.zoomOut(0.2); }
+    function zoomFit() { if (timeline) timeline.fit(); }
+
+    async function loadData() {
+      const url = document.getElementById("spreadsheet-url").value.trim();
+      const sheetName = "Sheet1";
+
+      if (!url) {
+        showStatus("error", "Por favor, configure a fonte de dados");
+        openModal();
+        return;
+      }
+
+      const spreadsheetId = extractSpreadsheetId(url);
+      const isPublished = url.includes("/e/2PACX-") && url.includes("/pub");
+
+      if (!spreadsheetId && !isPublished && !url.includes("output=csv")) {
+        showStatus("error", "URL inválida. Cole uma URL normal (/d/SEU_ID/edit) ou publicada (/e/2PACX-.../pub) ou um CSV (output=csv).");
+        return;
+      }
+
+      showStatus("loading", "Carregando dados da planilha...");
+
+      try {
+        const data = await fetchSheetData(spreadsheetId, sheetName, url);
+        allParsedData = data;
+        availableStacks.clear();
+
+        const timelineData = parseSheetData(data);
+        if (timelineData.items.length === 0) {
+          showStatus("error", "Nenhum dado encontrado na planilha");
+          return;
         }
 
-        /**
-         * Busca CSV via endpoint server-side:
-         * /api/sheets?url=<url_do_csv>
-         */
-        async function fetchSheetData(spreadsheetId, sheetName, fullUrl) {
-            const isAlreadyCsv = fullUrl && fullUrl.includes('output=csv');
-            const isPublished = fullUrl && fullUrl.includes('/e/2PACX-') && fullUrl.includes('/pub');
+        createTimeline(timelineData);
+        updateStackFilter();
 
-            let csvUrl = null;
+        currentSpreadsheetId = spreadsheetId;
+        currentSheetName = sheetName;
 
-            if (isAlreadyCsv) {
-                csvUrl = fullUrl;
-            } else if (isPublished) {
-                const pubMatch = fullUrl.match(/\/e\/(2PACX-[^\/]+)/);
-                const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
-                if (!pubMatch) throw new Error('Formato de URL publicada inválido');
+        showStatus("success", `${timelineData.items.length} atividades carregadas com sucesso`);
+        document.getElementById("refresh-data").style.display = "inline-flex";
+        setTimeout(clearStatus, 3000);
+      } catch (error) {
+        showStatus("error", error.message);
+      }
+    }
 
-                const pubKey = pubMatch[1];
-                const gid = gidMatch ? gidMatch[1] : '0';
-                csvUrl = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
-            } else if (spreadsheetId) {
-                csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-            } else {
-                throw new Error('URL inválida');
-            }
+    async function refreshData() {
+      const url = document.getElementById("spreadsheet-url").value.trim();
+      if (!url) return;
 
-            const apiUrl = `/api/sheets?url=${encodeURIComponent(csvUrl)}`;
-            const res = await fetch(apiUrl);
+      showStatus("loading", "Atualizando dados...");
 
-            if (!res.ok) {
-                const msg = await res.text().catch(() => '');
-                throw new Error(`Erro ao acessar planilha via API (${res.status}). ${msg}`);
-            }
+      try {
+        const data = await fetchSheetData(currentSpreadsheetId, currentSheetName, url);
+        allParsedData = data;
+        availableStacks.clear();
 
-            const csvText = await res.text();
-            return parseCSV(csvText);
+        const selectedStack = document.getElementById("stack-filter").value;
+        const timelineData = parseSheetData(data, selectedStack);
+
+        if (timelineData.items.length === 0) {
+          showStatus("error", "Nenhum dado encontrado");
+          return;
         }
 
-        // Parse CSV text
-        function parseCSV(csvText) {
-            const lines = csvText.split('\n').filter(line => line.trim());
-            const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-            const rows = [];
+        createTimeline(timelineData);
+        updateStackFilter();
+        showStatus("success", "Dados atualizados com sucesso");
+        setTimeout(clearStatus, 3000);
+      } catch (error) {
+        showStatus("error", error.message);
+      }
+    }
 
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCSVLine(lines[i]);
-                const row = {};
-                headers.forEach((header, idx) => {
-                    row[header] = values[idx] || '';
-                });
-                rows.push(row);
-            }
-
-            return rows;
-        }
-
-        // Parse CSV line handling quoted values
-        function parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            result.push(current.trim());
-
-            return result;
-        }
-
-        // Parse sheet data to timeline format
-        function parseSheetData(rows, filterStack = 'all') {
-            const items = [];
-            const groups = [];
-            const groupSet = new Set();
-
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-
-                const resumo = row['Resumo'] || '';
-                const dataInicio = row['Start date'] ? parseBRDate(row['Start date']) : null;
-                const dataTarget = row['Target end'] ? parseBRDate(row['Target end']) : null;
-                const dataFinish = row['Finish Date'] ? parseBRDate(row['Finish Date']) : null;
-                const status = row['Status'] || 'planejado';
-                const stacksRaw = row['Stacks'] || 'Sem Stack';
-
-                if (!resumo || !dataInicio || !dataFinish) continue;
-
-                const stacksArray = stacksRaw.split(';').map(s => s.trim()).filter(s => s);
-                stacksArray.forEach(stack => availableStacks.add(stack));
-
-                const titleMatch = resumo.match(/\[([^\]]+)\]/);
-                const displayTitle = titleMatch ? titleMatch[1] : resumo;
-
-                const statusClass = status.toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/\s+/g, '-');
-
-                const stacksToShow = filterStack === 'all' ? stacksArray : stacksArray.filter(s => s === filterStack);
-                if (stacksToShow.length === 0) continue;
-
-                stacksToShow.forEach((stack, stackIdx) => {
-                    if (!groupSet.has(stack)) {
-                        groupSet.add(stack);
-                        groups.push({ id: stack, content: stack });
-                    }
-
-                    const itemId = `item-${i}-${stackIdx}`;
-                    const totalDuration = dataFinish - dataInicio;
-                    const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
-                    const targetPercent = (targetDuration / totalDuration) * 100;
-
-                    let customStyle = '';
-                    if (dataTarget && dataTarget < dataFinish) {
-                        customStyle = `background: linear-gradient(to right,
-                            rgba(33, 128, 141, 0.15) 0%,
-                            rgba(33, 128, 141, 0.15) ${targetPercent}%,
-                            rgba(255, 103, 31, 0.6) ${targetPercent}%,
-                            rgba(255, 103, 31, 0.6) 100%) !important;
-                            border-color: ${getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#ec6718'} !important;`;
-                    } else {
-                        customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: ${getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#ec6718'} !important;`;
-                    }
-
-                    const statusBadgeColors = {
-                        'planejado': 'background: rgba(98, 108, 113, 0.3); color: #626c71;',
-                        'em-andamento': 'background: rgba(236, 103, 24, 0.25); color: #ec6718;',
-                        'concluido': 'background: rgba(236, 103, 24, 0.32); color: #ec6718;',
-                        'atrasado': 'background: rgba(192, 21, 47, 0.3); color: #c0152f;',
-                        'pausado': 'background: rgba(230, 129, 97, 0.3); color: #e68161;'
-                    };
-
-                    const badgeStyle = statusBadgeColors[statusClass] || statusBadgeColors['planejado'];
-
-                    items.push({
-                        id: itemId,
-                        content: `<div style="padding: 4px 8px; display: flex; flex-direction: column; gap: 3px;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <strong>${displayTitle}</strong>
-                                <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; ${badgeStyle} font-weight: 500;">${status}</span>
-                            </div>
-                            <div style="font-size: 0.75rem; opacity: 0.85;">
-                                Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}
-                            </div>
-                        </div>`,
-                        start: dataInicio,
-                        end: dataFinish,
-                        group: stack,
-                        className: `status-${statusClass}`,
-                        style: customStyle,
-                        title: `${resumo}\nInício: ${formatDate(dataInicio)}\nTarget: ${formatDate(dataTarget)}\nFinalizado: ${formatDate(dataFinish)}\nStatus: ${status}\nStack: ${stack}`
-                    });
-                });
-            }
-
-            return { items, groups };
-        }
-
-        // Parse Brazilian date format (DD/MM/YYYY) or Google Sheets format
-        function parseBRDate(dateValue) {
-            if (typeof dateValue === 'string') {
-                const brMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                if (brMatch) {
-                    const [, dd, mm, yyyy] = brMatch;
-                    return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-                }
-
-                const match = dateValue.match(/Date\((\d+),(\d+),(\d+)\)/);
-                if (match) return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
-
-                return new Date(dateValue);
-            } else if (typeof dateValue === 'number') {
-                return new Date((dateValue - 25569) * 86400 * 1000);
-            }
-            return new Date(dateValue);
-        }
-
-        // Format date for display
-        function formatDate(date) {
-            if (!date || isNaN(date)) return '—';
-            return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        }
-
-        // Create or update timeline
-        function createTimeline(data) {
-            const container = document.getElementById('visualization');
-
-            const options = {
-                width: '100%',
-                height: '100%',
-                margin: { item: 20, axis: 40 },
-                orientation: 'top',
-                stack: true,
-                stackSubgroups: false,
-                showCurrentTime: true,
-                zoomMin: 1000 * 60 * 60 * 24 * 7,
-                zoomMax: 1000 * 60 * 60 * 24 * 365 * 2,
-                locale: 'pt-BR',
-                verticalScroll: true,
-                horizontalScroll: true,
-                zoomKey: 'ctrlKey',
-                format: {
-                    minorLabels: { millisecond:'SSS', second:'s', minute:'HH:mm', hour:'HH:mm', weekday:'ddd DD', day:'DD', week:'w', month:'MMM', year:'YYYY' },
-                    majorLabels: { millisecond:'HH:mm:ss', second:'DD/MM/YYYY', minute:'ddd DD/MM', hour:'ddd DD/MM', weekday:'MMMM YYYY', day:'MMMM YYYY', week:'MMMM YYYY', month:'YYYY', year:'' }
-                }
-            };
-
-            if (timeline) {
-                timeline.setItems(data.items);
-                timeline.setGroups(data.groups);
-                timeline.fit();
-            } else {
-                timeline = new vis.Timeline(container, data.items, data.groups, options);
-            }
-        }
-
-        // Update stack filter dropdown
-        function updateStackFilter() {
-            const filterSelect = document.getElementById('stack-filter');
-            const currentValue = filterSelect.value;
-
-            filterSelect.innerHTML = '<option value="all">Todos</option>';
-
-            const sortedStacks = Array.from(availableStacks).sort();
-            sortedStacks.forEach(stack => {
-                const option = document.createElement('option');
-                option.value = stack;
-                option.textContent = stack;
-                filterSelect.appendChild(option);
-            });
-
-            if (currentValue !== 'all' && availableStacks.has(currentValue)) {
-                filterSelect.value = currentValue;
-            }
-        }
-
-        // Apply filter
-        function applyFilter() {
-            if (!allParsedData) return;
-
-            const selectedStack = document.getElementById('stack-filter').value;
-            availableStacks.clear();
-            const timelineData = parseSheetData(allParsedData, selectedStack);
-            createTimeline(timelineData);
-            updateStackFilter();
-        }
-
-        // Change view mode
-        function changeViewMode() {
-            if (!timeline) return;
-
-            const viewMode = document.getElementById('view-mode').value;
-            const now = new Date();
-            let start, end;
-
-            switch (viewMode) {
-                case 'week':
-                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
-                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
-                    break;
-                case 'month':
-                    start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-                    end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-                    break;
-                case 'quarter':
-                    start = new Date(now.getFullYear(), now.getMonth() - 4, 1);
-                    end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-                    break;
-                case 'year':
-                    start = new Date(now.getFullYear() - 1, 0, 1);
-                    end = new Date(now.getFullYear() + 1, 11, 31);
-                    break;
-            }
-
-            timeline.setWindow(start, end);
-        }
-
-        // Zoom functions
-        function zoomIn() { if (timeline) timeline.zoomIn(0.2); }
-        function zoomOut() { if (timeline) timeline.zoomOut(0.2); }
-        function zoomFit() { if (timeline) timeline.fit(); }
-
-        // Load data from spreadsheet
-        async function loadData() {
-            const url = document.getElementById('spreadsheet-url').value.trim();
-            const sheetName = 'Sheet1';
-
-            if (!url) {
-                showStatus('error', 'Por favor, configure a fonte de dados');
-                openModal();
-                return;
-            }
-
-            const spreadsheetId = extractSpreadsheetId(url);
-            const isPublished = url.includes('/e/2PACX-') && url.includes('/pub');
-
-            if (!spreadsheetId && !isPublished && !url.includes('output=csv')) {
-                showStatus('error', 'URL inválida. Cole uma URL normal (/d/SEU_ID/edit) ou publicada (/e/2PACX-.../pub) ou um CSV (output=csv).');
-                return;
-            }
-
-            showStatus('loading', 'Carregando dados da planilha...');
-
-            try {
-                const data = await fetchSheetData(spreadsheetId, sheetName, url);
-                allParsedData = data;
-                availableStacks.clear();
-
-                const timelineData = parseSheetData(data);
-                if (timelineData.items.length === 0) {
-                    showStatus('error', 'Nenhum dado encontrado na planilha');
-                    return;
-                }
-
-                createTimeline(timelineData);
-                updateStackFilter();
-                currentSpreadsheetId = spreadsheetId;
-                currentSheetName = sheetName;
-
-                showStatus('success', `${timelineData.items.length} atividades carregadas com sucesso`);
-                document.getElementById('refresh-data').style.display = 'inline-flex';
-                setTimeout(clearStatus, 3000);
-            } catch (error) {
-                showStatus('error', error.message);
-            }
-        }
-
-        // Refresh data
-        async function refreshData() {
-            const url = document.getElementById('spreadsheet-url').value.trim();
-            if (!url) return;
-
-            showStatus('loading', 'Atualizando dados...');
-
-            try {
-                const data = await fetchSheetData(currentSpreadsheetId, currentSheetName, url);
-                allParsedData = data;
-                availableStacks.clear();
-
-                const selectedStack = document.getElementById('stack-filter').value;
-                const timelineData = parseSheetData(data, selectedStack);
-
-                if (timelineData.items.length === 0) {
-                    showStatus('error', 'Nenhum dado encontrado');
-                    return;
-                }
-
-                createTimeline(timelineData);
-                updateStackFilter();
-                showStatus('success', 'Dados atualizados com sucesso');
-                setTimeout(clearStatus, 3000);
-            } catch (error) {
-                showStatus('error', error.message);
-            }
-        }
-
-        // Event listeners
-        document.getElementById('load-data').addEventListener('click', loadData);
-        document.getElementById('refresh-data').addEventListener('click', refreshData);
-        document.getElementById('stack-filter').addEventListener('change', applyFilter);
-        document.getElementById('view-mode').addEventListener('change', changeViewMode);
-        document.getElementById('zoom-in').addEventListener('click', zoomIn);
-        document.getElementById('zoom-out').addEventListener('click', zoomOut);
-        document.getElementById('zoom-fit').addEventListener('click', zoomFit);
-
-        // Inicialização: mostrar fonte atual e (opcional) carregar automaticamente
-        (function init() {
-            const url = document.getElementById('spreadsheet-url').value.trim();
-            setCurrentSourceLabel(url);
-        })();
-    </script>
+    document.getElementById("load-data").addEventListener("click", loadData);
+    document.getElementById("refresh-data").addEventListener("click", refreshData);
+    document.getElementById("stack-filter").addEventListener("change", applyFilter);
+    document.getElementById("view-mode").addEventListener("change", changeViewMode);
+    document.getElementById("zoom-in").addEventListener("click", zoomIn);
+    document.getElementById("zoom-out").addEventListener("click", zoomOut);
+    document.getElementById("zoom-fit").addEventListener("click", zoomFit);
+  </script>
 </body>
 </html>
