@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roadmap Timeline</title>
+    <title>Roadmap - Projetos Caaqui</title>
     <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
     <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <style>
@@ -253,6 +253,14 @@
             border: none;
         }
 
+        /* ===== Ajuste: linhas verticais não sobrepõem as barras ===== */
+        .vis-time-axis .vis-grid.vis-vertical,
+        .vis-panel.vis-background .vis-grid.vis-vertical {
+            border-left-color: transparent !important;
+            border-left-width: 0 !important;
+        }
+        /* =========================================================== */
+
         .vis-item {
             border-radius: 6px;
             border-width: 2px;
@@ -294,68 +302,6 @@
             color: var(--color-text-primary);
         }
 
-        .vis-item.extension-bar {
-            background-color: rgba(230, 129, 97, 0.4);
-            border-color: var(--color-warning);
-            border-width: 2px;
-        }
-
-        .vis-item.target-divider {
-            background-color: transparent;
-            border-left: 3px solid #c0152f;
-            border-right: none;
-            border-top: none;
-            border-bottom: none;
-            width: 3px;
-        }
-
-        .vis-item.target-divider .vis-item-content {
-            display: none;
-        }
-
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-top: 20px;
-            padding: 16px;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-        }
-
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            border: 2px solid;
-        }
-
-        .actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .example-link {
-            display: inline-block;
-            color: var(--color-primary);
-            text-decoration: none;
-            font-size: 0.85rem;
-            margin-top: 4px;
-        }
-
-        .example-link:hover {
-            text-decoration: underline;
-        }
-
         @media (max-width: 768px) {
             body {
                 padding: 16px;
@@ -386,14 +332,19 @@
 <body>
     <div class="container">
         <header>
-            <h1>📊 Roadmap Timeline</h1>
+            <h1>Roadmap - Projetos Caaqui</h1>
             <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
         </header>
 
         <div class="config-panel">
             <div class="form-group">
                 <label for="spreadsheet-url">URL da Planilha do Google Sheets</label>
-                <input type="text" id="spreadsheet-url" placeholder="https://docs.google.com/spreadsheets/d/SEU_ID/edit" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv">
+                <input
+                    type="text"
+                    id="spreadsheet-url"
+                    placeholder="https://docs.google.com/spreadsheets/d/SEU_ID/edit"
+                    value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
+                >
                 <p class="hint">
                     A planilha deve ser pública (qualquer pessoa com o link pode visualizar).
                     <a href="#" class="example-link" id="show-example">Ver planilha de exemplo</a>
@@ -440,28 +391,7 @@
             <div id="visualization"></div>
         </div>
 
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgba(98, 108, 113, 0.15); border-color: #626c71;"></div>
-                <span>Planejado</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgba(33, 128, 141, 0.15); border-color: #21808d;"></div>
-                <span>Em Andamento</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgba(33, 128, 141, 0.25); border-color: #21808d;"></div>
-                <span>Concluído</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgba(192, 21, 47, 0.15); border-color: #c0152f;"></div>
-                <span>Atrasado</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgba(230, 129, 97, 0.15); border-color: #e68161;"></div>
-                <span>Pausado</span>
-            </div>
-        </div>
+        <!-- Legenda removida conforme solicitado -->
     </div>
 
     <script>
@@ -471,19 +401,26 @@
         let allParsedData = null;
         let availableStacks = new Set();
 
+        // Show example spreadsheet
         document.getElementById('show-example').addEventListener('click', (e) => {
             e.preventDefault();
             const exampleUrl = 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
             document.getElementById('spreadsheet-url').value = exampleUrl;
         });
 
+        // Extract spreadsheet ID from URL
         function extractSpreadsheetId(url) {
             const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
             if (match) return match[1];
-            if (url.includes('/e/2PACX-') && url.includes('/pub')) return null;
+
+            if (url.includes('/e/2PACX-') && url.includes('/pub')) {
+                return null;
+            }
+
             return null;
         }
 
+        // Show status message
         function showStatus(type, message) {
             const statusDiv = document.getElementById('status-message');
             const iconMap = {
@@ -491,6 +428,7 @@
                 success: '✓',
                 error: '✗'
             };
+
             statusDiv.innerHTML = `
                 <div class="status-indicator status-${type}">
                     ${iconMap[type]}
@@ -499,62 +437,77 @@
             `;
         }
 
+        // Clear status message
         function clearStatus() {
             document.getElementById('status-message').innerHTML = '';
         }
 
+        /**
+         * Busca CSV via endpoint server-side do seu projeto na Vercel:
+         * /api/sheets?url=<url_do_csv>
+         * (Você precisa ter criado api/sheets.js no repositório.)
+         */
         async function fetchSheetData(spreadsheetId, sheetName, fullUrl) {
-  const isAlreadyCsv = fullUrl && fullUrl.includes('output=csv');
-  const isPublished = fullUrl && fullUrl.includes('/e/2PACX-') && fullUrl.includes('/pub');
+            const isAlreadyCsv = fullUrl && fullUrl.includes('output=csv');
+            const isPublished = fullUrl && fullUrl.includes('/e/2PACX-') && fullUrl.includes('/pub');
 
-  let csvUrl = null;
+            let csvUrl = null;
 
-  if (isAlreadyCsv) {
-    csvUrl = fullUrl;
-  } else if (isPublished) {
-    const pubMatch = fullUrl.match(/\/e\/(2PACX-[^\/]+)/);
-    const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
-    if (!pubMatch) throw new Error('Formato de URL publicada inválido');
+            if (isAlreadyCsv) {
+                csvUrl = fullUrl;
+            } else if (isPublished) {
+                const pubMatch = fullUrl.match(/\/e\/(2PACX-[^\/]+)/);
+                const gidMatch = fullUrl.match(/[?&]gid=(\d+)/);
+                if (!pubMatch) throw new Error('Formato de URL publicada inválido');
 
-    const pubKey = pubMatch[1];
-    const gid = gidMatch ? gidMatch[1] : '0';
-    csvUrl = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
-  } else if (spreadsheetId) {
-    csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  } else {
-    throw new Error('URL inválida');
-  }
+                const pubKey = pubMatch[1];
+                const gid = gidMatch ? gidMatch[1] : '0';
+                csvUrl = `https://docs.google.com/spreadsheets/d/e/${pubKey}/pub?gid=${gid}&single=true&output=csv`;
+            } else if (spreadsheetId) {
+                csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            } else {
+                throw new Error('URL inválida');
+            }
 
-  const apiUrl = `/api/sheets?url=${encodeURIComponent(csvUrl)}`;
+            const apiUrl = `/api/sheets?url=${encodeURIComponent(csvUrl)}`;
+            const res = await fetch(apiUrl);
 
-  const res = await fetch(apiUrl);
-  if (!res.ok) {
-    const msg = await res.text().catch(() => '');
-    throw new Error(`Erro ao acessar planilha via API (${res.status}). ${msg}`);
-  }
+            if (!res.ok) {
+                const msg = await res.text().catch(() => '');
+                throw new Error(`Erro ao acessar planilha via API (${res.status}). ${msg}`);
+            }
 
-  const csvText = await res.text();
-  return parseCSV(csvText);
-}
+            const csvText = await res.text();
+            return parseCSV(csvText);
+        }
+
+        // Parse CSV text
         function parseCSV(csvText) {
             const lines = csvText.split('\n').filter(line => line.trim());
             const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
             const rows = [];
+
             for (let i = 1; i < lines.length; i++) {
                 const values = parseCSVLine(lines[i]);
                 const row = {};
-                headers.forEach((header, idx) => { row[header] = values[idx] || ''; });
+                headers.forEach((header, idx) => {
+                    row[header] = values[idx] || '';
+                });
                 rows.push(row);
             }
+
             return rows;
         }
 
+        // Parse CSV line handling quoted values
         function parseCSVLine(line) {
             const result = [];
             let current = '';
             let inQuotes = false;
+
             for (let i = 0; i < line.length; i++) {
                 const char = line[i];
+
                 if (char === '"') {
                     inQuotes = !inQuotes;
                 } else if (char === ',' && !inQuotes) {
@@ -565,9 +518,11 @@
                 }
             }
             result.push(current.trim());
+
             return result;
         }
 
+        // Parse sheet data to timeline format
         function parseSheetData(rows, filterStack = 'all') {
             const items = [];
             const groups = [];
@@ -575,70 +530,86 @@
 
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
-                const resumo     = row['Resumo'] || '';
-                const dataInicio = row['Start date']  ? parseBRDate(row['Start date'])  : null;
-                const dataTarget = row['Target end']  ? parseBRDate(row['Target end'])  : null;
-                const dataFinish = row['Finish Date'] ? parseBRDate(row['Finish Date']) : null;
-                const status     = row['Status'] || 'planejado';
-                const stacksRaw  = row['Stacks'] || 'Sem Stack';
 
+                const resumo = row['Resumo'] || '';
+                const dataInicio = row['Start date'] ? parseBRDate(row['Start date']) : null;
+                const dataTarget = row['Target end'] ? parseBRDate(row['Target end']) : null;
+                const dataFinish = row['Finish Date'] ? parseBRDate(row['Finish Date']) : null;
+                const status = row['Status'] || 'planejado';
+                const stacksRaw = row['Stacks'] || 'Sem Stack';
+
+                // Must have resumo, start date, and finish date
                 if (!resumo || !dataInicio || !dataFinish) continue;
 
+                // Parse stacks separated by semicolon
                 const stacksArray = stacksRaw.split(';').map(s => s.trim()).filter(s => s);
+
+                // Add all stacks to available stacks set
                 stacksArray.forEach(stack => availableStacks.add(stack));
 
-                const titleMatch  = resumo.match(/\[([^\]]+)\]/);
+                // Extract text between [] for display
+                const titleMatch = resumo.match(/\[([^\]]+)\]/);
                 const displayTitle = titleMatch ? titleMatch[1] : resumo;
 
                 const statusClass = status.toLowerCase()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '-');
 
-                const stacksToShow = filterStack === 'all'
-                    ? stacksArray
-                    : stacksArray.filter(s => s === filterStack);
-
+                // Filter by selected stack if not "all"
+                const stacksToShow = filterStack === 'all' ? stacksArray : stacksArray.filter(s => s === filterStack);
                 if (stacksToShow.length === 0) continue;
 
+                // Create item for each stack
                 stacksToShow.forEach((stack, stackIdx) => {
+                    // Add group if not exists
                     if (!groupSet.has(stack)) {
                         groupSet.add(stack);
-                        groups.push({ id: stack, content: stack });
+                        groups.push({
+                            id: stack,
+                            content: stack
+                        });
                     }
 
+                    // Create single bar with gradient: blue until target, orange for extension
                     const itemId = `item-${i}-${stackIdx}`;
-                    const totalDuration  = dataFinish - dataInicio;
+                    const totalDuration = dataFinish - dataInicio;
                     const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
-                    const targetPercent  = (targetDuration / totalDuration) * 100;
+
+                    // Calculate percentage for gradient split
+                    const targetPercent = (targetDuration / totalDuration) * 100;
 
                     let customStyle = '';
                     if (dataTarget && dataTarget < dataFinish) {
                         customStyle = `background: linear-gradient(to right,
-                            rgba(33,128,141,0.15) 0%,
-                            rgba(33,128,141,0.15) ${targetPercent}%,
-                            rgba(255,103,31,0.6)  ${targetPercent}%,
-                            rgba(255,103,31,0.6)  100%) !important;
+                            rgba(33, 128, 141, 0.15) 0%,
+                            rgba(33, 128, 141, 0.15) ${targetPercent}%,
+                            rgba(255, 103, 31, 0.6) ${targetPercent}%,
+                            rgba(255, 103, 31, 0.6) 100%) !important;
                             border-color: #21808d !important;`;
                     } else {
-                        customStyle = `background-color: rgba(33,128,141,0.15) !important; border-color: #21808d !important;`;
+                        customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: #21808d !important;`;
                     }
 
+                    // Status badge styling based on status
                     const statusBadgeColors = {
-                        'planejado':    'background: rgba(98,108,113,0.3);  color: #626c71;',
-                        'em-andamento': 'background: rgba(33,128,141,0.3);  color: #21808d;',
-                        'concluido':    'background: rgba(33,128,141,0.4);  color: #21808d;',
-                        'atrasado':     'background: rgba(192,21,47,0.3);   color: #c0152f;',
-                        'pausado':      'background: rgba(230,129,97,0.3);  color: #e68161;'
+                        'planejado': 'background: rgba(98, 108, 113, 0.3); color: #626c71;',
+                        'em-andamento': 'background: rgba(33, 128, 141, 0.3); color: #21808d;',
+                        'concluido': 'background: rgba(33, 128, 141, 0.4); color: #21808d;',
+                        'atrasado': 'background: rgba(192, 21, 47, 0.3); color: #c0152f;',
+                        'pausado': 'background: rgba(230, 129, 97, 0.3); color: #e68161;'
                     };
+
                     const badgeStyle = statusBadgeColors[statusClass] || statusBadgeColors['planejado'];
 
                     items.push({
                         id: itemId,
-                        content: `<div style="padding:4px 8px;display:flex;flex-direction:column;gap:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;">
+                        content: `<div style="padding: 4px 8px; display: flex; flex-direction: column; gap: 3px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
                                 <strong>${displayTitle}</strong>
-                                <span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;${badgeStyle}font-weight:500;">${status}</span>
+                                <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; ${badgeStyle} font-weight: 500;">${status}</span>
                             </div>
-                            <div style="font-size:0.75rem;opacity:0.8;">
+                            <div style="font-size: 0.75rem; opacity: 0.8;">
                                 Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}
                             </div>
                         </div>`,
@@ -655,46 +626,88 @@
             return { items, groups };
         }
 
+        // Parse Brazilian date format (DD/MM/YYYY) or Google Sheets format
         function parseBRDate(dateValue) {
             if (typeof dateValue === 'string') {
+                // Try Brazilian format DD/MM/YYYY
                 const brMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
                 if (brMatch) {
                     const [, dd, mm, yyyy] = brMatch;
                     return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
                 }
+
+                // Try to parse date string (format: Date(year, month, day))
                 const match = dateValue.match(/Date\((\d+),(\d+),(\d+)\)/);
-                if (match) return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
+                if (match) {
+                    return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
+                }
+
+                // Try standard date string
                 return new Date(dateValue);
             } else if (typeof dateValue === 'number') {
+                // Google Sheets serial number (days since Dec 30, 1899)
                 return new Date((dateValue - 25569) * 86400 * 1000);
             }
             return new Date(dateValue);
         }
 
+        // Format date for display
         function formatDate(date) {
             if (!date || isNaN(date)) return '—';
-            return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
         }
 
+        // Create or update timeline
         function createTimeline(data) {
             const container = document.getElementById('visualization');
+
             const options = {
-                width: '100%', height: '100%',
-                margin: { item: 20, axis: 40 },
+                width: '100%',
+                height: '100%',
+                margin: {
+                    item: 20,
+                    axis: 40
+                },
                 orientation: 'top',
-                stack: true, stackSubgroups: false,
+                stack: true,
+                stackSubgroups: false,
                 showCurrentTime: true,
-                zoomMin: 1000 * 60 * 60 * 24 * 7,
-                zoomMax: 1000 * 60 * 60 * 24 * 365 * 2,
+                zoomMin: 1000 * 60 * 60 * 24 * 7, // 1 week
+                zoomMax: 1000 * 60 * 60 * 24 * 365 * 2, // 2 years
                 locale: 'pt-BR',
                 verticalScroll: true,
                 horizontalScroll: true,
                 zoomKey: 'ctrlKey',
                 format: {
-                    minorLabels: { millisecond:'SSS', second:'s', minute:'HH:mm', hour:'HH:mm', weekday:'ddd DD', day:'DD', week:'w', month:'MMM', year:'YYYY' },
-                    majorLabels: { millisecond:'HH:mm:ss', second:'DD/MM/YYYY', minute:'ddd DD/MM', hour:'ddd DD/MM', weekday:'MMMM YYYY', day:'MMMM YYYY', week:'MMMM YYYY', month:'YYYY', year:'' }
+                    minorLabels: {
+                        millisecond: 'SSS',
+                        second: 's',
+                        minute: 'HH:mm',
+                        hour: 'HH:mm',
+                        weekday: 'ddd DD',
+                        day: 'DD',
+                        week: 'w',
+                        month: 'MMM',
+                        year: 'YYYY'
+                    },
+                    majorLabels: {
+                        millisecond: 'HH:mm:ss',
+                        second: 'DD/MM/YYYY',
+                        minute: 'ddd DD/MM',
+                        hour: 'ddd DD/MM',
+                        weekday: 'MMMM YYYY',
+                        day: 'MMMM YYYY',
+                        week: 'MMMM YYYY',
+                        month: 'YYYY',
+                        year: ''
+                    }
                 }
             };
+
             if (timeline) {
                 timeline.setItems(data.items);
                 timeline.setGroups(data.groups);
@@ -704,22 +717,30 @@
             }
         }
 
+        // Update stack filter dropdown
         function updateStackFilter() {
             const filterSelect = document.getElementById('stack-filter');
             const currentValue = filterSelect.value;
+
             filterSelect.innerHTML = '<option value="all">Todos</option>';
-            Array.from(availableStacks).sort().forEach(stack => {
+
+            const sortedStacks = Array.from(availableStacks).sort();
+            sortedStacks.forEach(stack => {
                 const option = document.createElement('option');
                 option.value = stack;
                 option.textContent = stack;
                 filterSelect.appendChild(option);
             });
-            if (currentValue !== 'all' && availableStacks.has(currentValue))
+
+            if (currentValue !== 'all' && availableStacks.has(currentValue)) {
                 filterSelect.value = currentValue;
+            }
         }
 
+        // Apply filter
         function applyFilter() {
             if (!allParsedData) return;
+
             const selectedStack = document.getElementById('stack-filter').value;
             availableStacks.clear();
             const timelineData = parseSheetData(allParsedData, selectedStack);
@@ -727,45 +748,69 @@
             updateStackFilter();
         }
 
+        // Change view mode
         function changeViewMode() {
             if (!timeline) return;
+
             const viewMode = document.getElementById('view-mode').value;
             const now = new Date();
             let start, end;
+
             switch (viewMode) {
                 case 'week':
                     start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
-                    end   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
                     break;
                 case 'month':
                     start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-                    end   = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+                    end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
                     break;
                 case 'quarter':
                     start = new Date(now.getFullYear(), now.getMonth() - 4, 1);
-                    end   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+                    end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
                     break;
                 case 'year':
                     start = new Date(now.getFullYear() - 1, 0, 1);
-                    end   = new Date(now.getFullYear() + 1, 11, 31);
+                    end = new Date(now.getFullYear() + 1, 11, 31);
                     break;
             }
+
             timeline.setWindow(start, end);
         }
 
-        function zoomIn()  { if (timeline) timeline.zoomIn(0.2); }
-        function zoomOut() { if (timeline) timeline.zoomOut(0.2); }
-        function zoomFit() { if (timeline) timeline.fit(); }
+        // Zoom functions
+        function zoomIn() {
+            if (timeline) {
+                timeline.zoomIn(0.2);
+            }
+        }
 
+        function zoomOut() {
+            if (timeline) {
+                timeline.zoomOut(0.2);
+            }
+        }
+
+        function zoomFit() {
+            if (timeline) {
+                timeline.fit();
+            }
+        }
+
+        // Load data from spreadsheet
         async function loadData() {
             const url = document.getElementById('spreadsheet-url').value.trim();
             const sheetName = 'Sheet1';
-            if (!url) { showStatus('error', 'Por favor, insira a URL da planilha'); return; }
+
+            if (!url) {
+                showStatus('error', 'Por favor, insira a URL da planilha');
+                return;
+            }
 
             const spreadsheetId = extractSpreadsheetId(url);
-            const isPublished   = url.includes('/e/2PACX-') && url.includes('/pub');
+            const isPublished = url.includes('/e/2PACX-') && url.includes('/pub');
 
-            if (!spreadsheetId && !isPublished) {
+            if (!spreadsheetId && !isPublished && !url.includes('output=csv')) {
                 showStatus('error', 'URL inválida. Use uma URL normal (/d/SEU_ID/edit) ou publicada (/e/2PACX-.../pub)');
                 return;
             }
@@ -778,6 +823,7 @@
                 availableStacks.clear();
 
                 const timelineData = parseSheetData(data);
+
                 if (timelineData.items.length === 0) {
                     showStatus('error', 'Nenhum dado encontrado na planilha');
                     return;
@@ -786,28 +832,36 @@
                 createTimeline(timelineData);
                 updateStackFilter();
                 currentSpreadsheetId = spreadsheetId;
-                currentSheetName     = sheetName;
+                currentSheetName = sheetName;
 
                 showStatus('success', `${timelineData.items.length} atividades carregadas com sucesso`);
                 document.getElementById('refresh-data').style.display = 'inline-flex';
+
                 setTimeout(clearStatus, 3000);
             } catch (error) {
                 showStatus('error', error.message);
             }
         }
 
+        // Refresh data
         async function refreshData() {
             const url = document.getElementById('spreadsheet-url').value.trim();
             if (!url) return;
+
             showStatus('loading', 'Atualizando dados...');
+
             try {
                 const data = await fetchSheetData(currentSpreadsheetId, currentSheetName, url);
                 allParsedData = data;
                 availableStacks.clear();
 
                 const selectedStack = document.getElementById('stack-filter').value;
-                const timelineData  = parseSheetData(data, selectedStack);
-                if (timelineData.items.length === 0) { showStatus('error', 'Nenhum dado encontrado'); return; }
+                const timelineData = parseSheetData(data, selectedStack);
+
+                if (timelineData.items.length === 0) {
+                    showStatus('error', 'Nenhum dado encontrado');
+                    return;
+                }
 
                 createTimeline(timelineData);
                 updateStackFilter();
@@ -818,6 +872,7 @@
             }
         }
 
+        // Event listeners
         document.getElementById('load-data').addEventListener('click', loadData);
         document.getElementById('refresh-data').addEventListener('click', refreshData);
         document.getElementById('stack-filter').addEventListener('change', applyFilter);
@@ -825,13 +880,11 @@
         document.getElementById('zoom-in').addEventListener('click', zoomIn);
         document.getElementById('zoom-out').addEventListener('click', zoomOut);
         document.getElementById('zoom-fit').addEventListener('click', zoomFit);
+
+        // Allow Enter key to load data
         document.getElementById('spreadsheet-url').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadData();
         });
-    </script>
-</body>
-</html>
-
     </script>
 </body>
 </html>
