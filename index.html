@@ -421,8 +421,8 @@
 <body>
     <div class="container">
         <header>
-            <!-- Logo agora utiliza atributo src normal -->
-            <img id="page-logo" class="page-logo" src="logo.jpg" alt="Caaqui" />
+            <!-- CORREÇÃO 1: Nome do arquivo ajustado para logo.png (conforme seu repo) -->
+            <img id="page-logo" class="page-logo" src="logo.png" alt="Caaqui" />
             
             <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
                 <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
@@ -742,13 +742,20 @@
                 throw new Error("URL inválida.");
             }
 
-            const apiUrl = `/api/sheets?url=${encodeURIComponent(csvUrl)}`;
-            const res = await fetch(apiUrl);
+            // CORREÇÃO 2: Bypass do proxy /api/sheets
+            // O código abaixo faz o fetch direto para o Google Sheets (que suporta CORS)
+            const res = await fetch(csvUrl);
             if (!res.ok) {
                 const msg = await res.text().catch(() => '');
-                throw new Error(`Erro ao acessar planilha via API. ${msg}`);
+                throw new Error(`Erro ao acessar planilha: ${res.status}. Certifique-se de que ela está publicada.`);
             }
             const csvText = await res.text();
+            
+            // Verificação extra para garantir que não recebemos HTML de erro do Google
+            if (csvText.trim().startsWith('<!DOCTYPE html>') || csvText.trim().startsWith('<html')) {
+                throw new Error(`O link retornou uma página HTML em vez de um CSV. Verifique se a planilha está pública.`);
+            }
+
             return parseCSV(csvText);
         }
 
