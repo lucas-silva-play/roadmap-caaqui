@@ -12,27 +12,32 @@
     :root {
       color-scheme: light;
 
-      /* Base: sempre branco */
       --color-bg-primary: #ffffff;
       --color-bg-secondary: #ffffff;
 
       --color-text-primary: #13343b;
       --color-text-secondary: #626c71;
 
-      /* Botões */
       --color-primary: #ec6718;
       --color-primary-hover: #d85c14;
 
-      --color-border: rgba(94, 82, 64, 0.2);
+      --color-border: rgba(94, 82, 64, 0.20);
 
       --color-success: #21808d;
       --color-warning: #e68161;
       --color-error: #c0152f;
       --color-info: #626c71;
 
-      /* Grade vertical */
-      --grid-vertical-color: rgba(19, 52, 59, 0.10);
+      /* Grade vertical: cinza bem sutil */
+      --grid-vertical-color: rgba(0, 0, 0, 0.08);
       --grid-vertical-width: 1px;
+
+      /* Coluna stacks */
+      --stack-col-width: 260px;
+
+      /* Hoje (marcador azul) */
+      --today-blue: #1e88e5;
+      --today-blue-soft: rgba(30, 136, 229, 0.14);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,14 +52,15 @@
 
     .container { max-width: 1400px; margin: 0 auto; }
 
-    header { margin-bottom: 30px; }
+    header { margin-bottom: 18px; }
 
+    /* Se o logo quebrar, coloque o arquivo logo.jpg junto do HTML (mesma pasta) ou ajuste o src. */
     .page-logo {
       display: block;
       height: 48px;
       width: auto;
       max-width: 240px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     h1 {
@@ -66,7 +72,62 @@
 
     .subtitle { color: var(--color-text-secondary); font-size: 0.95rem; }
 
-    /* Cards separados: Fonte / Filtros */
+    /* Topbar (botão discreto, fora dos cards) */
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin: 10px 0 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .btn-primary { background: var(--color-primary); color: #fff; }
+    .btn-primary:hover {
+      background: var(--color-primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(236, 103, 24, 0.22);
+    }
+
+    .btn-secondary {
+      background: rgba(94, 82, 64, 0.08);
+      color: var(--color-text-primary);
+      border: 1px solid rgba(94, 82, 64, 0.10);
+    }
+    .btn-secondary:hover { background: rgba(94, 82, 64, 0.14); }
+
+    /* Botão mais discreto (ghost) */
+    .btn-ghost {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: 1px solid rgba(94, 82, 64, 0.18);
+    }
+    .btn-ghost:hover {
+      color: var(--color-text-primary);
+      border-color: rgba(236, 103, 24, 0.55);
+      box-shadow: 0 4px 14px rgba(236, 103, 24, 0.10);
+      transform: translateY(-1px);
+    }
+
+    .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 6px; }
+
+    /* Cards separados */
     .panel-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
@@ -117,37 +178,6 @@
       box-shadow: 0 0 0 3px rgba(236, 103, 24, 0.12);
     }
 
-    .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 6px; }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      gap: 8px;
-    }
-
-    .btn-primary { background: var(--color-primary); color: white; }
-    .btn-primary:hover {
-      background: var(--color-primary-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(236, 103, 24, 0.22);
-    }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .btn-secondary {
-      background: rgba(94, 82, 64, 0.08);
-      color: var(--color-text-primary);
-      border: 1px solid rgba(94, 82, 64, 0.10);
-    }
-    .btn-secondary:hover { background: rgba(94, 82, 64, 0.14); }
-
     .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
     .status-indicator {
@@ -166,11 +196,13 @@
       color: var(--color-info);
       border: 1px solid rgba(98, 108, 113, 0.25);
     }
+
     .status-success {
       background: rgba(33, 128, 141, 0.15);
       color: var(--color-success);
       border: 1px solid rgba(33, 128, 141, 0.25);
     }
+
     .status-error {
       background: rgba(192, 21, 47, 0.15);
       color: var(--color-error);
@@ -222,6 +254,7 @@
       font-weight: 600;
       transition: all 0.2s ease;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+      user-select: none;
     }
 
     .zoom-btn:hover {
@@ -233,7 +266,7 @@
 
     #visualization { height: 100%; }
 
-    /* Força branco nos painéis do vis-timeline */
+    /* Fundo branco do timeline */
     .vis-timeline,
     .vis-panel,
     .vis-time-axis,
@@ -244,10 +277,38 @@
 
     .vis-timeline { border: none; }
 
-    /* Grade vertical fina e transparente (fica no background do timeline) */
-    .vis-panel.vis-background .vis-grid.vis-vertical,
-    .vis-time-axis .vis-grid.vis-vertical {
-      border-left: var(--grid-vertical-width) solid var(--grid-vertical-color) !important;
+    /* Grade vertical (major/minor) em cinza sutil */
+    .vis-time-axis .vis-grid.vis-vertical.vis-minor,
+    .vis-time-axis .vis-grid.vis-vertical.vis-major,
+    .vis-panel.vis-background .vis-grid.vis-vertical.vis-minor,
+    .vis-panel.vis-background .vis-grid.vis-vertical.vis-major {
+      border-left-color: var(--grid-vertical-color) !important;
+      border-left-width: var(--grid-vertical-width) !important;
+      border-left-style: solid !important;
+    }
+
+    /* Esconde a linha padrão do "agora" (a gente substitui por HOJE) */
+    .vis-current-time { display: none !important; }
+
+    /* Custom time bar (HOJE) */
+    .vis-custom-time {
+      background-color: var(--today-blue) !important;
+      width: 2px !important;
+      z-index: 3;
+      box-shadow: 0 0 0 4px var(--today-blue-soft);
+      cursor: help;
+    }
+
+    .vis-custom-time .vis-custom-time-marker {
+      background: var(--today-blue) !important;
+      color: #fff !important;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      box-shadow: 0 10px 22px rgba(30, 136, 229, 0.20);
+      transform: translate(-50%, 0);
+      letter-spacing: 0.2px;
     }
 
     .vis-item {
@@ -256,8 +317,6 @@
       font-size: 0.9rem;
       min-height: 55px;
     }
-
-    .vis-item.vis-range { border-radius: 6px; }
 
     .vis-item.status-planejado {
       background-color: rgba(98, 108, 113, 0.15);
@@ -285,16 +344,19 @@
       color: var(--color-text-primary);
     }
 
-    /* Coluna Stacks: maior, bold, centralizado verticalmente */
+    /* Coluna Stacks: mais larga e visível */
+    .vis-labelset { min-width: var(--stack-col-width) !important; }
+    .vis-panel.vis-left { min-width: var(--stack-col-width) !important; }
+
     .vis-labelset .vis-label {
       display: flex;
       align-items: center;
     }
     .vis-labelset .vis-label .vis-inner {
-      font-size: 1.03rem;
-      font-weight: 700;
+      font-size: 1.05rem;
+      font-weight: 750;
       color: var(--color-text-primary);
-      padding: 10px 10px;
+      padding: 10px 12px;
       line-height: 1.2;
     }
 
@@ -309,7 +371,6 @@
       padding: 20px;
       z-index: 9999;
     }
-
     .modal-overlay.is-open { display: flex; }
 
     .modal {
@@ -346,6 +407,7 @@
       cursor: pointer;
       font-size: 1.1rem;
       line-height: 1;
+      user-select: none;
     }
 
     .modal-body { padding: 18px 20px; }
@@ -376,6 +438,9 @@
       .actions { flex-direction: column; }
       .btn { width: 100%; }
       .panel { padding: 20px; }
+      .topbar { justify-content: stretch; }
+      .btn-ghost { width: 100%; }
+      :root { --stack-col-width: 220px; }
     }
   </style>
 </head>
@@ -383,34 +448,32 @@
 <body>
   <div class="container">
     <header>
-      <img class="page-logo" src="logo.jpg" alt="Caaqui" />
+      <img class="page-logo" src="logo.jpg" alt="Caaqui" onerror="this.style.display='none';" />
       <h1>Roadmap - Projetos Caaqui</h1>
       <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
     </header>
 
+    <div class="topbar">
+      <button class="btn btn-ghost" id="change-source" type="button">Alterar fonte do dado</button>
+    </div>
+
+    <!-- Input real (escondido): URL só aparece no modal -->
+    <input
+      type="text"
+      id="spreadsheet-url"
+      value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
+      style="display:none;"
+    />
+
     <div class="panel-grid">
-      <!-- Card 1: Fonte de dados -->
       <div class="panel" id="data-source-panel">
         <div class="panel-title">Fonte de dados</div>
-
-        <!-- Input real fica escondido (a URL só aparece no modal) -->
-        <input
-          type="text"
-          id="spreadsheet-url"
-          value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv"
-          style="display:none;"
-        />
-
-        <div class="form-group">
-          <button class="btn btn-secondary" id="change-source" type="button">Alterar fonte do dado</button>
-          <p class="hint">
-            Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
-            <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
-          </p>
-        </div>
+        <p class="hint">
+          Dica: se usar Google Sheets, garanta que a planilha esteja “publicada na web” em CSV.
+          <a href="#" class="example-link" id="show-example">Usar planilha de exemplo</a>
+        </p>
       </div>
 
-      <!-- Card 2: Filtros -->
       <div class="panel" id="filters-panel">
         <div class="panel-title">Filtros</div>
 
@@ -436,12 +499,8 @@
         <div id="status-message"></div>
 
         <div class="actions">
-          <button class="btn btn-primary" id="load-data" type="button">
-            <span>Carregar Roadmap</span>
-          </button>
-          <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;">
-            <span>🔄 Atualizar Dados</span>
-          </button>
+          <button class="btn btn-primary" id="load-data" type="button"><span>Carregar Roadmap</span></button>
+          <button class="btn btn-secondary" id="refresh-data" type="button" style="display: none;"><span>🔄 Atualizar Dados</span></button>
         </div>
       </div>
     </div>
@@ -488,6 +547,38 @@
     let currentSheetName = "Sheet1";
     let allParsedData = null;
     let availableStacks = new Set();
+
+    // Marcador HOJE
+    const TODAY_ID = "today";
+    let todayTimer = null;
+
+    function formatTodayTitle(now = new Date()) {
+      // Tooltip nativo (title): exibe data e hora (amigável) ao passar o mouse
+      const d = now.toLocaleDateString("pt-BR");
+      const t = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return `Hoje: ${d} às ${t}`;
+    }
+
+    function ensureTodayMarker() {
+      if (!timeline) return;
+      const now = new Date();
+
+      try {
+        timeline.getCustomTime(TODAY_ID);
+      } catch (e) {
+        timeline.addCustomTime(now, TODAY_ID);
+      }
+
+      timeline.setCustomTime(now, TODAY_ID);
+      timeline.setCustomTimeMarker("HOJE", TODAY_ID, false);
+      timeline.setCustomTimeTitle(formatTodayTitle(now), TODAY_ID);
+    }
+
+    function startTodayMarkerClock() {
+      if (todayTimer) clearInterval(todayTimer);
+      ensureTodayMarker();
+      todayTimer = setInterval(ensureTodayMarker, 60 * 1000);
+    }
 
     // Link de exemplo
     document.getElementById("show-example").addEventListener("click", (e) => {
@@ -548,11 +639,7 @@
 
     function showStatus(type, message) {
       const statusDiv = document.getElementById("status-message");
-      const iconMap = {
-        loading: '<div class="spinner"></div>',
-        success: "✓",
-        error: "✗",
-      };
+      const iconMap = { loading: '<div class="spinner"></div>', success: "✓", error: "✗" };
 
       statusDiv.innerHTML = `
         <div class="status-indicator status-${type}">
@@ -608,9 +695,7 @@
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
         const row = {};
-        headers.forEach((header, idx) => {
-          row[header] = values[idx] || "";
-        });
+        headers.forEach((header, idx) => { row[header] = values[idx] || ""; });
         rows.push(row);
       }
       return rows;
@@ -623,15 +708,9 @@
 
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
-
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
-          result.push(current.trim());
-          current = "";
-        } else {
-          current += char;
-        }
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === "," && !inQuotes) { result.push(current.trim()); current = ""; }
+        else current += char;
       }
       result.push(current.trim());
       return result;
@@ -698,7 +777,7 @@
             "em-andamento": "background: rgba(236, 103, 24, 0.22); color: #ec6718;",
             "concluido": "background: rgba(236, 103, 24, 0.30); color: #ec6718;",
             "atrasado": "background: rgba(192, 21, 47, 0.3); color: #c0152f;",
-            "pausado": "background: rgba(230, 129, 97, 0.3); color: #e68161;",
+            "pausado": "background: rgba(230, 129, 97, 0.3); color: #e68161;"
           };
 
           const badgeStyle = statusBadgeColors[statusClass] || statusBadgeColors["planejado"];
@@ -719,7 +798,7 @@
             group: stack,
             className: `status-${statusClass}`,
             style: customStyle,
-            title: `${resumo}\nInício: ${formatDate(dataInicio)}\nTarget: ${formatDate(dataTarget)}\nFinalizado: ${formatDate(dataFinish)}\nStatus: ${status}\nStack: ${stack}`,
+            title: `${resumo}\nInício: ${formatDate(dataInicio)}\nTarget: ${formatDate(dataTarget)}\nFinalizado: ${formatDate(dataFinish)}\nStatus: ${status}\nStack: ${stack}`
           });
         });
       }
@@ -760,25 +839,21 @@
 
         stack: true,
         stackSubgroups: true,
-
         groupHeightMode: "fitItems",
 
-        margin: {
-          axis: 40,
-          item: { horizontal: 10, vertical: 18 },
-        },
+        groupWidth: getComputedStyle(document.documentElement).getPropertyValue("--stack-col-width").trim() || "260px",
 
-        showCurrentTime: true,
+        margin: { axis: 40, item: { horizontal: 10, vertical: 18 } },
+
+        // Desliga o marcador padrão (a gente cria HOJE customizado)
+        showCurrentTime: false,
+
         zoomMin: 1000 * 60 * 60 * 24 * 7,
         zoomMax: 1000 * 60 * 60 * 24 * 365 * 2,
         locale: "pt-BR",
         verticalScroll: true,
         horizontalScroll: true,
-        zoomKey: "ctrlKey",
-        format: {
-          minorLabels: { millisecond:"SSS", second:"s", minute:"HH:mm", hour:"HH:mm", weekday:"ddd DD", day:"DD", week:"w", month:"MMM", year:"YYYY" },
-          majorLabels: { millisecond:"HH:mm:ss", second:"DD/MM/YYYY", minute:"ddd DD/MM", hour:"ddd DD/MM", weekday:"MMMM YYYY", day:"MMMM YYYY", week:"MMMM YYYY", month:"YYYY", year:"" }
-        },
+        zoomKey: "ctrlKey"
       };
 
       if (timeline) {
@@ -788,6 +863,9 @@
       } else {
         timeline = new vis.Timeline(container, data.items, data.groups, options);
       }
+
+      // Garante o HOJE após renderização/atualização
+      startTodayMarkerClock();
     }
 
     function updateStackFilter() {
@@ -804,14 +882,11 @@
         filterSelect.appendChild(option);
       });
 
-      if (currentValue !== "all" && availableStacks.has(currentValue)) {
-        filterSelect.value = currentValue;
-      }
+      if (currentValue !== "all" && availableStacks.has(currentValue)) filterSelect.value = currentValue;
     }
 
     function applyFilter() {
       if (!allParsedData) return;
-
       const selectedStack = document.getElementById("stack-filter").value;
       availableStacks.clear();
       const timelineData = parseSheetData(allParsedData, selectedStack);
@@ -846,6 +921,7 @@
       }
 
       timeline.setWindow(start, end);
+      ensureTodayMarker();
     }
 
     function zoomIn() { if (timeline) timeline.zoomIn(0.2); }
