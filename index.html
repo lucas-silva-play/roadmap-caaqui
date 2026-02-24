@@ -1061,6 +1061,25 @@
         document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
         document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
 
+                // --- EVENTOS DOS BOTÕES ---
+        document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
+        document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
+        document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
+        document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+
+        // ==========================================
+        // ADICIONE ESTE BLOCO AQUI PARA AUTO-LOAD
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            // Inicia o carregamento automático da aba Geral assim que a página abre
+            handleLoadData('geral');
+            
+            // Se você quiser que a aba "Detalhamento" também já carregue automaticamente, 
+            // basta garantir que ela tenha um value="..." no HTML e descomentar a linha abaixo:
+            // handleLoadData('detalhamento');
+        });
+        // ==========================================
+
     </script>
 </body>
 </html>
