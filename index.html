@@ -104,7 +104,7 @@
     .filters-grid{
       display:flex;
       gap:16px;
-      align-items:flex-end;
+      align-items: flex-start;
       justify-content: space-between;
       flex-wrap: wrap;
       margin-top: 12px;
@@ -133,7 +133,9 @@
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
-    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
+    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; 
+      min-height: 18px;
+    }
 
     .actions{ display:flex; gap:12px; flex-wrap:wrap; }
 
@@ -321,11 +323,11 @@
     }
   
 
-    /* Keep filters aligned */
-    .filters-grid { align-items: flex-start; }
-    .hint { min-height: 18px; }
+    /* Divider between left label column and timeline */
+    .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
+    .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
 
-    /* Epic pill thinner */
+    /* Epic pill (Detalhamento): highlighted and thin */
     .vis-item.epic-item {
       min-height: 10px !important;
       height: 10px !important;
@@ -333,79 +335,7 @@
       cursor: pointer !important;
     }
 
-    /* Spacer item used in "Cards desatualizados" mode */
-    .vis-item.spacer-item {
-      opacity: 0 !important;
-      background: transparent !important;
-      border-color: transparent !important;
-      min-height: 110px !important;
-      height: 110px !important;
-      pointer-events: none !important;
-    }
-
-    /* Cards mode toggle (Detalhamento) */
-    .cards-mode-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(94,82,64,0.10);
-      background: rgba(94,82,64,0.04);
-    }
-    .cards-mode-pill {
-      font-size: 0.86rem;
-      font-weight: 900;
-      white-space: nowrap;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(94,82,64,0.12);
-      background: rgba(94,82,64,0.06);
-      color: var(--color-text-secondary);
-    }
-    .cards-mode-pill.is-updated {
-      background: rgba(236,103,24,0.12);
-      border-color: rgba(236,103,24,0.55);
-      color: var(--color-primary);
-    }
-
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 54px;
-      height: 30px;
-      cursor: pointer;
-      user-select: none;
-    }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .toggle-track {
-      position: absolute;
-      inset: 0;
-      background: rgba(94,82,64,0.18);
-      border: 1px solid rgba(94,82,64,0.25);
-      border-radius: 999px;
-      transition: all 0.18s ease;
-    }
-    .toggle-thumb {
-      position: absolute;
-      height: 22px;
-      width: 22px;
-      left: 4px;
-      top: 3px;
-      background: #fff;
-      border-radius: 999px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-      transition: transform 0.18s ease;
-    }
-    .toggle-switch input:checked ~ .toggle-track {
-      background: rgba(236,103,24,0.95);
-      border-color: rgba(236,103,24,1);
-      box-shadow: 0 4px 12px rgba(236,103,24,0.22);
-    }
-    .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(24px); }
-    .toggle-switch input:focus-visible ~ .toggle-track { box-shadow: 0 0 0 3px rgba(236,103,24,0.18); }
-
-    /* Multi-select dropdown (same look as select) */
+    /* Multi-select dropdown (looks like a normal select) */
     .multi-select { position: relative; width: 100%; }
     .multi-select-trigger {
       width: 100%;
@@ -464,7 +394,7 @@
 <body>
   <div class="container">
     <header>
-      <img id="page-logo" class="page-logo" src="./logo.jpg" alt="Caaqui" loading="eager" decoding="async" onerror="this.onerror=null; this.src='./logo.png';" />
+      <img id="page-logo" class="page-logo" src="./logo.png" alt="Caaqui" loading="eager" decoding="async" />
 
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
@@ -581,6 +511,7 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
+            <p class="hint">&nbsp;</p>
           </div>
         </div>
       </div>
@@ -589,14 +520,6 @@
 
       <div class="actions">
         <button class="btn btn-primary" id="load-data-detalhes" type="button"><span>Carregar Roadmap</span></button>
-          <div class=\"cards-mode-toggle\" aria-label=\"Modo de cards\">
-            <span class=\"cards-mode-pill is-updated\" id=\"cards-mode-text\">Cards atualizados</span>
-            <label class=\"toggle-switch\" title=\"Alternar entre cards atualizados e desatualizados\">
-              <input type=\"checkbox\" id=\"cards-mode-toggle-detalhes\" checked />
-              <span class=\"toggle-track\" aria-hidden=\"true\"></span>
-              <span class=\"toggle-thumb\" aria-hidden=\"true\"></span>
-            </label>
-          </div>
         <button class="btn btn-secondary" id="refresh-data-detalhes" type="button" style="display:none;"><span>Atualizar Dados</span></button>
       </div>
 
@@ -791,21 +714,6 @@
     }
 
     
-    function getCardsModeDetalhamento() {
-      const el = document.getElementById('cards-mode-toggle-detalhes');
-      if (!el) return 'updated';
-      return el.checked ? 'updated' : 'outdated';
-    }
-
-    function updateCardsModePill() {
-      const el = document.getElementById('cards-mode-toggle-detalhes');
-      const pill = document.getElementById('cards-mode-text');
-      if (!el || !pill) return;
-      const updated = el.checked;
-      pill.textContent = updated ? 'Cards atualizados' : 'Cards desatualizados';
-      pill.classList.toggle('is-updated', updated);
-    }
-
     function getSelectedValues(selectEl) {
       return Array.from(selectEl.options)
         .filter(o => o.selected)
@@ -858,6 +766,7 @@
             if (!anySelected && allOpt) allOpt.selected = true;
           }
 
+          // Sync checkbox visuals
           Array.from(dropdown.querySelectorAll('.multi-select-option')).forEach((el, idx) => {
             const o = selectEl.options[idx];
             const c = el.querySelector('input');
@@ -1192,7 +1101,7 @@
         .filter(v => v !== 'all');
     }
 
-    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
+    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all']) {
       const items = [];
 
       const allProjects = new Set();
@@ -1240,6 +1149,7 @@
             const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
             const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
+            // Vivid pill colors (solid)
             const green = '#34D399';
             const greenBorder = '#065F46';
             const orange = '#F97316';
@@ -1256,7 +1166,7 @@
         }
       }
 
-      // Pass 2: children filtered; track projects with cards
+      // Pass 2: children filtered, track which projects have cards
       const includedProjects = new Set();
 
       for (let i = 0; i < rows.length; i++) {
@@ -1298,6 +1208,7 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
+        // Softer card colors (still same palette)
         const base = '#99F6E4';
         const baseBorder = '#14B8A6';
         const late = '#FDBA74';
@@ -1332,14 +1243,12 @@
         });
       }
 
-      const eligibleProjects = (filterProjeto !== 'all') ? [filterProjeto] : Array.from(allProjects);
-      const projectsWithCards = Array.from(includedProjects);
-      const projectsWithoutCards = eligibleProjects.filter(p => !includedProjects.has(p));
-      const projectsToShow = (cardsMode === 'outdated') ? projectsWithoutCards : projectsWithCards;
+      // Requirement: show ONLY projects that have 1+ cards in the current view
+      const projectsToShow = Array.from(includedProjects);
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
-      // Epic pills (no text on the pill)
+      // Epic pills for visible projects (no project name on the bar)
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
@@ -1357,28 +1266,6 @@
           linkUrl: (projectEpicLink.get(p) || null)
         });
       });
-
-      if (cardsMode === 'outdated') {
-        const now = new Date();
-        projectsToShow.forEach(p => {
-          const info = epicByProject.get(p);
-          const start = info ? info.start : now;
-          const end = new Date(start.getTime() + 24*60*60*1000);
-          items.push({
-            id: `spacer-${p}`,
-            content: '',
-            start,
-            end,
-            group: p,
-            subgroup: 'spacer',
-            order: 9999,
-            className: 'spacer-item',
-            style: 'background: transparent !important; border-color: transparent !important;',
-            title: '',
-            linkUrl: null
-          });
-        });
-      }
 
       return { items, groups };
     }
@@ -1556,10 +1443,11 @@
       const respFilters = resp.length ? resp : ['all'];
       const stFilters = st.length ? st : ['all'];
 
-      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters, getCardsModeDetalhamento());
+      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters);
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
-      updateCardsModePill();
+        rebuildMultiSelect('responsavel-filter-detalhes');
+        rebuildMultiSelect('status-filter-detalhes');
     }
 
     // --- LOAD / REFRESH ---
@@ -1601,6 +1489,8 @@
           }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
+        rebuildMultiSelect('responsavel-filter-detalhes');
+        rebuildMultiSelect('status-filter-detalhes');
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
@@ -1689,14 +1579,6 @@
     document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
     document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
     document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-
-    const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
-    if (cardsModeToggle) {
-      cardsModeToggle.addEventListener('change', () => {
-        updateCardsModePill();
-        applyFilterDetalhamento();
-      });
-    }
     document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
     document.getElementById('zoom-in').addEventListener('click', () => {
@@ -1743,7 +1625,6 @@
 
     // Auto-load (duas páginas)
     window.addEventListener('DOMContentLoaded', () => {
-    updateCardsModePill();
       handleLoadData('geral');
       handleLoadData('detalhamento');
     });
