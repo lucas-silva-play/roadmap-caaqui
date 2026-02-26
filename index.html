@@ -85,7 +85,7 @@
     }
     .btn-source:hover{
       background: var(--color-primary);
-      border-color: #0F766E;
+      border-color: var(--color-primary);
       color:#fff;
       box-shadow: 0 6px 16px rgba(236,103,24,0.20);
       transform: translateY(-1px);
@@ -130,7 +130,7 @@
     }
     input:focus, select:focus{
       outline:none;
-      border-color: #0F766E;
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
     .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; 
@@ -189,7 +189,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.06);
       user-select:none;
     }
-    .zoom-btn:hover{ background: var(--color-primary); color:#fff; border-color: #0F766E; }
+    .zoom-btn:hover{ background: var(--color-primary); color:#fff; border-color: var(--color-primary); }
     .zoom-btn:active{ transform: scale(0.95); }
     .visualization{ height:100%; }
 
@@ -233,7 +233,7 @@
     }
 
     .vis-item.status-planejado{ background-color: rgba(98,108,113,0.15); border-color: var(--color-info); color: var(--color-text-primary); }
-    .vis-item.status-em-andamento{ background-color: rgba(33,128,141,0.15); border-color: #0F766E; color: var(--color-text-primary); }
+    .vis-item.status-em-andamento{ background-color: rgba(33,128,141,0.15); border-color: var(--color-primary); color: var(--color-text-primary); }
     .vis-item.status-concluido{ background-color: rgba(33,128,141,0.25); border-color: var(--color-success); color: var(--color-text-primary); }
     .vis-item.status-atrasado{ background-color: rgba(192,21,47,0.15); border-color: var(--color-error); color: var(--color-text-primary); }
     .vis-item.status-pausado{ background-color: rgba(230,129,97,0.15); border-color: var(--color-warning); color: var(--color-text-primary); }
@@ -327,22 +327,12 @@
     .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
     .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
 
-    /* Epic pill: ultra-thin but vivid */
+    /* Epic pill (Detalhamento): highlighted and thin */
     .vis-item.epic-item {
       min-height: 10px !important;
       height: 10px !important;
       border-radius: 999px !important;
       cursor: pointer !important;
-    }
-
-    /* Spacer item: increases height for groups without cards */
-    .vis-item.spacer-item {
-      opacity: 0 !important;
-      background: transparent !important;
-      border-color: transparent !important;
-      min-height: 110px !important;
-      height: 110px !important;
-      pointer-events: none !important;
     }
 
     /* Multi-select dropdown (looks like a normal select) */
@@ -364,7 +354,7 @@
     }
     .multi-select-trigger:focus {
       outline: none;
-      border-color: #0F766E;
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
     .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1053,9 +1043,9 @@
 
           let customStyle = '';
           if (dataTarget && dataTarget < dataFinish) {
-            customStyle = `background: linear-gradient(to right, #5EEAD4 0%, #5EEAD4 ${targetPercent}%, #FF6B1A ${targetPercent}%, #FF6B1A 100%) !important; border-color: #0F766E !important;`;
+            customStyle = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
           } else {
-            customStyle = `background-color: #5EEAD4 !important; border-color: #0F766E !important;`;
+            customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
           }
 
           const badgeStyle = 'background: rgba(98,108,113,0.12); color: #13343b;';
@@ -1117,17 +1107,15 @@
       const allProjects = new Set();
       const epicByProject = new Map();
       const projectEpicLink = new Map();
-      const childCountByProject = new Map();
 
       const respFilters = normalizeList(filterResponsavel);
       const statusFilters = normalizeList(filterStatus);
-      const hasChildFilters = (respFilters.length > 0) || (statusFilters.length > 0);
 
       availableStacks.detalhamento.clear();
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Pass 1
+      // Pass 1: projects, facets, epic
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
@@ -1161,10 +1149,10 @@
             const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
             const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-            // Vivid solid colors (no transparency)
-            const green = '#6EE7B7';
-            const greenBorder = '#0F766E';
-            const orange = '#FF6B1A';
+            // Vivid pill colors (solid)
+            const green = '#34D399';
+            const greenBorder = '#065F46';
+            const orange = '#F97316';
 
             let epicStyle;
             if (epicTarget && epicTarget < epicEnd) {
@@ -1178,7 +1166,7 @@
         }
       }
 
-      // Pass 2
+      // Pass 2: children filtered, track which projects have cards
       const includedProjects = new Set();
 
       for (let i = 0; i < rows.length; i++) {
@@ -1208,7 +1196,6 @@
         if (!passResp || !passStatus) continue;
 
         includedProjects.add(projetoRaw);
-        childCountByProject.set(projetoRaw, (childCountByProject.get(projetoRaw) || 0) + 1);
         if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
         const statusNormalized = String(status || 'planejado')
@@ -1221,10 +1208,10 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        // Vivid solid colors (no transparency)
-        const base = '#5EEAD4';
-        const baseBorder = '#0F766E';
-        const late = '#FF6B1A';
+        // Softer card colors (still same palette)
+        const base = '#99F6E4';
+        const baseBorder = '#14B8A6';
+        const late = '#FDBA74';
 
         let style;
         if (childTarget && childTarget < childEnd) {
@@ -1256,21 +1243,18 @@
         });
       }
 
-      // Visible projects
-      let projectsToShow = [];
-      if (hasChildFilters) projectsToShow = Array.from(includedProjects);
-      else if (filterProjeto !== 'all') projectsToShow = [filterProjeto];
-      else projectsToShow = Array.from(allProjects);
+      // Requirement: show ONLY projects that have 1+ cards in the current view
+      const projectsToShow = Array.from(includedProjects);
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
-      // Epic pill: NO project name on the bar
+      // Epic pills for visible projects (no project name on the bar)
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
         items.push({
           id: `epic-${p}`,
-          content: `<div style=\"width:100%; height:100%;\"></div>`,
+          content: `<div style="width:100%; height:100%;"></div>`,
           start: info.start,
           end: info.end,
           group: p,
@@ -1280,29 +1264,6 @@
           style: info.style,
           title: `Projeto: ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
           linkUrl: (projectEpicLink.get(p) || null)
-        });
-      });
-
-      // Spacer for empty groups
-      const now = new Date();
-      projectsToShow.forEach(p => {
-        const childCount = childCountByProject.get(p) || 0;
-        if (childCount > 0) return;
-        const info = epicByProject.get(p);
-        const start = info ? info.start : now;
-        const end = new Date(start.getTime() + 24*60*60*1000);
-        items.push({
-          id: `spacer-${p}`,
-          content: '',
-          start,
-          end,
-          group: p,
-          subgroup: 'spacer',
-          order: 9999,
-          className: 'spacer-item',
-          style: 'background: transparent !important; border-color: transparent !important;',
-          title: '',
-          linkUrl: null
         });
       });
 
