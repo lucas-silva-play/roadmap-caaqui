@@ -243,7 +243,7 @@
       height: 30px !important;
       border-radius: 999px !important;
       font-size: 0.85rem !important;
-      cursor: pointer;
+      cursor: default;
     }
 
     .vis-labelset{ min-width: var(--stack-col-width) !important; }
@@ -327,13 +327,14 @@
     .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
     .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
 
-    /* Epic pill thinner (Detalhamento) */
+    /* Epic pill ultra-thin + near-transparent light green */
     .vis-item.epic-item {
-      min-height: 22px !important;
-      height: 22px !important;
+      min-height: 10px !important;
+      height: 10px !important;
       border-radius: 999px !important;
-      font-size: 0.82rem !important;
       cursor: pointer !important;
+      background-color: rgba(33, 128, 141, 0.035) !important;
+      border-color: rgba(33, 128, 141, 0.08) !important;
     }
 
     /* Spacer item used to increase empty-group height */
@@ -669,26 +670,14 @@
       if (statusDiv) statusDiv.innerHTML = '';
     }
 
-    // --- LINKS ---
     
     // --- LINKS ---
     // Supports:
     // - full URLs (http/https)
     // - www.* URLs
-    // - Jira keys (ex: APP-123) -> base/browse/APP-123
+    // - Jira keys (ex: APP-123) -> JIRA_BASE_URL/browse/APP-123
+    const JIRA_BASE_URL = ''; // ex: 'https://suaempresa.atlassian.net'
     let inferredJiraOrigin = null;
-
-    function getJiraBaseUrl() {
-      const fromStorage = (localStorage.getItem('jira_base_url') || '').trim();
-      return fromStorage;
-    }
-
-    function setJiraBaseUrl(url) {
-      const u = String(url || '').trim().replace(/\/$/, '');
-      if (!u) return '';
-      localStorage.setItem('jira_base_url', u);
-      return u;
-    }
 
     function inferJiraOriginFromUrl(u) {
       try {
@@ -714,9 +703,8 @@
 
       const key = extractJiraKey(s0);
       if (key) {
-        const base = inferredJiraOrigin || getJiraBaseUrl();
-        if (base) return base.replace(/\/$/, '') + '/browse/' + key;
-        return { needsBase: true, key };
+        const base = inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null);
+        if (base) return base + '/browse/' + key;
       }
 
       return null;
@@ -725,16 +713,6 @@
     function openItemLink(url) {
       const resolved = resolveLink(url);
       if (!resolved) return;
-
-      if (typeof resolved === 'object' && resolved.needsBase) {
-        const entered = prompt('Informe a URL base do Jira (ex: https://suaempresa.atlassian.net)');
-        const base = setJiraBaseUrl(entered);
-        if (!base) return;
-        const finalUrl = base + '/browse/' + resolved.key;
-        window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        return;
-      }
-
       inferJiraOriginFromUrl(resolved);
       window.open(resolved, '_blank', 'noopener,noreferrer');
     }
@@ -1151,7 +1129,7 @@
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Pass 1: projects, facets, epic data, store project epic link
+      // Pass 1
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
@@ -1185,11 +1163,12 @@
             const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
             const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
+            // subtle light green background; if target < end (late), keep a very subtle orange tail
             let epicStyle;
             if (epicTarget && epicTarget < epicEnd) {
-              epicStyle = `background: linear-gradient(to right, rgba(98,108,113,0.12) 0%, rgba(98,108,113,0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
+              epicStyle = `background: linear-gradient(to right, rgba(33,128,141,0.035) 0%, rgba(33,128,141,0.035) ${targetPercent}%, rgba(255,103,31,0.14) ${targetPercent}%, rgba(255,103,31,0.14) 100%) !important; border-color: rgba(33,128,141,0.08) !important;`;
             } else {
-              epicStyle = `background-color: rgba(98,108,113,0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
+              epicStyle = `background-color: rgba(33,128,141,0.035) !important; border-color: rgba(33,128,141,0.08) !important;`;
             }
 
             epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
@@ -1197,7 +1176,7 @@
         }
       }
 
-      // Pass 2: children filtered, track included projects
+      // Pass 2
       const includedProjects = new Set();
 
       for (let i = 0; i < rows.length; i++) {
@@ -1266,7 +1245,6 @@
           className: `status-${statusNormalized}`,
           style,
           title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
-          // Link comes from Epic Link
           linkUrl: epicLinkUrl
         });
       }
@@ -1279,7 +1257,7 @@
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
-      // Epic pills for visible projects (NO project name on the pill)
+      // Epic pill: NO project name on the bar
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
@@ -1298,7 +1276,7 @@
         });
       });
 
-      // Add spacer item for groups with NO child cards (to avoid squeezed empty rows)
+      // Spacer for empty groups
       const now = new Date();
       projectsToShow.forEach(p => {
         const childCount = childCountByProject.get(p) || 0;
@@ -1356,7 +1334,7 @@
       });
       if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
-      // Responsável hidden multi
+      // Responsável (hidden multi)
       respSelect.innerHTML = '';
       const allOptR = document.createElement('option');
       allOptR.value = 'all';
@@ -1371,7 +1349,7 @@
       });
       if (currentResp.size === 0) allOptR.selected = true;
 
-      // Status hidden multi
+      // Status (hidden multi)
       stSelect.innerHTML = '';
       const allOptS = document.createElement('option');
       allOptS.value = 'all';
