@@ -113,9 +113,6 @@
       flex: 1 1 260px;
       margin-bottom: 0;
       min-width: 240px;
-    
-      display: flex;
-      flex-direction: column;
     }
 
     .form-group{ margin-bottom:20px; }
@@ -324,6 +321,69 @@
       .filters-grid{ flex-direction: column; align-items: stretch; }
       .filters-grid .form-group{ min-width: 100%; }
     }
+  
+    /* Divider between left column (labels) and timeline */
+    .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
+    .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
+
+    /* Epic pill should be clickable */
+    .vis-item.epic-item { cursor: pointer !important; }
+    .vis-item.epic-item .vis-item-content { width: 100%; }
+
+    /* Multi-select dropdown (looks like a normal select) */
+    .multi-select { position: relative; width: 100%; }
+    .multi-select-trigger {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      transition: border-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .multi-select-trigger:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
+    }
+    .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
+    .multi-select-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+      padding: 6px;
+      max-height: 260px;
+      overflow: auto;
+      display: none;
+      z-index: 1000;
+    }
+    .multi-select.is-open .multi-select-dropdown { display: block; }
+    .multi-select-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--color-text-primary);
+      font-size: 0.92rem;
+    }
+    .multi-select-option:hover { background: rgba(94,82,64,0.06); }
+    .multi-select-option input { width: 16px; height: 16px; }
+
   </style>
 </head>
 <body>
@@ -410,18 +470,32 @@
 
           <div class="form-group">
             <label for="responsavel-filter-detalhes">Filtrar por Responsável</label>
-            <select id="responsavel-filter-detalhes">
-              <option value="all">Todos</option>
+            <div class="multi-select" data-select="responsavel-filter-detalhes">
+              <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="multi-select-value">Todos</span>
+                <span class="multi-select-arrow">▾</span>
+              </button>
+              <div class="multi-select-dropdown" role="listbox"></div>
+            </div>
+            <select id="responsavel-filter-detalhes" multiple style="display:none;">
+              <option value="all" selected>Todos</option>
             </select>
-            <p class="hint">Baseado na coluna Responsável/Nome do responsável.</p>
+            <p class="hint">Baseado na coluna Responsável/Nome do responsável (selecione mais de um).</p>
           </div>
 
           <div class="form-group">
             <label for="status-filter-detalhes">Filtrar por Status</label>
-            <select id="status-filter-detalhes">
-              <option value="all">Todos</option>
+            <div class="multi-select" data-select="status-filter-detalhes">
+              <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="multi-select-value">Todos</span>
+                <span class="multi-select-arrow">▾</span>
+              </button>
+              <div class="multi-select-dropdown" role="listbox"></div>
+            </div>
+            <select id="status-filter-detalhes" multiple style="display:none;">
+              <option value="all" selected>Todos</option>
             </select>
-            <p class="hint">Baseado na coluna Status.</p>
+            <p class="hint">Baseado na coluna Status (selecione mais de um).</p>
           </div>
 
           <div class="form-group">
@@ -581,15 +655,13 @@
 
     // --- LINKS ---
     
-    // Link redirect: accepts full URLs or Jira keys (ex: APP-123)
-    // If you have a fixed Jira base, set it here:
-    const JIRA_BASE_URL = ''; // ex: 'https://suaempresa.atlassian.net'
+    // Link redirect: accepts full URLs, www.* URLs, or Jira keys (ex: APP-123)
+    const JIRA_BASE_URL = ''; // opcional: ex 'https://suaempresa.atlassian.net'
     let inferredJiraOrigin = null;
 
     function inferJiraOriginFromUrl(u) {
       try {
         const x = new URL(u);
-        // We infer origin from any Jira-like browse URL
         if (!inferredJiraOrigin && (/\/browse\//i.test(x.pathname) || /atlassian\.net$/i.test(x.hostname))) {
           inferredJiraOrigin = x.origin;
         }
@@ -603,16 +675,15 @@
     }
 
     function resolveLink(raw) {
-      const s = String(raw || '').trim();
-      if (!s) return null;
+      const s0 = String(raw || '').trim();
+      if (!s0) return null;
 
-      // Full URL
-      if (/^https?:\/\//i.test(s)) return s;
+      if (/^https?:\/\//i.test(s0)) return s0;
+      if (/^www\./i.test(s0)) return 'https://' + s0;
 
-      // Jira key
-      const key = extractJiraKey(s);
+      const key = extractJiraKey(s0);
       if (key) {
-        const base = (inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null));
+        const base = inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null);
         if (base) return base + '/browse/' + key;
       }
 
@@ -625,14 +696,104 @@
       inferJiraOriginFromUrl(resolved);
       window.open(resolved, '_blank', 'noopener,noreferrer');
     }
-// --- UTIL ---
+
+
+    // --- UTIL ---
     function extractBracketText(text) {
       const s = String(text || '').trim();
       const m = s.match(/\[(.*?)\]/);
       return m ? m[1].trim() : s;
     }
 
-    // CSV robusto (auto delimiter + sep=;)
+    
+    function getSelectedValues(selectEl) {
+      return Array.from(selectEl.options)
+        .filter(o => o.selected)
+        .map(o => o.value);
+    }
+
+    function formatSelectedLabel(selectEl) {
+      const values = getSelectedValues(selectEl).filter(v => v !== 'all');
+      if (!values.length) return 'Todos';
+      if (values.length <= 2) return values.join(', ');
+      return values.slice(0, 2).join(', ') + ` +${values.length - 2}`;
+    }
+
+    function rebuildMultiSelect(selectId) {
+      const selectEl = document.getElementById(selectId);
+      const wrapper = document.querySelector(`.multi-select[data-select="${selectId}"]`);
+      if (!selectEl || !wrapper) return;
+
+      const trigger = wrapper.querySelector('.multi-select-trigger');
+      const valueEl = wrapper.querySelector('.multi-select-value');
+      const dropdown = wrapper.querySelector('.multi-select-dropdown');
+
+      dropdown.innerHTML = '';
+
+      Array.from(selectEl.options).forEach((opt) => {
+        const row = document.createElement('div');
+        row.className = 'multi-select-option';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!opt.selected;
+
+        const label = document.createElement('div');
+        label.textContent = opt.textContent;
+
+        row.appendChild(cb);
+        row.appendChild(label);
+
+        row.addEventListener('click', (e) => {
+          e.preventDefault();
+
+          if (opt.value === 'all') {
+            Array.from(selectEl.options).forEach(o => { o.selected = (o.value === 'all'); });
+          } else {
+            opt.selected = !opt.selected;
+            const allOpt = Array.from(selectEl.options).find(o => o.value === 'all');
+            if (allOpt) allOpt.selected = false;
+
+            const anySelected = Array.from(selectEl.options).some(o => o.value !== 'all' && o.selected);
+            if (!anySelected && allOpt) allOpt.selected = true;
+          }
+
+          // Sync checkbox visuals
+          Array.from(dropdown.querySelectorAll('.multi-select-option')).forEach((el, idx) => {
+            const o = selectEl.options[idx];
+            const c = el.querySelector('input');
+            if (c) c.checked = !!o.selected;
+          });
+
+          valueEl.textContent = formatSelectedLabel(selectEl);
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        dropdown.appendChild(row);
+      });
+
+      valueEl.textContent = formatSelectedLabel(selectEl);
+
+      if (!trigger.dataset.bound) {
+        trigger.dataset.bound = '1';
+        trigger.addEventListener('click', () => {
+          const isOpen = wrapper.classList.toggle('is-open');
+          trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+      }
+
+      if (!wrapper.dataset.outsideBound) {
+        wrapper.dataset.outsideBound = '1';
+        document.addEventListener('click', (e) => {
+          if (!wrapper.contains(e.target)) {
+            wrapper.classList.remove('is-open');
+            trigger.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+    }
+
+// CSV robusto (auto delimiter + sep=;)
     function parseCSVLine(line, delimiter) {
       const result = [];
       let current = '';
@@ -908,107 +1069,122 @@
       return { items, groups };
     }
 
-    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = 'all', filterStatus = 'all') {
+    
+    function splitPeople(text) {
+      const s = String(text || '').trim();
+      if (!s) return [];
+      return s
+        .replace(/\n/g, ',')
+        .replace(/\s*;\s*/g, ',')
+        .replace(/\s*\/\s*/g, ',')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+    }
+
+    function sameCI(a, b) {
+      return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    }
+
+    function normalizeList(list) {
+      return (Array.isArray(list) ? list : [])
+        .map(v => String(v || '').trim())
+        .filter(Boolean)
+        .filter(v => v !== 'all');
+    }
+
+    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all']) {
       const items = [];
-      const groups = [];
-      const groupSet = new Set();
+
+      const allProjects = new Set();
       const epicByProject = new Map();
+      const projectEpicLink = new Map();
+
+      const respFilters = normalizeList(filterResponsavel);
+      const statusFilters = normalizeList(filterStatus);
+      const hasChildFilters = (respFilters.length > 0) || (statusFilters.length > 0);
 
       availableStacks.detalhamento.clear();
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Primeiro passe: grupos (projetos)
+      // Pass 1: projects, facets, epic data, store project epic link
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
         if (!projetoRaw) continue;
-        if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
-        if (!groupSet.has(projetoRaw)) {
-          groupSet.add(projetoRaw);
-          groups.push({ id: projetoRaw, content: extractBracketText(projetoRaw) });
-          availableStacks.detalhamento.add(projetoRaw);
+        allProjects.add(projetoRaw);
+        availableStacks.detalhamento.add(projetoRaw);
+
+        const epicLinkCandidate = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
+        if (epicLinkCandidate && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkCandidate);
+
+        const considerForFacets = (filterProjeto === 'all' || projetoRaw === filterProjeto);
+        if (considerForFacets) {
+          const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+          splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
+
+          const st = String(getCell(row, ['Status']) || '').trim();
+          if (st) availableStatuses.detalhamento.add(st);
+        }
+
+        if (!epicByProject.has(projetoRaw)) {
+          const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
+          if (epicStart) {
+            const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+            const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
+            let epicEnd = epicFinish || epicTarget;
+            if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+            if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+
+            const totalDuration = epicEnd - epicStart;
+            const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+            const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+            let epicStyle;
+            if (epicTarget && epicTarget < epicEnd) {
+              epicStyle = `background: linear-gradient(to right, rgba(98,108,113,0.12) 0%, rgba(98,108,113,0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
+            } else {
+              epicStyle = `background-color: rgba(98,108,113,0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
+            }
+
+            epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
+          }
         }
       }
 
+      // Pass 2: children filtered, track included projects
+      const includedProjects = new Set();
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
         if (!projetoRaw) continue;
         if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
-        // EPIC
-        const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-        const epicLinkCandidate = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink']) || '').trim();
-        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)', 'Finish Date (Epic)']));
-
-        if (!epicByProject.has(projetoRaw) && epicStart) {
-          let epicEnd = epicFinish || epicTarget;
-          if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
-          if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
-
-          const totalDuration = epicEnd - epicStart;
-          const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-          const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-          let epicStyle = '';
-          if (epicTarget && epicTarget < epicEnd) {
-            epicStyle = `background: linear-gradient(to right, rgba(98,108,113,0.12) 0%, rgba(98,108,113,0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
-          } else {
-            epicStyle = `background-color: rgba(98,108,113,0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
-          }
-
-          epicByProject.set(projetoRaw, {
-            id: `epic-${projetoRaw}`,
-            content: `
-              <div style="padding:2px 10px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <strong style="font-size:0.92rem;">${extractBracketText(projetoRaw)}</strong>
-                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:999px; background: rgba(98,108,113,0.22); color:#626c71; font-weight:800;"></span>
-                </div>
-              </div>
-            `,
-            start: epicStart,
-            end: epicEnd,
-            group: projetoRaw,
-            subgroup: 'epic',
-            order: -1000,
-            className: 'epic-item',
-            style: epicStyle,
-            title: `Projeto: ${projetoRaw}\nStart: ${formatDate(epicStart)}\nTarget: ${formatDate(epicTarget)}\nFinish: ${formatDate(epicEnd)}`,
-            linkUrl: (epicLinkCandidate || null)
-          });
-        }
-
-        // CHILD
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
         const childStart = parseBRDate(getCell(row, ['Start date']));
         const childTarget = parseBRDate(getCell(row, ['Target end']));
         const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
-
         if (!resumo || !childStart) continue;
 
         let childEnd = childFinish || childTarget;
-        if (!childEnd) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
-        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
+        if (!childEnd) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
+        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
 
-        const responsavel = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel (nome)']) || '').trim();
+        const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+        const responsavelList = splitPeople(responsavelRaw);
         const status = String(getCell(row, ['Status']) || 'planejado').trim();
-        const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink']) || '').trim();
-        // Also use this link for the project pill (epic) when available
-        if (!epicByProject.has(projetoRaw) && epicStart) {
-          const epicLinkCandidate = epicLinkUrl;
-        }
 
-        if (responsavel) availableResponsaveis.detalhamento.add(responsavel);
-        if (status) availableStatuses.detalhamento.add(status);
+        const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
 
-        const passResp = (filterResponsavel === 'all') ? true : (responsavel === filterResponsavel);
-        const passStatus = (filterStatus === 'all') ? true : (status === filterStatus);
+        const passResp = (respFilters.length === 0) ? true : responsavelList.some(p => respFilters.some(f => sameCI(p, f)));
+        const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
         if (!passResp || !passStatus) continue;
+
+        includedProjects.add(projetoRaw);
+        if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
         const statusNormalized = String(status || 'planejado')
           .toLowerCase()
@@ -1020,7 +1196,7 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        let style = '';
+        let style;
         if (childTarget && childTarget < childEnd) {
           style = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
         } else {
@@ -1033,12 +1209,10 @@
             <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <strong>${resumo}</strong>
-                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color: #13343b; font-weight:800;">${status}</span>
+                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color:#13343b; font-weight:800;">${status}</span>
               </div>
-              <div style="font-size:0.75rem; opacity:0.85;">
-                Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}
-              </div>
-              ${responsavel ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavel}</strong></div>` : ''}
+              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}</div>
+              ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
             </div>
           `,
           start: childStart,
@@ -1046,16 +1220,48 @@
           group: projetoRaw,
           subgroup: 'child',
           className: `status-${statusNormalized}`,
-          style: style,
-          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavel ? `\nResponsável: ${responsavel}` : ''}`,
+          style,
+          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
           linkUrl: epicLinkUrl
         });
       }
 
-      epicByProject.forEach(epic => items.push(epic));
+      // Visible projects
+      let projectsToShow = [];
+      if (hasChildFilters) projectsToShow = Array.from(includedProjects);
+      else if (filterProjeto !== 'all') projectsToShow = [filterProjeto];
+      else projectsToShow = Array.from(allProjects);
+
+      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+
+      // Epic pills (centered text) with link
+      projectsToShow.forEach(p => {
+        const info = epicByProject.get(p);
+        if (!info) return;
+        items.push({
+          id: `epic-${p}`,
+          content: `
+            <div style="padding:2px 10px; width:100%;">
+              <div style="display:flex; justify-content:center; width:100%;">
+                <strong style="font-size:0.92rem; text-align:center; width:100%;">${extractBracketText(p)}</strong>
+              </div>
+            </div>
+          `,
+          start: info.start,
+          end: info.end,
+          group: p,
+          subgroup: 'epic',
+          order: -1000,
+          className: 'epic-item',
+          style: info.style,
+          title: `Projeto: ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
+          linkUrl: (projectEpicLink.get(p) || null)
+        });
+      });
 
       return { items, groups };
     }
+
 
     // --- FILTER DROPDOWNS ---
     function updateStackFilterGeral() {
@@ -1076,33 +1282,52 @@
       const stSelect = document.getElementById('status-filter-detalhes');
 
       const currentProj = projSelect.value;
-      const currentResp = respSelect.value;
-      const currentSt = stSelect.value;
+      const currentResp = new Set(Array.from(respSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+      const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
 
+      // Projeto
       projSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStacks.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v; opt.textContent = extractBracketText(v);
+        opt.value = v;
+        opt.textContent = extractBracketText(v);
         projSelect.appendChild(opt);
       });
+      if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
-      respSelect.innerHTML = '<option value="all">Todos</option>';
+      // Responsável (hidden multi)
+      respSelect.innerHTML = '';
+      const allOptR = document.createElement('option');
+      allOptR.value = 'all';
+      allOptR.textContent = 'Todos';
+      respSelect.appendChild(allOptR);
       Array.from(availableResponsaveis.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v; opt.textContent = v;
+        opt.value = v;
+        opt.textContent = v;
+        if (currentResp.has(v)) opt.selected = true;
         respSelect.appendChild(opt);
       });
+      if (currentResp.size === 0) allOptR.selected = true;
 
-      stSelect.innerHTML = '<option value="all">Todos</option>';
+      // Status (hidden multi)
+      stSelect.innerHTML = '';
+      const allOptS = document.createElement('option');
+      allOptS.value = 'all';
+      allOptS.textContent = 'Todos';
+      stSelect.appendChild(allOptS);
       Array.from(availableStatuses.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v; opt.textContent = v;
+        opt.value = v;
+        opt.textContent = v;
+        if (currentSt.has(v)) opt.selected = true;
         stSelect.appendChild(opt);
       });
+      if (currentSt.size === 0) allOptS.selected = true;
 
-      if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
-      if (currentResp !== 'all' && availableResponsaveis.detalhamento.has(currentResp)) respSelect.value = currentResp;
-      if (currentSt !== 'all' && availableStatuses.detalhamento.has(currentSt)) stSelect.value = currentSt;
+      // Rebuild custom dropdown UIs
+      rebuildMultiSelect('responsavel-filter-detalhes');
+      rebuildMultiSelect('status-filter-detalhes');
     }
 
     // --- TIMELINE ---
@@ -1202,12 +1427,21 @@
     function applyFilterDetalhamento() {
       if (!allParsedData.detalhamento) return;
       const proj = document.getElementById('stack-filter-detalhes').value;
-      const resp = document.getElementById('responsavel-filter-detalhes').value;
-      const st = document.getElementById('status-filter-detalhes').value;
 
-      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, resp, st);
+      const respEl = document.getElementById('responsavel-filter-detalhes');
+      const stEl = document.getElementById('status-filter-detalhes');
+
+      const resp = Array.from(respEl.selectedOptions || []).map(o => o.value);
+      const st = Array.from(stEl.selectedOptions || []).map(o => o.value);
+
+      const respFilters = resp.length ? resp : ['all'];
+      const stFilters = st.length ? st : ['all'];
+
+      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters);
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
+          rebuildMultiSelect('responsavel-filter-detalhes');
+          rebuildMultiSelect('status-filter-detalhes');
     }
 
     // --- LOAD / REFRESH ---
@@ -1249,6 +1483,8 @@
           }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
+          rebuildMultiSelect('responsavel-filter-detalhes');
+          rebuildMultiSelect('status-filter-detalhes');
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
