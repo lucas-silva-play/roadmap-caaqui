@@ -243,7 +243,7 @@
       height: 30px !important;
       border-radius: 999px !important;
       font-size: 0.85rem !important;
-      cursor: default;
+      cursor: pointer;
     }
 
     .vis-labelset{ min-width: var(--stack-col-width) !important; }
@@ -322,13 +322,29 @@
       .filters-grid .form-group{ min-width: 100%; }
     }
   
-    /* Divider between left column (labels) and timeline */
+
+    /* Divider between left label column and timeline */
     .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
     .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
 
-    /* Epic pill should be clickable */
-    .vis-item.epic-item { cursor: pointer !important; }
-    .vis-item.epic-item .vis-item-content { width: 100%; }
+    /* Epic pill thinner (Detalhamento) */
+    .vis-item.epic-item {
+      min-height: 22px !important;
+      height: 22px !important;
+      border-radius: 999px !important;
+      font-size: 0.82rem !important;
+      cursor: pointer !important;
+    }
+
+    /* Spacer item used to increase empty-group height */
+    .vis-item.spacer-item {
+      opacity: 0 !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      min-height: 46px !important;
+      height: 46px !important;
+      pointer-events: none !important;
+    }
 
     /* Multi-select dropdown (looks like a normal select) */
     .multi-select { position: relative; width: 100%; }
@@ -655,9 +671,24 @@
 
     // --- LINKS ---
     
-    // Link redirect: accepts full URLs, www.* URLs, or Jira keys (ex: APP-123)
-    const JIRA_BASE_URL = ''; // opcional: ex 'https://suaempresa.atlassian.net'
+    // --- LINKS ---
+    // Supports:
+    // - full URLs (http/https)
+    // - www.* URLs
+    // - Jira keys (ex: APP-123) -> base/browse/APP-123
     let inferredJiraOrigin = null;
+
+    function getJiraBaseUrl() {
+      const fromStorage = (localStorage.getItem('jira_base_url') || '').trim();
+      return fromStorage;
+    }
+
+    function setJiraBaseUrl(url) {
+      const u = String(url || '').trim().replace(/\/$/, '');
+      if (!u) return '';
+      localStorage.setItem('jira_base_url', u);
+      return u;
+    }
 
     function inferJiraOriginFromUrl(u) {
       try {
@@ -683,8 +714,9 @@
 
       const key = extractJiraKey(s0);
       if (key) {
-        const base = inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null);
-        if (base) return base + '/browse/' + key;
+        const base = inferredJiraOrigin || getJiraBaseUrl();
+        if (base) return base.replace(/\/$/, '') + '/browse/' + key;
+        return { needsBase: true, key };
       }
 
       return null;
@@ -693,6 +725,16 @@
     function openItemLink(url) {
       const resolved = resolveLink(url);
       if (!resolved) return;
+
+      if (typeof resolved === 'object' && resolved.needsBase) {
+        const entered = prompt('Informe a URL base do Jira (ex: https://suaempresa.atlassian.net)');
+        const base = setJiraBaseUrl(entered);
+        if (!base) return;
+        const finalUrl = base + '/browse/' + resolved.key;
+        window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
       inferJiraOriginFromUrl(resolved);
       window.open(resolved, '_blank', 'noopener,noreferrer');
     }
@@ -1099,6 +1141,7 @@
       const allProjects = new Set();
       const epicByProject = new Map();
       const projectEpicLink = new Map();
+      const childCountByProject = new Map();
 
       const respFilters = normalizeList(filterResponsavel);
       const statusFilters = normalizeList(filterStatus);
@@ -1184,6 +1227,7 @@
         if (!passResp || !passStatus) continue;
 
         includedProjects.add(projetoRaw);
+        childCountByProject.set(projetoRaw, (childCountByProject.get(projetoRaw) || 0) + 1);
         if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
         const statusNormalized = String(status || 'planejado')
@@ -1222,6 +1266,7 @@
           className: `status-${statusNormalized}`,
           style,
           title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
+          // Link comes from Epic Link
           linkUrl: epicLinkUrl
         });
       }
@@ -1234,19 +1279,13 @@
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
-      // Epic pills (centered text) with link
+      // Epic pills for visible projects (NO project name on the pill)
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
         items.push({
           id: `epic-${p}`,
-          content: `
-            <div style="padding:2px 10px; width:100%;">
-              <div style="display:flex; justify-content:center; width:100%;">
-                <strong style="font-size:0.92rem; text-align:center; width:100%;">${extractBracketText(p)}</strong>
-              </div>
-            </div>
-          `,
+          content: `<div style="width:100%; height:100%;"></div>`,
           start: info.start,
           end: info.end,
           group: p,
@@ -1256,6 +1295,29 @@
           style: info.style,
           title: `Projeto: ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
           linkUrl: (projectEpicLink.get(p) || null)
+        });
+      });
+
+      // Add spacer item for groups with NO child cards (to avoid squeezed empty rows)
+      const now = new Date();
+      projectsToShow.forEach(p => {
+        const childCount = childCountByProject.get(p) || 0;
+        if (childCount > 0) return;
+        const info = epicByProject.get(p);
+        const start = info ? info.start : now;
+        const end = new Date(start.getTime() + 24*60*60*1000);
+        items.push({
+          id: `spacer-${p}`,
+          content: '',
+          start,
+          end,
+          group: p,
+          subgroup: 'spacer',
+          order: 9999,
+          className: 'spacer-item',
+          style: 'background: transparent !important; border-color: transparent !important;',
+          title: '',
+          linkUrl: null
         });
       });
 
@@ -1285,7 +1347,6 @@
       const currentResp = new Set(Array.from(respSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
       const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
 
-      // Projeto
       projSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStacks.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
@@ -1295,7 +1356,7 @@
       });
       if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
-      // Responsável (hidden multi)
+      // Responsável hidden multi
       respSelect.innerHTML = '';
       const allOptR = document.createElement('option');
       allOptR.value = 'all';
@@ -1310,7 +1371,7 @@
       });
       if (currentResp.size === 0) allOptR.selected = true;
 
-      // Status (hidden multi)
+      // Status hidden multi
       stSelect.innerHTML = '';
       const allOptS = document.createElement('option');
       allOptS.value = 'all';
@@ -1325,7 +1386,6 @@
       });
       if (currentSt.size === 0) allOptS.selected = true;
 
-      // Rebuild custom dropdown UIs
       rebuildMultiSelect('responsavel-filter-detalhes');
       rebuildMultiSelect('status-filter-detalhes');
     }
@@ -1440,8 +1500,8 @@
       const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters);
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
-          rebuildMultiSelect('responsavel-filter-detalhes');
-          rebuildMultiSelect('status-filter-detalhes');
+        rebuildMultiSelect('responsavel-filter-detalhes');
+        rebuildMultiSelect('status-filter-detalhes');
     }
 
     // --- LOAD / REFRESH ---
@@ -1483,8 +1543,8 @@
           }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
-          rebuildMultiSelect('responsavel-filter-detalhes');
-          rebuildMultiSelect('status-filter-detalhes');
+        rebuildMultiSelect('responsavel-filter-detalhes');
+        rebuildMultiSelect('status-filter-detalhes');
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
