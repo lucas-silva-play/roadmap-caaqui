@@ -104,7 +104,7 @@
     .filters-grid{
       display:flex;
       gap:16px;
-      align-items:flex-end;
+      align-items: flex-start;
       justify-content: space-between;
       flex-wrap: wrap;
       margin-top: 12px;
@@ -113,6 +113,9 @@
       flex: 1 1 260px;
       margin-bottom: 0;
       min-width: 240px;
+    
+      display: flex;
+      flex-direction: column;
     }
 
     .form-group{ margin-bottom:20px; }
@@ -133,7 +136,9 @@
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
-    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
+    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; 
+      min-height: 18px;
+    }
 
     .actions{ display:flex; gap:12px; flex-wrap:wrap; }
 
@@ -324,7 +329,7 @@
 <body>
   <div class="container">
     <header>
-      <img id="page-logo" class="page-logo" src="logo.jpg" alt="Caaqui" onerror="this.style.display='none'">
+      <img id="page-logo" class="page-logo" src="./logo.jpg" alt="Caaqui" loading="eager" decoding="async" />
 
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
@@ -427,6 +432,7 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
+            <p class="hint">&nbsp;</p>
           </div>
         </div>
       </div>
@@ -473,6 +479,20 @@
   <script>
     // --- MENU ---
     let currentPage = 'geral';
+    (function ensureLogo(){
+      const img = document.getElementById('page-logo');
+      if (!img) return;
+      const candidates = ['./logo.jpg','logo.jpg','/logo.jpg','./assets/logo.jpg','assets/logo.jpg','./img/logo.jpg','img/logo.jpg'];
+      let idx = 0;
+      const tryNext = () => {
+        idx += 1;
+        if (idx < candidates.length) img.src = candidates[idx];
+      };
+      img.addEventListener('error', tryNext);
+      // Force first attempt even if some browsers cached a previous broken src
+      img.src = candidates[0];
+    })();
+
     function switchPage(page) {
       currentPage = page;
 
@@ -864,102 +884,114 @@
       return { items, groups };
     }
 
+    
+    function splitPeople(text) {
+      const s = String(text || '').trim();
+      if (!s) return [];
+      return s
+        .replace(/\n/g, ',')
+        .replace(/\s*;\s*/g, ',')
+        .replace(/\s*\/\s*/g, ',')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+    }
+
+    function sameCI(a, b) {
+      return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    }
+
     function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = 'all', filterStatus = 'all') {
       const items = [];
-      const groups = [];
-      const groupSet = new Set();
+
+      const allProjects = new Set();
       const epicByProject = new Map();
 
+      // Facets (o dropdown deve continuar mostrando todos os projetos; resp/status dependem do projeto selecionado)
       availableStacks.detalhamento.clear();
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Primeiro passe: grupos (projetos)
+      // 1) Coleta projetos + epic, e popula responsaveis/status considerando apenas o filtro de projeto
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
         if (!projetoRaw) continue;
-        if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
-        if (!groupSet.has(projetoRaw)) {
-          groupSet.add(projetoRaw);
-          groups.push({ id: projetoRaw, content: extractBracketText(projetoRaw) });
-          availableStacks.detalhamento.add(projetoRaw);
+        allProjects.add(projetoRaw);
+        availableStacks.detalhamento.add(projetoRaw);
+
+        const considerForFacets = (filterProjeto === 'all' || projetoRaw === filterProjeto);
+        if (considerForFacets) {
+          const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+          splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
+
+          const st = String(getCell(row, ['Status']) || '').trim();
+          if (st) availableStatuses.detalhamento.add(st);
+        }
+
+        // EPIC por projeto (pega a primeira ocorrência com start válido)
+        if (!epicByProject.has(projetoRaw)) {
+          const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
+          if (epicStart) {
+            const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+            const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
+            let epicEnd = epicFinish || epicTarget;
+            if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+            if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+
+            const totalDuration = epicEnd - epicStart;
+            const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+            const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+            let epicStyle;
+            if (epicTarget && epicTarget < epicEnd) {
+              epicStyle = `background: linear-gradient(to right, rgba(98, 108, 113, 0.12) 0%, rgba(98, 108, 113, 0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
+            } else {
+              epicStyle = `background-color: rgba(98, 108, 113, 0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
+            }
+
+            epicByProject.set(projetoRaw, {
+              start: epicStart,
+              end: epicEnd,
+              target: epicTarget,
+              style: epicStyle
+            });
+          }
         }
       }
 
+      // 2) Cria itens (children) filtrados e marca quais projetos realmente entram no roadmap
+      const includedProjects = new Set();
+      const hasChildFilters = (filterResponsavel !== 'all') || (filterStatus !== 'all');
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
         if (!projetoRaw) continue;
         if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
-        // EPIC
-        const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)', 'Finish Date (Epic)']));
-
-        if (!epicByProject.has(projetoRaw) && epicStart) {
-          let epicEnd = epicFinish || epicTarget;
-          if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
-          if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
-
-          const totalDuration = epicEnd - epicStart;
-          const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-          const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-          let epicStyle = '';
-          if (epicTarget && epicTarget < epicEnd) {
-            epicStyle = `background: linear-gradient(to right, rgba(98,108,113,0.12) 0%, rgba(98,108,113,0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
-          } else {
-            epicStyle = `background-color: rgba(98,108,113,0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
-          }
-
-          epicByProject.set(projetoRaw, {
-            id: `epic-${projetoRaw}`,
-            content: `
-              <div style="padding:2px 10px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <strong style="font-size:0.92rem;">${extractBracketText(projetoRaw)}</strong>
-                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:999px; background: rgba(98,108,113,0.22); color:#626c71; font-weight:800;"></span>
-                </div>
-              </div>
-            `,
-            start: epicStart,
-            end: epicEnd,
-            group: projetoRaw,
-            subgroup: 'epic',
-            order: -1000,
-            className: 'epic-item',
-            style: epicStyle,
-            title: `Projeto (Epic): ${projetoRaw}\nStart: ${formatDate(epicStart)}\nTarget: ${formatDate(epicTarget)}\nFinish: ${formatDate(epicEnd)}`,
-            linkUrl: null
-          });
-        }
-
-        // CHILD
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
         const childStart = parseBRDate(getCell(row, ['Start date']));
         const childTarget = parseBRDate(getCell(row, ['Target end']));
         const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
-
         if (!resumo || !childStart) continue;
 
         let childEnd = childFinish || childTarget;
-        if (!childEnd) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
-        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
+        if (!childEnd) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
+        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
 
-        const responsavel = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel (nome)']) || '').trim();
+        const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+        const responsavelList = splitPeople(responsavelRaw);
+
         const status = String(getCell(row, ['Status']) || 'planejado').trim();
         const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink']) || '').trim();
 
-        if (responsavel) availableResponsaveis.detalhamento.add(responsavel);
-        if (status) availableStatuses.detalhamento.add(status);
-
-        const passResp = (filterResponsavel === 'all') ? true : (responsavel === filterResponsavel);
-        const passStatus = (filterStatus === 'all') ? true : (status === filterStatus);
+        const passResp = (filterResponsavel === 'all') ? true : responsavelList.some(p => sameCI(p, filterResponsavel));
+        const passStatus = (filterStatus === 'all') ? true : sameCI(status, filterStatus);
         if (!passResp || !passStatus) continue;
+
+        includedProjects.add(projetoRaw);
 
         const statusNormalized = String(status || 'planejado')
           .toLowerCase()
@@ -971,7 +1003,7 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        let style = '';
+        let style;
         if (childTarget && childTarget < childEnd) {
           style = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
         } else {
@@ -984,12 +1016,10 @@
             <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <strong>${resumo}</strong>
-                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color: #13343b; font-weight:800;">${status}</span>
+                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color:#13343b; font-weight:800;">${status}</span>
               </div>
-              <div style="font-size:0.75rem; opacity:0.85;">
-                Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}
-              </div>
-              ${responsavel ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavel}</strong></div>` : ''}
+              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}</div>
+              ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
             </div>
           `,
           start: childStart,
@@ -997,18 +1027,54 @@
           group: projetoRaw,
           subgroup: 'child',
           className: `status-${statusNormalized}`,
-          style: style,
-          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavel ? `\nResponsável: ${responsavel}` : ''}`,
+          style,
+          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
           linkUrl: epicLinkUrl
         });
       }
 
-      epicByProject.forEach(epic => items.push(epic));
+      // 3) Define quais projetos aparecem no roadmap (labels + pill do projeto)
+      let projectsToShow = [];
+      if (hasChildFilters) {
+        projectsToShow = Array.from(includedProjects);
+      } else if (filterProjeto !== 'all') {
+        projectsToShow = [filterProjeto];
+      } else {
+        projectsToShow = Array.from(allProjects);
+      }
+
+      // Groups
+      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+
+      // Epics (pills) apenas dos projetos visíveis
+      projectsToShow.forEach(p => {
+        const info = epicByProject.get(p);
+        if (!info) return;
+        items.push({
+          id: `epic-${p}`,
+          content: `
+            <div style="padding:2px 10px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:0.92rem;">${extractBracketText(p)}</strong>
+                <span style="font-size:0.7rem; padding:2px 6px; border-radius:999px; background: rgba(98,108,113,0.22); color:#626c71; font-weight:800;">Epic</span>
+              </div>
+            </div>
+          `,
+          start: info.start,
+          end: info.end,
+          group: p,
+          subgroup: 'epic',
+          order: -1000,
+          className: 'epic-item',
+          style: info.style,
+          title: `Projeto (Epic): ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
+          linkUrl: null
+        });
+      });
 
       return { items, groups };
     }
-
-    // --- FILTER DROPDOWNS ---
+// --- FILTER DROPDOWNS ---
     function updateStackFilterGeral() {
       const select = document.getElementById('stack-filter');
       const current = select.value;
