@@ -104,7 +104,7 @@
     .filters-grid{
       display:flex;
       gap:16px;
-      align-items: flex-start;
+      align-items:flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
       margin-top: 12px;
@@ -133,9 +133,7 @@
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
-    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; 
-      min-height: 18px;
-    }
+    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
 
     .actions{ display:flex; gap:12px; flex-wrap:wrap; }
 
@@ -323,78 +321,42 @@
     }
   
 
-    /* Divider between left label column and timeline */
-    .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
-    .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
-
-    /* Epic pill (Detalhamento): highlighted and thin */
-    .vis-item.epic-item {
-      min-height: 10px !important;
-      height: 10px !important;
-      border-radius: 999px !important;
-      cursor: pointer !important;
-    }
-
-    /* Multi-select dropdown (looks like a normal select) */
-    .multi-select { position: relative; width: 100%; }
-    .multi-select-trigger {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--color-border);
-      border-radius: 8px;
-      font-size: 0.95rem;
-      background: var(--color-bg-primary);
-      color: var(--color-text-primary);
-      transition: border-color 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      cursor: pointer;
-    }
-    .multi-select-trigger:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
-    }
-    .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
-    .multi-select-dropdown {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      right: 0;
-      background: #fff;
-      border: 1px solid var(--color-border);
+    /* Toggle: updated vs outdated cards (Detalhamento) */
+    .btn-toggle {
+      padding: 8px 12px;
+      font-size: 0.86rem;
       border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.10);
-      padding: 6px;
-      max-height: 260px;
-      overflow: auto;
-      display: none;
-      z-index: 1000;
+      font-weight: 800;
     }
-    .multi-select.is-open .multi-select-dropdown { display: block; }
-    .multi-select-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      user-select: none;
+    .btn-toggle.is-updated {
+      background: var(--color-primary);
+      color: #fff;
+      border: 1px solid var(--color-primary);
+      box-shadow: 0 4px 12px rgba(236,103,24,0.22);
+    }
+    .btn-toggle.is-outdated {
+      background: rgba(94,82,64,0.08);
       color: var(--color-text-primary);
-      font-size: 0.92rem;
+      border: 1px solid rgba(94,82,64,0.10);
+      box-shadow: none;
     }
-    .multi-select-option:hover { background: rgba(94,82,64,0.06); }
-    .multi-select-option input { width: 16px; height: 16px; }
+
+    /* Spacer item: only used when showing projects without cards */
+    .vis-item.spacer-item {
+      opacity: 0 !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      min-height: 110px !important;
+      height: 110px !important;
+      pointer-events: none !important;
+    }
 
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <img id="page-logo" class="page-logo" src="./logo.png" alt="Caaqui" loading="eager" decoding="async" />
+      <img id="page-logo" class="page-logo" src="logo.jpg" alt="Caaqui" onerror="this.style.display='none'">
 
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
@@ -462,6 +424,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <div class="panel-title" style="margin-bottom:0;">Filtros</div>
           <button class="btn-source" id="change-source-detalhes" type="button" onclick="openModal()">Alterar fonte do dado</button>
+          <button class=\"btn btn-toggle is-updated\" id=\"toggle-cards-mode\" type=\"button\" title=\"Alternar visualização\">Cards atualizados</button>
         </div>
 
         <div class="filters-grid" id="filters-grid-detalhes">
@@ -475,32 +438,18 @@
 
           <div class="form-group">
             <label for="responsavel-filter-detalhes">Filtrar por Responsável</label>
-            <div class="multi-select" data-select="responsavel-filter-detalhes">
-              <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-                <span class="multi-select-value">Todos</span>
-                <span class="multi-select-arrow">▾</span>
-              </button>
-              <div class="multi-select-dropdown" role="listbox"></div>
-            </div>
-            <select id="responsavel-filter-detalhes" multiple style="display:none;">
-              <option value="all" selected>Todos</option>
+            <select id="responsavel-filter-detalhes">
+              <option value="all">Todos</option>
             </select>
-            <p class="hint">Baseado na coluna Responsável/Nome do responsável (selecione mais de um).</p>
+            <p class="hint">Baseado na coluna Responsável/Nome do responsável.</p>
           </div>
 
           <div class="form-group">
             <label for="status-filter-detalhes">Filtrar por Status</label>
-            <div class="multi-select" data-select="status-filter-detalhes">
-              <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-                <span class="multi-select-value">Todos</span>
-                <span class="multi-select-arrow">▾</span>
-              </button>
-              <div class="multi-select-dropdown" role="listbox"></div>
-            </div>
-            <select id="status-filter-detalhes" multiple style="display:none;">
-              <option value="all" selected>Todos</option>
+            <select id="status-filter-detalhes">
+              <option value="all">Todos</option>
             </select>
-            <p class="hint">Baseado na coluna Status (selecione mais de um).</p>
+            <p class="hint">Baseado na coluna Status.</p>
           </div>
 
           <div class="form-group">
@@ -511,7 +460,6 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
-            <p class="hint">&nbsp;</p>
           </div>
         </div>
       </div>
@@ -592,6 +540,9 @@
     let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
     let clickHandlerBound = { geral: false, detalhamento: false };
 
+    // Detalhamento: updated (projects with cards) vs outdated (projects without cards)
+    let cardsModeDetalhamento = 'updated';
+
     // --- HOJE ---
     let todayTimer = { geral: null, detalhamento: null };
     const TODAYID = 'today';
@@ -659,52 +610,25 @@
     }
 
     
+
+    function updateCardsModeToggle() {
+      const btn = document.getElementById('toggle-cards-mode');
+      if (!btn) return;
+
+      const updated = (cardsModeDetalhamento === 'updated');
+      btn.textContent = updated ? 'Cards atualizados' : 'Cards desatualizados';
+      btn.classList.toggle('is-updated', updated);
+      btn.classList.toggle('is-outdated', !updated);
+    }
+
+
     // --- LINKS ---
-    // Supports:
-    // - full URLs (http/https)
-    // - www.* URLs
-    // - Jira keys (ex: APP-123) -> JIRA_BASE_URL/browse/APP-123
-    const JIRA_BASE_URL = ''; // ex: 'https://suaempresa.atlassian.net'
-    let inferredJiraOrigin = null;
-
-    function inferJiraOriginFromUrl(u) {
-      try {
-        const x = new URL(u);
-        if (!inferredJiraOrigin && (/\/browse\//i.test(x.pathname) || /atlassian\.net$/i.test(x.hostname))) {
-          inferredJiraOrigin = x.origin;
-        }
-      } catch (e) {}
-    }
-
-    function extractJiraKey(text) {
-      const s = String(text || '').trim();
-      const m = s.match(/\b[A-Z][A-Z0-9]+-\d+\b/i);
-      return m ? m[0].toUpperCase() : null;
-    }
-
-    function resolveLink(raw) {
-      const s0 = String(raw || '').trim();
-      if (!s0) return null;
-
-      if (/^https?:\/\//i.test(s0)) return s0;
-      if (/^www\./i.test(s0)) return 'https://' + s0;
-
-      const key = extractJiraKey(s0);
-      if (key) {
-        const base = inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null);
-        if (base) return base + '/browse/' + key;
-      }
-
-      return null;
-    }
-
     function openItemLink(url) {
-      const resolved = resolveLink(url);
-      if (!resolved) return;
-      inferJiraOriginFromUrl(resolved);
-      window.open(resolved, '_blank', 'noopener,noreferrer');
+      const u = String(url || '').trim();
+      if (!u) return;
+      if (!/^https?:\/\//i.test(u)) return;
+      window.open(u, '_blank', 'noopener,noreferrer');
     }
-
 
     // --- UTIL ---
     function extractBracketText(text) {
@@ -713,95 +637,7 @@
       return m ? m[1].trim() : s;
     }
 
-    
-    function getSelectedValues(selectEl) {
-      return Array.from(selectEl.options)
-        .filter(o => o.selected)
-        .map(o => o.value);
-    }
-
-    function formatSelectedLabel(selectEl) {
-      const values = getSelectedValues(selectEl).filter(v => v !== 'all');
-      if (!values.length) return 'Todos';
-      if (values.length <= 2) return values.join(', ');
-      return values.slice(0, 2).join(', ') + ` +${values.length - 2}`;
-    }
-
-    function rebuildMultiSelect(selectId) {
-      const selectEl = document.getElementById(selectId);
-      const wrapper = document.querySelector(`.multi-select[data-select="${selectId}"]`);
-      if (!selectEl || !wrapper) return;
-
-      const trigger = wrapper.querySelector('.multi-select-trigger');
-      const valueEl = wrapper.querySelector('.multi-select-value');
-      const dropdown = wrapper.querySelector('.multi-select-dropdown');
-
-      dropdown.innerHTML = '';
-
-      Array.from(selectEl.options).forEach((opt) => {
-        const row = document.createElement('div');
-        row.className = 'multi-select-option';
-
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = !!opt.selected;
-
-        const label = document.createElement('div');
-        label.textContent = opt.textContent;
-
-        row.appendChild(cb);
-        row.appendChild(label);
-
-        row.addEventListener('click', (e) => {
-          e.preventDefault();
-
-          if (opt.value === 'all') {
-            Array.from(selectEl.options).forEach(o => { o.selected = (o.value === 'all'); });
-          } else {
-            opt.selected = !opt.selected;
-            const allOpt = Array.from(selectEl.options).find(o => o.value === 'all');
-            if (allOpt) allOpt.selected = false;
-
-            const anySelected = Array.from(selectEl.options).some(o => o.value !== 'all' && o.selected);
-            if (!anySelected && allOpt) allOpt.selected = true;
-          }
-
-          // Sync checkbox visuals
-          Array.from(dropdown.querySelectorAll('.multi-select-option')).forEach((el, idx) => {
-            const o = selectEl.options[idx];
-            const c = el.querySelector('input');
-            if (c) c.checked = !!o.selected;
-          });
-
-          valueEl.textContent = formatSelectedLabel(selectEl);
-          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-
-        dropdown.appendChild(row);
-      });
-
-      valueEl.textContent = formatSelectedLabel(selectEl);
-
-      if (!trigger.dataset.bound) {
-        trigger.dataset.bound = '1';
-        trigger.addEventListener('click', () => {
-          const isOpen = wrapper.classList.toggle('is-open');
-          trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
-      }
-
-      if (!wrapper.dataset.outsideBound) {
-        wrapper.dataset.outsideBound = '1';
-        document.addEventListener('click', (e) => {
-          if (!wrapper.contains(e.target)) {
-            wrapper.classList.remove('is-open');
-            trigger.setAttribute('aria-expanded', 'false');
-          }
-        });
-      }
-    }
-
-// CSV robusto (auto delimiter + sep=;)
+    // CSV robusto (auto delimiter + sep=;)
     function parseCSVLine(line, delimiter) {
       const result = [];
       let current = '';
@@ -1074,129 +910,128 @@
         });
       }
 
+      // Outdated mode: add spacer so empty rows don't look squeezed
+      if (cardsMode === 'outdated') {
+        const now = new Date();
+        projectsToShow.forEach(p => {
+          const info = epicByProject.get(p);
+          const start = info ? info.start : now;
+          const end = new Date(start.getTime() + 24*60*60*1000);
+          items.push({
+            id: `spacer-${p}`,
+            content: '',
+            start,
+            end,
+            group: p,
+            subgroup: 'spacer',
+            order: 9999,
+            className: 'spacer-item',
+            style: 'background: transparent !important; border-color: transparent !important;',
+            title: '',
+            linkUrl: null
+          });
+        });
+      }
+
       return { items, groups };
     }
 
-    
-    function splitPeople(text) {
-      const s = String(text || '').trim();
-      if (!s) return [];
-      return s
-        .replace(/\n/g, ',')
-        .replace(/\s*;\s*/g, ',')
-        .replace(/\s*\/\s*/g, ',')
-        .split(',')
-        .map(x => x.trim())
-        .filter(Boolean);
-    }
-
-    function sameCI(a, b) {
-      return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-    }
-
-    function normalizeList(list) {
-      return (Array.isArray(list) ? list : [])
-        .map(v => String(v || '').trim())
-        .filter(Boolean)
-        .filter(v => v !== 'all');
-    }
-
-    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all']) {
+    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = 'all', filterStatus = 'all') {
       const items = [];
-
-      const allProjects = new Set();
+      const groups = [];
+      const groupSet = new Set();
       const epicByProject = new Map();
-      const projectEpicLink = new Map();
-
-      const respFilters = normalizeList(filterResponsavel);
-      const statusFilters = normalizeList(filterStatus);
 
       availableStacks.detalhamento.clear();
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Pass 1: projects, facets, epic
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
-        if (!projetoRaw) continue;
-
-        allProjects.add(projetoRaw);
-        availableStacks.detalhamento.add(projetoRaw);
-
-        const epicLinkCandidate = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
-        if (epicLinkCandidate && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkCandidate);
-
-        const considerForFacets = (filterProjeto === 'all' || projetoRaw === filterProjeto);
-        if (considerForFacets) {
-          const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
-          splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
-
-          const st = String(getCell(row, ['Status']) || '').trim();
-          if (st) availableStatuses.detalhamento.add(st);
-        }
-
-        if (!epicByProject.has(projetoRaw)) {
-          const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-          if (epicStart) {
-            const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-            const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
-            let epicEnd = epicFinish || epicTarget;
-            if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-            if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-
-            const totalDuration = epicEnd - epicStart;
-            const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-            const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-            // Vivid pill colors (solid)
-            const green = '#34D399';
-            const greenBorder = '#065F46';
-            const orange = '#F97316';
-
-            let epicStyle;
-            if (epicTarget && epicTarget < epicEnd) {
-              epicStyle = `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`;
-            } else {
-              epicStyle = `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
-            }
-
-            epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
-          }
-        }
-      }
-
-      // Pass 2: children filtered, track which projects have cards
-      const includedProjects = new Set();
-
+      // Primeiro passe: grupos (projetos)
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
         if (!projetoRaw) continue;
         if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
+        if (!groupSet.has(projetoRaw)) {
+          groupSet.add(projetoRaw);
+          groups.push({ id: projetoRaw, content: extractBracketText(projetoRaw) });
+          availableStacks.detalhamento.add(projetoRaw);
+        }
+      }
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
+        if (!projetoRaw) continue;
+        if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
+
+        // EPIC
+        const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
+        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)', 'Finish Date (Epic)']));
+
+        if (!epicByProject.has(projetoRaw) && epicStart) {
+          let epicEnd = epicFinish || epicTarget;
+          if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
+          if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24*60*60*1000);
+
+          const totalDuration = epicEnd - epicStart;
+          const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+          const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+          let epicStyle = '';
+          if (epicTarget && epicTarget < epicEnd) {
+            epicStyle = `background: linear-gradient(to right, rgba(98,108,113,0.12) 0%, rgba(98,108,113,0.12) ${targetPercent}%, rgba(255, 103, 31, 0.55) ${targetPercent}%, rgba(255, 103, 31, 0.55) 100%) !important; border-color: rgba(98,108,113,0.45) !important;`;
+          } else {
+            epicStyle = `background-color: rgba(98,108,113,0.12) !important; border-color: rgba(98,108,113,0.45) !important;`;
+          }
+
+          epicByProject.set(projetoRaw, {
+            id: `epic-${projetoRaw}`,
+            content: `
+              <div style="padding:2px 10px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <strong style="font-size:0.92rem;">${extractBracketText(projetoRaw)}</strong>
+                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:999px; background: rgba(98,108,113,0.22); color:#626c71; font-weight:800;"></span>
+                </div>
+              </div>
+            `,
+            start: epicStart,
+            end: epicEnd,
+            group: projetoRaw,
+            subgroup: 'epic',
+            order: -1000,
+            className: 'epic-item',
+            style: epicStyle,
+            title: `Projeto (Epic): ${projetoRaw}\nStart: ${formatDate(epicStart)}\nTarget: ${formatDate(epicTarget)}\nFinish: ${formatDate(epicEnd)}`,
+            linkUrl: null
+          });
+        }
+
+        // CHILD
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
         const childStart = parseBRDate(getCell(row, ['Start date']));
         const childTarget = parseBRDate(getCell(row, ['Target end']));
         const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+
         if (!resumo || !childStart) continue;
 
         let childEnd = childFinish || childTarget;
-        if (!childEnd) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
-        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
+        if (!childEnd) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
+        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24*60*60*1000);
 
-        const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
-        const responsavelList = splitPeople(responsavelRaw);
+        const responsavel = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel (nome)']) || '').trim();
         const status = String(getCell(row, ['Status']) || 'planejado').trim();
+        const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink']) || '').trim();
 
-        const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
+        if (responsavel) availableResponsaveis.detalhamento.add(responsavel);
+        if (status) availableStatuses.detalhamento.add(status);
 
-        const passResp = (respFilters.length === 0) ? true : responsavelList.some(p => respFilters.some(f => sameCI(p, f)));
-        const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+        const passResp = (filterResponsavel === 'all') ? true : (responsavel === filterResponsavel);
+        const passStatus = (filterStatus === 'all') ? true : (status === filterStatus);
         if (!passResp || !passStatus) continue;
-
-        includedProjects.add(projetoRaw);
-        if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
         const statusNormalized = String(status || 'planejado')
           .toLowerCase()
@@ -1208,16 +1043,11 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        // Softer card colors (still same palette)
-        const base = '#99F6E4';
-        const baseBorder = '#14B8A6';
-        const late = '#FDBA74';
-
-        let style;
+        let style = '';
         if (childTarget && childTarget < childEnd) {
-          style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
+          style = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
         } else {
-          style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
+          style = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
         }
 
         items.push({
@@ -1226,10 +1056,12 @@
             <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <strong>${resumo}</strong>
-                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
+                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color: #13343b; font-weight:800;">${status}</span>
               </div>
-              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}</div>
-              ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
+              <div style="font-size:0.75rem; opacity:0.85;">
+                Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}
+              </div>
+              ${responsavel ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavel}</strong></div>` : ''}
             </div>
           `,
           start: childStart,
@@ -1237,39 +1069,16 @@
           group: projetoRaw,
           subgroup: 'child',
           className: `status-${statusNormalized}`,
-          style,
-          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
+          style: style,
+          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavel ? `\nResponsável: ${responsavel}` : ''}`,
           linkUrl: epicLinkUrl
         });
       }
 
-      // Requirement: show ONLY projects that have 1+ cards in the current view
-      const projectsToShow = Array.from(includedProjects);
-
-      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
-
-      // Epic pills for visible projects (no project name on the bar)
-      projectsToShow.forEach(p => {
-        const info = epicByProject.get(p);
-        if (!info) return;
-        items.push({
-          id: `epic-${p}`,
-          content: `<div style="width:100%; height:100%;"></div>`,
-          start: info.start,
-          end: info.end,
-          group: p,
-          subgroup: 'epic',
-          order: -1000,
-          className: 'epic-item',
-          style: info.style,
-          title: `Projeto: ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
-          linkUrl: (projectEpicLink.get(p) || null)
-        });
-      });
+      epicByProject.forEach(epic => items.push(epic));
 
       return { items, groups };
     }
-
 
     // --- FILTER DROPDOWNS ---
     function updateStackFilterGeral() {
@@ -1290,50 +1099,33 @@
       const stSelect = document.getElementById('status-filter-detalhes');
 
       const currentProj = projSelect.value;
-      const currentResp = new Set(Array.from(respSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
-      const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+      const currentResp = respSelect.value;
+      const currentSt = stSelect.value;
 
       projSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStacks.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = extractBracketText(v);
+        opt.value = v; opt.textContent = extractBracketText(v);
         projSelect.appendChild(opt);
       });
-      if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
-      // Responsável (hidden multi)
-      respSelect.innerHTML = '';
-      const allOptR = document.createElement('option');
-      allOptR.value = 'all';
-      allOptR.textContent = 'Todos';
-      respSelect.appendChild(allOptR);
+      respSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableResponsaveis.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (currentResp.has(v)) opt.selected = true;
+        opt.value = v; opt.textContent = v;
         respSelect.appendChild(opt);
       });
-      if (currentResp.size === 0) allOptR.selected = true;
 
-      // Status (hidden multi)
-      stSelect.innerHTML = '';
-      const allOptS = document.createElement('option');
-      allOptS.value = 'all';
-      allOptS.textContent = 'Todos';
-      stSelect.appendChild(allOptS);
+      stSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStatuses.detalhamento).sort().forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (currentSt.has(v)) opt.selected = true;
+        opt.value = v; opt.textContent = v;
         stSelect.appendChild(opt);
       });
-      if (currentSt.size === 0) allOptS.selected = true;
 
-      rebuildMultiSelect('responsavel-filter-detalhes');
-      rebuildMultiSelect('status-filter-detalhes');
+      if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
+      if (currentResp !== 'all' && availableResponsaveis.detalhamento.has(currentResp)) respSelect.value = currentResp;
+      if (currentSt !== 'all' && availableStatuses.detalhamento.has(currentSt)) stSelect.value = currentSt;
     }
 
     // --- TIMELINE ---
@@ -1433,21 +1225,13 @@
     function applyFilterDetalhamento() {
       if (!allParsedData.detalhamento) return;
       const proj = document.getElementById('stack-filter-detalhes').value;
+      const resp = document.getElementById('responsavel-filter-detalhes').value;
+      const st = document.getElementById('status-filter-detalhes').value;
 
-      const respEl = document.getElementById('responsavel-filter-detalhes');
-      const stEl = document.getElementById('status-filter-detalhes');
-
-      const resp = Array.from(respEl.selectedOptions || []).map(o => o.value);
-      const st = Array.from(stEl.selectedOptions || []).map(o => o.value);
-
-      const respFilters = resp.length ? resp : ['all'];
-      const stFilters = st.length ? st : ['all'];
-
-      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters);
+      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, resp, st);
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
-        rebuildMultiSelect('responsavel-filter-detalhes');
-        rebuildMultiSelect('status-filter-detalhes');
+        updateCardsModeToggle();
     }
 
     // --- LOAD / REFRESH ---
@@ -1489,8 +1273,6 @@
           }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
-        rebuildMultiSelect('responsavel-filter-detalhes');
-        rebuildMultiSelect('status-filter-detalhes');
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
