@@ -104,7 +104,7 @@
     .filters-grid{
       display:flex;
       gap:16px;
-      align-items: flex-start;
+      align-items:flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
       margin-top: 12px;
@@ -133,9 +133,7 @@
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
-    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; 
-      min-height: 18px;
-    }
+    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
 
     .actions{ display:flex; gap:12px; flex-wrap:wrap; }
 
@@ -323,21 +321,86 @@
     }
   
 
-    /* Divider between left label column and timeline */
-    .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.14) !important; }
-    .vis-labelset { border-right: 1px solid rgba(0,0,0,0.14) !important; }
+    /* Detalhamento: cards mode toggle (right-aligned, label above, compact) */
+    #page-detalhamento .cards-mode-toggle-right { margin-left: auto; }
+    #page-detalhamento .cards-mode-toggle {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    #page-detalhamento .cards-mode-label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      line-height: 1.1;
+    }
 
-    /* Epic pill (Detalhamento): highlighted and thin */
-    .vis-item.epic-item {
+    #page-detalhamento .cards-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: none;
+    }
+    #page-detalhamento .cards-switch input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+    #page-detalhamento .cards-switch-track {
+      position: absolute;
+      inset: 0;
+      background: rgba(94,82,64,0.20);
+      border: 1px solid rgba(94,82,64,0.25);
+      border-radius: 999px;
+      transition: all 0.18s ease;
+    }
+    #page-detalhamento .cards-switch-thumb {
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      top: 2px;
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.18);
+      transition: transform 0.18s ease;
+    }
+    #page-detalhamento .cards-switch input:checked ~ .cards-switch-track {
+      background: rgba(236,103,24,0.95);
+      border-color: rgba(236,103,24,1);
+      box-shadow: 0 4px 12px rgba(236,103,24,0.18);
+    }
+    #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
+
+    /* Epic pill thinner (Detalhamento) */
+    #page-detalhamento .vis-item.epic-item {
       min-height: 10px !important;
       height: 10px !important;
       border-radius: 999px !important;
       cursor: pointer !important;
     }
 
-    /* Multi-select dropdown (looks like a normal select) */
-    .multi-select { position: relative; width: 100%; }
-    .multi-select-trigger {
+    /* Spacer (only used in outdated mode) */
+    #page-detalhamento .vis-item.spacer-item {
+      opacity: 0 !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      min-height: 110px !important;
+      height: 110px !important;
+      pointer-events: none !important;
+    }
+
+    /* Multi-select dropdown (Detalhamento filters) */
+    #page-detalhamento .multi-select { position: relative; width: 100%; }
+    #page-detalhamento .multi-select-trigger {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid var(--color-border);
@@ -352,14 +415,14 @@
       gap: 10px;
       cursor: pointer;
     }
-    .multi-select-trigger:focus {
+    #page-detalhamento .multi-select-trigger:focus {
       outline: none;
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
     }
-    .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
-    .multi-select-dropdown {
+    #page-detalhamento .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #page-detalhamento .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
+    #page-detalhamento .multi-select-dropdown {
       position: absolute;
       top: calc(100% + 6px);
       left: 0;
@@ -374,8 +437,8 @@
       display: none;
       z-index: 1000;
     }
-    .multi-select.is-open .multi-select-dropdown { display: block; }
-    .multi-select-option {
+    #page-detalhamento .multi-select.is-open .multi-select-dropdown { display: block; }
+    #page-detalhamento .multi-select-option {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -386,15 +449,101 @@
       color: var(--color-text-primary);
       font-size: 0.92rem;
     }
-    .multi-select-option:hover { background: rgba(94,82,64,0.06); }
-    .multi-select-option input { width: 16px; height: 16px; }
+    #page-detalhamento .multi-select-option:hover { background: rgba(94,82,64,0.06); }
+    #page-detalhamento .multi-select-option input { width: 16px; height: 16px; }
+
+  
+
+    /* Detalhamento: alinhar filtros (mesma altura/linha) */
+    #page-detalhamento #filters-grid-detalhes{ align-items: stretch; }
+    #page-detalhamento #filters-grid-detalhes .form-group{ display:flex; flex-direction:column; }
+    #page-detalhamento #filters-grid-detalhes .hint{ min-height: 18px; }
+
+    /* Detalhamento: evita clipping no 1º grupo (epic pill + card) */
+    #page-detalhamento #visualization-detalhes .vis-itemset{ padding-top: 14px; box-sizing: border-box; }
+    #page-detalhamento #visualization-detalhes .vis-labelset{ padding-top: 14px; box-sizing: border-box; }
+
+    /* Detalhamento: melhora distribuição dos grupos (mínimo entre divisórias + itens mais centralizados) */
+    #page-detalhamento #visualization-detalhes .vis-group{
+      min-height: 96px !important;
+      padding-top: 18px !important;
+      padding-bottom: 18px !important;
+      box-sizing: border-box !important;
+    }
+    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label{ min-height: 96px !important; }
+    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label .vis-inner{
+      min-height: 96px !important;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+  
+
+    /* Geral: toggle idêntico ao Detalhamento */
+    #page-geral .cards-mode-toggle-right { margin-left: auto; }
+    #page-geral .cards-mode-toggle {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    #page-geral .cards-mode-label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      line-height: 1.1;
+    }
+    #page-geral .cards-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: none;
+    }
+    #page-geral .cards-switch input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+    #page-geral .cards-switch-track {
+      position: absolute;
+      inset: 0;
+      background: rgba(94,82,64,0.20);
+      border: 1px solid rgba(94,82,64,0.25);
+      border-radius: 999px;
+      transition: all 0.18s ease;
+    }
+    #page-geral .cards-switch-thumb {
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      top: 2px;
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.18);
+      transition: transform 0.18s ease;
+    }
+    #page-geral .cards-switch input:checked ~ .cards-switch-track {
+      background: rgba(236,103,24,0.95);
+      border-color: rgba(236,103,24,1);
+      box-shadow: 0 4px 12px rgba(236,103,24,0.18);
+    }
+    #page-geral .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <img id="page-logo" class="page-logo" src="./logo.png" alt="Caaqui" loading="eager" decoding="async" />
+      <img id="page-logo" class="page-logo" src="./logo.jpg" alt="Caaqui" loading="eager" decoding="async" onerror="this.onerror=null; this.src='./logo.png';" />
 
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
@@ -416,7 +565,7 @@
         </div>
 
         <div class="filters-grid" id="filters-grid-geral">
-          <div class="form-group">
+          <div class="form-group" id="stack-filter-group-geral">
             <label for="stack-filter">Filtrar por Stack</label>
             <select id="stack-filter">
               <option value="all">Todos</option>
@@ -442,6 +591,14 @@
       <div class="actions">
         <button class="btn btn-primary" id="load-data" type="button"><span>Carregar Roadmap</span></button>
         <button class="btn btn-secondary" id="refresh-data" type="button" style="display:none;"><span>Atualizar Dados</span></button>
+        <div class='cards-mode-toggle cards-mode-toggle-right' id='grouping-toggle-wrap'>
+          <div class='cards-mode-label' id='grouping-mode-text'>Por stack</div>
+          <label class='cards-switch' title='Alternar agrupamento'>
+            <input type='checkbox' id='grouping-toggle-geral' checked />
+            <span class='cards-switch-track' aria-hidden='true'></span>
+            <span class='cards-switch-thumb' aria-hidden='true'></span>
+          </label>
+        </div>
       </div>
 
       <div class="timeline-container" id="timeline-container" style="margin-top:18px;">
@@ -511,7 +668,7 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
-            <p class="hint">&nbsp;</p>
+            <p class=\"hint\">Ajuste a escala de tempo do roadmap.</p>
           </div>
         </div>
       </div>
@@ -521,6 +678,14 @@
       <div class="actions">
         <button class="btn btn-primary" id="load-data-detalhes" type="button"><span>Carregar Roadmap</span></button>
         <button class="btn btn-secondary" id="refresh-data-detalhes" type="button" style="display:none;"><span>Atualizar Dados</span></button>
+        <div class='cards-mode-toggle cards-mode-toggle-right' id='cards-mode-toggle-wrap'>
+          <div class='cards-mode-label' id='cards-mode-text'>Cards atualizados</div>
+          <label class='cards-switch' title='Alternar para cards desatualizados'>
+            <input type='checkbox' id='cards-mode-toggle-detalhes' checked />
+            <span class='cards-switch-track' aria-hidden='true'></span>
+            <span class='cards-switch-thumb' aria-hidden='true'></span>
+          </label>
+        </div>
       </div>
 
       <div class="timeline-container" id="timeline-container-detalhes" style="margin-top:18px;">
@@ -658,53 +823,13 @@
       if (statusDiv) statusDiv.innerHTML = '';
     }
 
-    
     // --- LINKS ---
-    // Supports:
-    // - full URLs (http/https)
-    // - www.* URLs
-    // - Jira keys (ex: APP-123) -> JIRA_BASE_URL/browse/APP-123
-    const JIRA_BASE_URL = ''; // ex: 'https://suaempresa.atlassian.net'
-    let inferredJiraOrigin = null;
-
-    function inferJiraOriginFromUrl(u) {
-      try {
-        const x = new URL(u);
-        if (!inferredJiraOrigin && (/\/browse\//i.test(x.pathname) || /atlassian\.net$/i.test(x.hostname))) {
-          inferredJiraOrigin = x.origin;
-        }
-      } catch (e) {}
-    }
-
-    function extractJiraKey(text) {
-      const s = String(text || '').trim();
-      const m = s.match(/\b[A-Z][A-Z0-9]+-\d+\b/i);
-      return m ? m[0].toUpperCase() : null;
-    }
-
-    function resolveLink(raw) {
-      const s0 = String(raw || '').trim();
-      if (!s0) return null;
-
-      if (/^https?:\/\//i.test(s0)) return s0;
-      if (/^www\./i.test(s0)) return 'https://' + s0;
-
-      const key = extractJiraKey(s0);
-      if (key) {
-        const base = inferredJiraOrigin || (JIRA_BASE_URL ? JIRA_BASE_URL.trim().replace(/\/$/, '') : null);
-        if (base) return base + '/browse/' + key;
-      }
-
-      return null;
-    }
-
     function openItemLink(url) {
-      const resolved = resolveLink(url);
-      if (!resolved) return;
-      inferJiraOriginFromUrl(resolved);
-      window.open(resolved, '_blank', 'noopener,noreferrer');
+      const u = String(url || '').trim();
+      if (!u) return;
+      if (!/^https?:\/\//i.test(u)) return;
+      window.open(u, '_blank', 'noopener,noreferrer');
     }
-
 
     // --- UTIL ---
     function extractBracketText(text) {
@@ -714,6 +839,23 @@
     }
 
     
+    function getCardsModeDetalhamento() {
+      const el = document.getElementById('cards-mode-toggle-detalhes');
+      if (!el) return 'updated';
+      return el.checked ? 'updated' : 'outdated';
+    }
+
+    function updateCardsModeLabel() {
+      const el = document.getElementById('cards-mode-toggle-detalhes');
+      const label = document.getElementById('cards-mode-text');
+      const wrap = document.getElementById('cards-mode-toggle-wrap');
+      if (!el || !label) return;
+
+      const updated = el.checked;
+      label.textContent = updated ? 'Cards atualizados' : 'Cards desatualizados';
+      if (wrap) wrap.querySelector('.cards-switch')?.setAttribute('title', updated ? 'Alternar para cards desatualizados' : 'Alternar para cards atualizados');
+    }
+
     function getSelectedValues(selectEl) {
       return Array.from(selectEl.options)
         .filter(o => o.selected)
@@ -766,7 +908,6 @@
             if (!anySelected && allOpt) allOpt.selected = true;
           }
 
-          // Sync checkbox visuals
           Array.from(dropdown.querySelectorAll('.multi-select-option')).forEach((el, idx) => {
             const o = selectEl.options[idx];
             const c = el.querySelector('input');
@@ -798,6 +939,55 @@
             trigger.setAttribute('aria-expanded', 'false');
           }
         });
+      }
+    }
+
+    function splitPeople(text) {
+      const s = String(text || '').trim();
+      if (!s) return [];
+      return s
+        .replace(/\n/g, ',')
+        .replace(/\s*;\s*/g, ',')
+        .replace(/\s*\/\s*/g, ',')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+    }
+
+    function sameCI(a, b) {
+      return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    }
+
+    function normalizeList(list) {
+      return (Array.isArray(list) ? list : [])
+        .map(v => String(v || '').trim())
+        .filter(Boolean)
+        .filter(v => v !== 'all');
+    }
+
+
+
+    // Geral: toggle de agrupamento (Por stack vs Geral)
+    function getGroupingModeGeral() {
+      const el = document.getElementById('grouping-toggle-geral');
+      if (!el) return 'stack';
+      return el.checked ? 'stack' : 'geral';
+    }
+
+    function updateGroupingModeLabel() {
+      const el = document.getElementById('grouping-toggle-geral');
+      const label = document.getElementById('grouping-mode-text');
+      const groupForm = document.getElementById('stack-filter-group-geral');
+      if (!el || !label) return;
+
+      const mode = el.checked ? 'stack' : 'geral';
+      label.textContent = (mode === 'stack') ? 'Por stack' : 'Geral';
+
+      if (groupForm) groupForm.style.display = (mode === 'stack') ? '' : 'none';
+
+      if (mode !== 'stack') {
+        const sel = document.getElementById('stack-filter');
+        if (sel) sel.value = 'all';
       }
     }
 
@@ -957,7 +1147,12 @@
     const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;        // 1 semana
     const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2;  // 2 anos
 
-    function bindCtrlWheelZoom(container, pageKey) {
+    
+
+    // Zoom estilo lupa com Ctrl+Scroll
+    const ZOOMMINRANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+    const ZOOMMAXRANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+function bindCtrlWheelZoom(container, pageKey) {
       if (!container) return;
       container.addEventListener('wheel', (e) => {
         if (!e.ctrlKey) return;
@@ -997,14 +1192,22 @@
     }
 
     // --- PARSERS ---
-    function parseSheetDataGeral(rows, filterStack = 'all') {
+    
+    function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
       const items = [];
       const groups = [];
       const groupSet = new Set();
+
       availableStacks.geral.clear();
+
+      if (groupingMode === 'geral') {
+        groups.push({ id: 'Geral', content: 'Geral' });
+        groupSet.add('Geral');
+      }
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
+
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
         const dataInicio = parseBRDate(getCell(row, ['Start date']));
         const dataTarget = parseBRDate(getCell(row, ['Target end']));
@@ -1014,12 +1217,18 @@
 
         if (!resumo || !dataInicio || !dataFinish) continue;
 
+        // Stacks podem vir como "App;Web;Data", "App, Web", "App/Web", etc.
         const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
-        const cleanedStacks = stacksRaw.replace(/;/g, ',');
+        const cleanedStacks = stacksRaw
+          .replace(/\s*\n\s*/g, ',')
+          .replace(/\s*;\s*/g, ',')
+          .replace(/\s*\/\s*/g, ',')
+          .replace(/\s*\|\s*/g, ',');
+
         const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
         stacksArray.forEach(st => availableStacks.geral.add(st));
 
-        const titleMatch = resumo.match(/\[(.*?)\]\s*(.*)/);
+        const titleMatch = resumo.match(/\[(.*?)\]/);
         const displayTitle = titleMatch ? titleMatch[1] : resumo;
 
         const statusNormalized = String(status || 'planejado')
@@ -1027,6 +1236,42 @@
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, '-');
+
+        const totalDuration = dataFinish - dataInicio;
+        const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
+        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+        let customStyle;
+        if (dataTarget && dataTarget < dataFinish) {
+          customStyle = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
+        } else {
+          customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
+        }
+
+        const badgeStyle = `background: rgba(98,108,113,0.12); color:#13343b;`;
+
+        if (groupingMode === 'geral') {
+          items.push({
+            id: `geral-${i}`,
+            content: `
+              <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <strong>${displayTitle}</strong>
+                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; ${badgeStyle} font-weight:800;">${status}</span>
+                </div>
+                <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}</div>
+              </div>
+            `,
+            start: dataInicio,
+            end: dataFinish,
+            group: 'Geral',
+            className: `status-${statusNormalized}`,
+            style: customStyle,
+            title: resumo,
+            linkUrl: chave
+          });
+          continue;
+        }
 
         const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
         if (!stacksToShow.length) continue;
@@ -1037,19 +1282,6 @@
             groups.push({ id: stack, content: stack });
           }
 
-          const totalDuration = dataFinish - dataInicio;
-          const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
-          const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-          let customStyle = '';
-          if (dataTarget && dataTarget < dataFinish) {
-            customStyle = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
-          } else {
-            customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
-          }
-
-          const badgeStyle = 'background: rgba(98,108,113,0.12); color: #13343b;';
-
           items.push({
             id: `geral-${i}-${stackIdx}`,
             content: `
@@ -1058,9 +1290,7 @@
                   <strong>${displayTitle}</strong>
                   <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; ${badgeStyle} font-weight:800;">${status}</span>
                 </div>
-                <div style="font-size:0.75rem; opacity:0.85;">
-                  Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}
-                </div>
+                <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}</div>
               </div>
             `,
             start: dataInicio,
@@ -1077,31 +1307,9 @@
       return { items, groups };
     }
 
+
     
-    function splitPeople(text) {
-      const s = String(text || '').trim();
-      if (!s) return [];
-      return s
-        .replace(/\n/g, ',')
-        .replace(/\s*;\s*/g, ',')
-        .replace(/\s*\/\s*/g, ',')
-        .split(',')
-        .map(x => x.trim())
-        .filter(Boolean);
-    }
-
-    function sameCI(a, b) {
-      return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-    }
-
-    function normalizeList(list) {
-      return (Array.isArray(list) ? list : [])
-        .map(v => String(v || '').trim())
-        .filter(Boolean)
-        .filter(v => v !== 'all');
-    }
-
-    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all']) {
+    function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
       const items = [];
 
       const allProjects = new Set();
@@ -1115,7 +1323,6 @@
       availableResponsaveis.detalhamento.clear();
       availableStatuses.detalhamento.clear();
 
-      // Pass 1: projects, facets, epic
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
@@ -1149,7 +1356,6 @@
             const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
             const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-            // Vivid pill colors (solid)
             const green = '#34D399';
             const greenBorder = '#065F46';
             const orange = '#F97316';
@@ -1166,7 +1372,6 @@
         }
       }
 
-      // Pass 2: children filtered, track which projects have cards
       const includedProjects = new Set();
 
       for (let i = 0; i < rows.length; i++) {
@@ -1208,7 +1413,6 @@
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        // Softer card colors (still same palette)
         const base = '#99F6E4';
         const baseBorder = '#14B8A6';
         const late = '#FDBA74';
@@ -1243,12 +1447,13 @@
         });
       }
 
-      // Requirement: show ONLY projects that have 1+ cards in the current view
-      const projectsToShow = Array.from(includedProjects);
+      const eligibleProjects = (filterProjeto !== 'all') ? [filterProjeto] : Array.from(allProjects);
+      const projectsWithCards = Array.from(includedProjects);
+      const projectsWithoutCards = eligibleProjects.filter(p => !includedProjects.has(p));
+      const projectsToShow = (cardsMode === 'outdated') ? projectsWithoutCards : projectsWithCards;
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
-      // Epic pills for visible projects (no project name on the bar)
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
@@ -1266,6 +1471,28 @@
           linkUrl: (projectEpicLink.get(p) || null)
         });
       });
+
+      if (cardsMode === 'outdated') {
+        const now = new Date();
+        projectsToShow.forEach(p => {
+          const info = epicByProject.get(p);
+          const start = info ? info.start : now;
+          const end = new Date(start.getTime() + 24*60*60*1000);
+          items.push({
+            id: `spacer-${p}`,
+            content: '',
+            start,
+            end,
+            group: p,
+            subgroup: 'spacer',
+            order: 9999,
+            className: 'spacer-item',
+            style: 'background: transparent !important; border-color: transparent !important;',
+            title: '',
+            linkUrl: null
+          });
+        });
+      }
 
       return { items, groups };
     }
@@ -1302,7 +1529,6 @@
       });
       if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
-      // Responsável (hidden multi)
       respSelect.innerHTML = '';
       const allOptR = document.createElement('option');
       allOptR.value = 'all';
@@ -1317,7 +1543,6 @@
       });
       if (currentResp.size === 0) allOptR.selected = true;
 
-      // Status (hidden multi)
       stSelect.innerHTML = '';
       const allOptS = document.createElement('option');
       allOptS.value = 'all';
@@ -1341,7 +1566,9 @@
       const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
       const container = document.getElementById(containerId);
 
-      itemLinkMap[pageKey] = new Map((data.items || []).map(it => [it.id, it.linkUrl]));
+      itemLinkMap[pageKey] = new Map(data.items.map(it => [it.id, it.linkUrl]));
+
+      const isDetalhes = (pageKey === 'detalhamento');
 
       const options = {
         width: '100%',
@@ -1350,15 +1577,23 @@
         stack: true,
         stackSubgroups: true,
         subgroupOrder: function (a, b) {
-          const order = { epic: 0, child: 1 };
-          return (order[a] ?? 99) - (order[b] ?? 99);
+          const orderMap = (pageKey === 'detalhamento')
+            ? { child: 0, epic: 1, spacer: 2 }
+            : { epic: 0, child: 1, spacer: 2 };
+          return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
         },
-        groupHeightMode: 'fitItems',
+        groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
         groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
-        margin: { axis: 40, item: { horizontal: 10, vertical: 18 } },
+        margin: {
+          axis: isDetalhes ? 52 : 40,
+          item: {
+            horizontal: 10,
+            vertical: isDetalhes ? 26 : 18
+          }
+        },
         showCurrentTime: false,
-        zoomMin: ZOOM_MIN_RANGE,
-        zoomMax: ZOOM_MAX_RANGE,
+        zoomMin: ZOOMMINRANGE,
+        zoomMax: ZOOMMAXRANGE,
         locale: 'pt-BR',
         verticalScroll: true,
         horizontalScroll: true,
@@ -1370,8 +1605,9 @@
         timelines[pageKey].setGroups(data.groups);
       } else {
         timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
-        bindCtrlWheelZoom(container, pageKey);
       }
+
+      bindCtrlWheelZoom(container, pageKey);
 
       if (!clickHandlerBound[pageKey]) {
         timelines[pageKey].on('click', function (props) {
@@ -1424,10 +1660,14 @@
     // --- APPLY FILTERS ---
     function applyFilterGeral() {
       if (!allParsedData.geral) return;
-      const stack = document.getElementById('stack-filter').value;
-      const data = parseSheetDataGeral(allParsedData.geral, stack);
+
+      const mode = getGroupingModeGeral();
+      const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
+
+      const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
       createTimeline(data, 'geral');
       updateStackFilterGeral();
+      updateGroupingModeLabel();
     }
 
     function applyFilterDetalhamento() {
@@ -1443,11 +1683,10 @@
       const respFilters = resp.length ? resp : ['all'];
       const stFilters = st.length ? st : ['all'];
 
-      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters);
+      const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters, getCardsModeDetalhamento());
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
-        rebuildMultiSelect('responsavel-filter-detalhes');
-        rebuildMultiSelect('status-filter-detalhes');
+      updateCardsModeLabel();
     }
 
     // --- LOAD / REFRESH ---
@@ -1472,7 +1711,9 @@
         }
 
         if (pageKey === 'geral') {
-          const data = parseSheetDataGeral(rows, 'all');
+        updateGroupingModeLabel();
+        const mode = getGroupingModeGeral();
+        const data = parseSheetDataGeral(rows, 'all', mode);
           if (!data.items.length) {
             const keys = Object.keys(rows[0] || {}).slice(0, 30).join(', ');
             showStatus('error', 'Nenhum item válido. Headers detectados: ' + keys, pageKey);
@@ -1489,8 +1730,6 @@
           }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
-        rebuildMultiSelect('responsavel-filter-detalhes');
-        rebuildMultiSelect('status-filter-detalhes');
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
@@ -1574,11 +1813,27 @@
 
     // --- BINDINGS ---
     document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+
+    const groupingToggle = document.getElementById('grouping-toggle-geral');
+    if (groupingToggle) {
+      groupingToggle.addEventListener('change', () => {
+        updateGroupingModeLabel();
+        applyFilterGeral();
+      });
+    }
     document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
 
     document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
     document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
     document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+
+    const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
+    if (cardsModeToggle) {
+      cardsModeToggle.addEventListener('change', () => {
+        updateCardsModeLabel();
+        applyFilterDetalhamento();
+      });
+    }
     document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
     document.getElementById('zoom-in').addEventListener('click', () => {
