@@ -8,8 +8,10 @@
   <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
   <style>
-    :root{
+    :root {
       color-scheme: light;
       --color-bg-primary: #ffffff;
       --color-bg-secondary: #ffffff;
@@ -24,55 +26,58 @@
       --color-info: #626c71;
       --stack-col-width: 220px;
       --today-blue: #1e88e5;
+
+      /* Variável dinâmica para o Zoom (Fonte e Alturas) */
+      --timeline-zoom: 1;
     }
-    *{ box-sizing:border-box; margin:0; padding:0; }
-    body{
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--color-bg-primary);
       color: var(--color-text-primary);
       padding: 20px;
       line-height: 1.6;
     }
-    .container{ max-width: 1400px; margin:0 auto; }
-    header{ margin-bottom: 14px; }
-    .page-logo{ display:block; height:48px; width:auto; max-width:240px; margin-bottom:10px; object-fit: contain; }
-    h1{ font-size:2rem; font-weight:600; margin-bottom:10px; color:var(--color-text-primary); }
-    .subtitle{ color:var(--color-text-secondary); font-size:0.95rem; }
+    .container { max-width: 1400px; margin:0 auto; }
+    header { margin-bottom: 14px; }
+    .page-logo { display:block; height:48px; width:auto; max-width:240px; margin-bottom:10px; object-fit: contain; }
+    h1 { font-size:2rem; font-weight:600; margin-bottom:10px; color:var(--color-text-primary); }
+    .subtitle { color:var(--color-text-secondary); font-size:0.95rem; }
 
-    .menu-btn{
+    .menu-btn {
       display:inline-flex; align-items:center; justify-content:center;
       padding:10px 16px; border-radius:8px; font-weight:600; font-size:0.95rem;
       cursor:pointer; transition:all 0.2s ease; font-family:inherit;
     }
-    .menu-btn.is-active{
+    .menu-btn.is-active {
       background: var(--color-primary); color:#fff; border:1px solid var(--color-primary);
       box-shadow: 0 4px 12px rgba(236,103,24,0.22);
     }
-    .menu-btn:not(.is-active){
+    .menu-btn:not(.is-active) {
       background: var(--color-bg-secondary); color:var(--color-text-primary);
       border:1px solid var(--color-border);
     }
-    .menu-btn:not(.is-active):hover{ background: rgba(94,82,64,0.04); }
+    .menu-btn:not(.is-active):hover { background: rgba(94,82,64,0.04); }
 
-    .btn{
+    .btn {
       display:inline-flex; align-items:center; justify-content:center;
       padding:12px 24px; border:none; border-radius:10px;
       font-size:0.95rem; font-weight:600; cursor:pointer;
       transition: all 0.2s ease; gap:8px; user-select:none; white-space:nowrap;
     }
-    .btn-primary{ background: var(--color-primary); color:#fff; }
-    .btn-primary:hover{
+    .btn-primary { background: var(--color-primary); color:#fff; }
+    .btn-primary:hover {
       background: var(--color-primary-hover);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(236,103,24,0.22);
     }
-    .btn-secondary{
+    .btn-secondary {
       background: rgba(94,82,64,0.08);
       color: var(--color-text-primary);
       border: 1px solid rgba(94,82,64,0.10);
     }
-    .btn-secondary:hover{ background: rgba(94,82,64,0.14); }
-    .btn-source{
+    .btn-secondary:hover { background: rgba(94,82,64,0.14); }
+    .btn-source {
       background: rgba(236,103,24,0.08);
       border: 1px solid rgba(236,103,24,0.55);
       color: var(--color-primary);
@@ -83,7 +88,7 @@
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .btn-source:hover{
+    .btn-source:hover {
       background: var(--color-primary);
       border-color: var(--color-primary);
       color:#fff;
@@ -91,7 +96,7 @@
       transform: translateY(-1px);
     }
 
-    .panel{
+    .panel {
       background: var(--color-bg-secondary);
       border: 1px solid var(--color-border);
       border-radius: 12px;
@@ -99,443 +104,197 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
       margin-bottom: 18px;
     }
-    .panel-title{ font-size:1rem; font-weight:700; color:var(--color-text-primary); }
+    .panel-title { font-size:1rem; font-weight:700; color:var(--color-text-primary); }
 
-    .filters-grid{
-      display:flex;
-      gap:16px;
-      align-items:flex-end;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      margin-top: 12px;
+    .filters-grid { display:flex; gap:16px; align-items:flex-end; justify-content: space-between; flex-wrap: wrap; margin-top: 12px; }
+    .filters-grid .form-group { flex: 1 1 260px; margin-bottom: 0; min-width: 240px; }
+    .form-group { margin-bottom:20px; }
+    .form-group:last-child { margin-bottom:0; }
+    label { display:block; font-weight:600; margin-bottom:8px; color:var(--color-text-primary); font-size:0.9rem; }
+    input, select {
+      width:100%; padding:10px 12px; border: 1px solid var(--color-border); border-radius: 8px;
+      font-size: 0.95rem; background: var(--color-bg-primary); color: var(--color-text-primary); transition: border-color 0.2s ease;
     }
-    .filters-grid .form-group{
-      flex: 1 1 260px;
-      margin-bottom: 0;
-      min-width: 240px;
-    }
+    input:focus, select:focus { outline:none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(236,103,24,0.12); }
+    .hint { font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
 
-    .form-group{ margin-bottom:20px; }
-    .form-group:last-child{ margin-bottom:0; }
-    label{ display:block; font-weight:600; margin-bottom:8px; color:var(--color-text-primary); font-size:0.9rem; }
-    input, select{
-      width:100%;
-      padding:10px 12px;
-      border: 1px solid var(--color-border);
-      border-radius: 8px;
-      font-size: 0.95rem;
-      background: var(--color-bg-primary);
-      color: var(--color-text-primary);
-      transition: border-color 0.2s ease;
-    }
-    input:focus, select:focus{
-      outline:none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
-    }
-    .hint{ font-size:0.82rem; color:var(--color-text-secondary); margin-top:6px; }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; }
 
-    .actions{ display:flex; gap:12px; flex-wrap:wrap; }
-
-    .status-indicator{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 12px;
+    .status-indicator {
+      display:inline-flex; align-items:center; gap:8px; padding: 8px 16px; border-radius: 6px;
+      font-size: 0.85rem; font-weight: 600; margin-bottom: 12px;
     }
-    .status-loading{ background: rgba(98,108,113,0.15); color: var(--color-info); border:1px solid rgba(98,108,113,0.25); }
-    .status-success{ background: rgba(33,128,141,0.15); color: var(--color-success); border:1px solid rgba(33,128,141,0.25); }
-    .status-error{ background: rgba(192,21,47,0.15); color: var(--color-error); border:1px solid rgba(192,21,47,0.25); }
-    .spinner{
-      width:14px; height:14px;
-      border:2px solid currentColor;
-      border-right-color: transparent;
-      border-radius:50%;
-      animation: spin 0.6s linear infinite;
+    .status-loading { background: rgba(98,108,113,0.15); color: var(--color-info); border:1px solid rgba(98,108,113,0.25); }
+    .status-success { background: rgba(33,128,141,0.15); color: var(--color-success); border:1px solid rgba(33,128,141,0.25); }
+    .status-error { background: rgba(192,21,47,0.15); color: var(--color-error); border:1px solid rgba(192,21,47,0.25); }
+    .spinner {
+      width:14px; height:14px; border:2px solid currentColor; border-right-color: transparent;
+      border-radius:50%; animation: spin 0.6s linear infinite;
     }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Altura maior do roadmap */
-    .timeline-container{
-      background:#fff;
-      border: 1px solid var(--color-border);
-      border-radius: 12px;
-      padding: 20px;
-      height: 82vh;
-      min-height: 720px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      overflow:hidden;
-      position: relative;
+    .timeline-container {
+      background:#fff; border: 1px solid var(--color-border); border-radius: 12px;
+      padding: 20px; height: 82vh; min-height: 720px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      overflow:hidden; position: relative;
     }
 
-    .zoom-controls{
-      position:absolute; top:30px; right:30px;
-      display:flex; gap:8px; z-index:20;
+    .zoom-controls { position:absolute; top:30px; right:30px; display:flex; gap:8px; z-index:20; }
+    .zoom-btn {
+      width:36px; height:36px; border: 1px solid var(--color-border); background:#fff;
+      color: var(--color-text-primary); border-radius: 6px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; font-size: 1.2rem; font-weight: 700;
+      transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.06); user-select:none;
     }
-    .zoom-btn{
-      width:36px; height:36px;
-      border: 1px solid var(--color-border);
-      background:#fff;
-      color: var(--color-text-primary);
-      border-radius: 6px;
-      cursor:pointer;
-      display:flex; align-items:center; justify-content:center;
-      font-size: 1.2rem; font-weight: 700;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-      user-select:none;
-    }
-    .zoom-btn:hover{ background: var(--color-primary); color:#fff; border-color: var(--color-primary); }
-    .zoom-btn:active{ transform: scale(0.95); }
-    .visualization{ height:100%; }
+    .zoom-btn:hover { background: var(--color-primary); color:#fff; border-color: var(--color-primary); }
+    .zoom-btn:active { transform: scale(0.95); }
+    .visualization { height:100%; }
 
     /* --- VIS TIMELINE --- */
-    .vis-timeline{ background:#fff !important; border:none; }
-    .vis-panel.vis-bottom, .vis-panel.vis-top, .vis-panel.vis-left, .vis-panel.vis-right, .vis-time-axis, .vis-labelset, .vis-label{ background:#fff !important; }
-    .vis-panel.vis-center, .vis-itemset{ background: transparent !important; }
+    .vis-timeline { background:#fff !important; border:none; }
+    .vis-panel.vis-bottom, .vis-panel.vis-top, .vis-panel.vis-left, .vis-panel.vis-right, .vis-time-axis, .vis-labelset, .vis-label { background:#fff !important; }
+    .vis-panel.vis-center, .vis-itemset { background: transparent !important; }
 
     .vis-panel.vis-background .vis-grid.vis-vertical,
-    .vis-time-axis .vis-grid.vis-vertical{ border-left: 1px solid rgba(0,0,0,0.08) !important; }
+    .vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid rgba(0,0,0,0.08) !important; }
 
-    .vis-current-time{ display:none !important; }
-
-    .vis-custom-time.today{
-      background-color: var(--today-blue) !important;
-      width: 2px !important;
-      z-index: 3;
-      box-shadow: none !important;
-      cursor: help;
-    }
-    .vis-custom-time.today .vis-custom-time-marker{
-      background: var(--today-blue) !important;
-      color: #fff !important;
-      font-weight: 800;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      box-shadow: none !important;
-      transform: translate(-50%, 0);
-      letter-spacing: 0.2px;
-      user-select: none;
-      cursor: help;
+    /* LINHA DE SEPARAÇÃO DA COLUNA A MAIS FORTE */
+    .vis-panel.vis-left {
+      border-right: 2px solid #8e9699 !important; /* Cor cinza mais forte para separar a coluna A */
     }
 
-    .vis-item{
-      border-radius: 6px;
-      border-width: 2px;
-      font-size: 0.9rem;
-      min-height: 55px;
+    .vis-current-time { display:none !important; }
+
+    .vis-custom-time.today { background-color: var(--today-blue) !important; width: 2px !important; z-index: 3; box-shadow: none !important; cursor: help; }
+    .vis-custom-time.today .vis-custom-time-marker {
+      background: var(--today-blue) !important; color: #fff !important; font-weight: 800; font-size: 12px;
+      padding: 4px 8px; border-radius: 999px; box-shadow: none !important; transform: translate(-50%, 0);
+      letter-spacing: 0.2px; user-select: none; cursor: help;
+    }
+
+    /* --- ESTILIZAÇÃO DO TOOLTIP CUSTOMIZADO --- */
+    .vis-tooltip {
+      background-color: var(--color-text-primary) !important; color: #fff !important; border-radius: 8px !important;
+      padding: 12px 16px !important; font-family: inherit !important; font-size: 0.9rem !important; border: none !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important; z-index: 9999 !important; pointer-events: none; max-width: 350px;
+    }
+
+    /* ZOOM GLOBAL DO COMPONENTE */
+    .vis-item {
+      border-radius: 6px; border-width: 2px;
+      font-size: calc(0.9rem * var(--timeline-zoom, 1));
+      min-height: calc(55px * var(--timeline-zoom, 1));
       cursor: pointer;
     }
+    
+    .vis-item-content {
+       padding: calc(4px * var(--timeline-zoom, 1)) calc(8px * var(--timeline-zoom, 1)) !important;
+    }
 
-    .vis-item.status-planejado{ background-color: rgba(98,108,113,0.15); border-color: var(--color-info); color: var(--color-text-primary); }
-    .vis-item.status-em-andamento{ background-color: rgba(33,128,141,0.15); border-color: var(--color-primary); color: var(--color-text-primary); }
-    .vis-item.status-concluido{ background-color: rgba(33,128,141,0.25); border-color: var(--color-success); color: var(--color-text-primary); }
-    .vis-item.status-atrasado{ background-color: rgba(192,21,47,0.15); border-color: var(--color-error); color: var(--color-text-primary); }
-    .vis-item.status-pausado{ background-color: rgba(230,129,97,0.15); border-color: var(--color-warning); color: var(--color-text-primary); }
+    .vis-item.status-planejado { background-color: rgba(98,108,113,0.15); border-color: var(--color-info); color: var(--color-text-primary); }
+    .vis-item.status-em-andamento { background-color: rgba(33,128,141,0.15); border-color: var(--color-primary); color: var(--color-text-primary); }
+    .vis-item.status-concluido { background-color: rgba(33,128,141,0.25); border-color: var(--color-success); color: var(--color-text-primary); }
+    .vis-item.status-atrasado { background-color: rgba(192,21,47,0.15); border-color: var(--color-error); color: var(--color-text-primary); }
+    .vis-item.status-pausado { background-color: rgba(230,129,97,0.15); border-color: var(--color-warning); color: var(--color-text-primary); }
 
-    .vis-item.epic-item{
-      min-height: 30px !important;
-      height: 30px !important;
+    .vis-item.epic-item {
+      min-height: calc(30px * var(--timeline-zoom, 1)) !important;
+      height: calc(30px * var(--timeline-zoom, 1)) !important;
       border-radius: 999px !important;
-      font-size: 0.85rem !important;
+      font-size: calc(0.85rem * var(--timeline-zoom, 1)) !important;
       cursor: default;
     }
 
-    .vis-labelset{ min-width: var(--stack-col-width) !important; }
-    .vis-panel.vis-left{ min-width: var(--stack-col-width) !important; }
-    .vis-labelset .vis-label{ display:flex; align-items:center; justify-content:center; }
-    .vis-labelset .vis-label .vis-inner{
-      width:100%;
-      display:flex; align-items:center; justify-content:center;
-      text-align:center;
-      font-size: 1.02rem;
-      font-weight: 800;
-      color: var(--color-text-primary);
-      padding: 10px;
-      line-height: 1.2;
+    .vis-labelset { min-width: calc(var(--stack-col-width) * var(--timeline-zoom, 1)) !important; }
+    .vis-panel.vis-left { min-width: calc(var(--stack-col-width) * var(--timeline-zoom, 1)) !important; }
+    .vis-labelset .vis-label { display:flex; align-items:center; justify-content:center; }
+    .vis-labelset .vis-label .vis-inner {
+      width:100%; display:flex; align-items:center; justify-content:center; text-align:center;
+      font-size: calc(1.02rem * var(--timeline-zoom, 1)); font-weight: 800; color: var(--color-text-primary);
+      padding: 10px; line-height: 1.2;
     }
+
+    .vis-time-axis .vis-text { font-size: calc(12px * var(--timeline-zoom, 1)) !important; }
 
     /* Modal */
-    .modal-overlay{
-      position: fixed; inset:0;
-      background: rgba(0,0,0,0.55);
-      display:none; align-items:center; justify-content:center;
-      padding:20px; z-index:9999;
-    }
-    .modal-overlay.is-open{ display:flex; }
-    .modal{
-      width: min(720px, 100%);
-      background:#fff;
-      border:1px solid var(--color-border);
-      border-radius: 14px;
-      box-shadow: 0 18px 60px rgba(0,0,0,0.35);
-      overflow:hidden;
-    }
-    .modal-header{
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--color-border);
-      display:flex; justify-content:space-between; align-items:center; gap:12px;
-    }
-    .modal-title{ font-size: 1rem; font-weight: 700; color: var(--color-text-primary); }
-    .modal-close{
-      width:36px; height:36px;
-      border-radius: 10px;
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-primary);
-      color: var(--color-text-primary);
-      cursor:pointer;
-      font-size: 1.1rem;
-      line-height: 1;
-      user-select: none;
-    }
-    .modal-body{ padding: 18px 20px; }
-    .modal-actions{
-      padding: 16px 20px;
-      border-top: 1px solid var(--color-border);
-      display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;
-    }
-    .example-link{
-      display:inline-block;
-      color: var(--color-primary);
-      text-decoration:none;
-      font-size:0.85rem;
-      margin-top:10px;
-    }
-    .example-link:hover{ text-decoration: underline; }
+    .modal-overlay { position: fixed; inset:0; background: rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; padding:20px; z-index:9999; }
+    .modal-overlay.is-open { display:flex; }
+    .modal { width: min(720px, 100%); background:#fff; border:1px solid var(--color-border); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,0.35); overflow:hidden; }
+    .modal-header { padding: 18px 20px; border-bottom: 1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .modal-title { font-size: 1rem; font-weight: 700; color: var(--color-text-primary); }
+    .modal-close { width:36px; height:36px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); cursor:pointer; font-size: 1.1rem; line-height: 1; user-select: none; }
+    .modal-body { padding: 18px 20px; }
+    .modal-actions { padding: 16px 20px; border-top: 1px solid var(--color-border); display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    .example-link { display:inline-block; color: var(--color-primary); text-decoration:none; font-size:0.85rem; margin-top:10px; }
+    .example-link:hover { text-decoration: underline; }
 
     @media (max-width:768px){
-      body{ padding:16px; }
-      h1{ font-size: 1.5rem; }
-      .page-logo{ height:38px; }
-      .timeline-container{ height: 70vh; min-height: 420px; }
-      .actions{ flex-direction: column; }
-      .btn{ width:100%; }
-      .panel{ padding:16px; }
-      .btn-source{ width:100%; }
-      :root{ --stack-col-width: 180px; }
-      .filters-grid{ flex-direction: column; align-items: stretch; }
-      .filters-grid .form-group{ min-width: 100%; }
+      body { padding:16px; } h1 { font-size: 1.5rem; } .page-logo { height:38px; } .timeline-container { height: 70vh; min-height: 420px; }
+      .actions { flex-direction: column; } .btn { width:100%; } .panel { padding:16px; } .btn-source { width:100%; }
+      :root { --stack-col-width: 180px; } .filters-grid { flex-direction: column; align-items: stretch; } .filters-grid .form-group { min-width: 100%; }
     }
   
-
-    /* Detalhamento: cards mode toggle (right-aligned, label above, compact) */
+    /* Detalhamento */
     #page-detalhamento .cards-mode-toggle-right { margin-left: auto; }
-    #page-detalhamento .cards-mode-toggle {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-      padding: 0;
-      border: none;
-      background: transparent;
-    }
-    #page-detalhamento .cards-mode-label {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--color-text-primary);
-      line-height: 1.1;
-    }
-
-    #page-detalhamento .cards-switch {
-      position: relative;
-      width: 44px;
-      height: 24px;
-      display: inline-block;
-      cursor: pointer;
-      user-select: none;
-    }
-    #page-detalhamento .cards-switch input {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      margin: 0;
-      cursor: pointer;
-    }
-    #page-detalhamento .cards-switch-track {
-      position: absolute;
-      inset: 0;
-      background: rgba(94,82,64,0.20);
-      border: 1px solid rgba(94,82,64,0.25);
-      border-radius: 999px;
-      transition: all 0.18s ease;
-    }
-    #page-detalhamento .cards-switch-thumb {
-      position: absolute;
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      top: 2px;
-      background: #fff;
-      border-radius: 999px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.18);
-      transition: transform 0.18s ease;
-    }
-    #page-detalhamento .cards-switch input:checked ~ .cards-switch-track {
-      background: rgba(236,103,24,0.95);
-      border-color: rgba(236,103,24,1);
-      box-shadow: 0 4px 12px rgba(236,103,24,0.18);
-    }
+    #page-detalhamento .cards-mode-toggle { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 0; border: none; background: transparent; }
+    #page-detalhamento .cards-mode-label { font-size: 0.92rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
+    #page-detalhamento .cards-switch { position: relative; width: 44px; height: 24px; display: inline-block; cursor: pointer; user-select: none; }
+    #page-detalhamento .cards-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+    #page-detalhamento .cards-switch-track { position: absolute; inset: 0; background: rgba(94,82,64,0.20); border: 1px solid rgba(94,82,64,0.25); border-radius: 999px; transition: all 0.18s ease; }
+    #page-detalhamento .cards-switch-thumb { position: absolute; height: 18px; width: 18px; left: 3px; top: 2px; background: #fff; border-radius: 999px; box-shadow: 0 2px 5px rgba(0,0,0,0.18); transition: transform 0.18s ease; }
+    #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-    /* Epic pill thinner (Detalhamento) */
     #page-detalhamento .vis-item.epic-item {
-      min-height: 10px !important;
-      height: 10px !important;
+      min-height: calc(10px * var(--timeline-zoom, 1)) !important;
+      height: calc(10px * var(--timeline-zoom, 1)) !important;
       border-radius: 999px !important;
       cursor: pointer !important;
     }
 
-    /* Spacer (only used in outdated mode) */
     #page-detalhamento .vis-item.spacer-item {
-      opacity: 0 !important;
-      background: transparent !important;
-      border-color: transparent !important;
-      min-height: 110px !important;
-      height: 110px !important;
-      pointer-events: none !important;
+      opacity: 0 !important; background: transparent !important; border-color: transparent !important;
+      min-height: calc(110px * var(--timeline-zoom, 1)) !important; height: calc(110px * var(--timeline-zoom, 1)) !important; pointer-events: none !important;
     }
 
-    /* Multi-select dropdown (Detalhamento filters) */
     #page-detalhamento .multi-select { position: relative; width: 100%; }
-    #page-detalhamento .multi-select-trigger {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--color-border);
-      border-radius: 8px;
-      font-size: 0.95rem;
-      background: var(--color-bg-primary);
-      color: var(--color-text-primary);
-      transition: border-color 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      cursor: pointer;
-    }
-    #page-detalhamento .multi-select-trigger:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(236,103,24,0.12);
-    }
+    #page-detalhamento .multi-select-trigger { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.95rem; background: var(--color-bg-primary); color: var(--color-text-primary); transition: border-color 0.2s ease; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+    #page-detalhamento .multi-select-trigger:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(236,103,24,0.12); }
     #page-detalhamento .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #page-detalhamento .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
-    #page-detalhamento .multi-select-dropdown {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      right: 0;
-      background: #fff;
-      border: 1px solid var(--color-border);
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.10);
-      padding: 6px;
-      max-height: 260px;
-      overflow: auto;
-      display: none;
-      z-index: 1000;
-    }
+    #page-detalhamento .multi-select-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid var(--color-border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.10); padding: 6px; max-height: 260px; overflow: auto; display: none; z-index: 1000; }
     #page-detalhamento .multi-select.is-open .multi-select-dropdown { display: block; }
-    #page-detalhamento .multi-select-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      user-select: none;
-      color: var(--color-text-primary);
-      font-size: 0.92rem;
-    }
+    #page-detalhamento .multi-select-option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; color: var(--color-text-primary); font-size: 0.92rem; }
     #page-detalhamento .multi-select-option:hover { background: rgba(94,82,64,0.06); }
     #page-detalhamento .multi-select-option input { width: 16px; height: 16px; }
 
-  
+    #page-detalhamento #filters-grid-detalhes { align-items: stretch; }
+    #page-detalhamento #filters-grid-detalhes .form-group { display:flex; flex-direction:column; }
+    #page-detalhamento #filters-grid-detalhes .hint { min-height: 18px; }
+    #page-detalhamento #visualization-detalhes .vis-itemset { padding-top: 14px; box-sizing: border-box; }
+    #page-detalhamento #visualization-detalhes .vis-labelset { padding-top: 14px; box-sizing: border-box; }
 
-    /* Detalhamento: alinhar filtros (mesma altura/linha) */
-    #page-detalhamento #filters-grid-detalhes{ align-items: stretch; }
-    #page-detalhamento #filters-grid-detalhes .form-group{ display:flex; flex-direction:column; }
-    #page-detalhamento #filters-grid-detalhes .hint{ min-height: 18px; }
-
-    /* Detalhamento: evita clipping no 1º grupo (epic pill + card) */
-    #page-detalhamento #visualization-detalhes .vis-itemset{ padding-top: 14px; box-sizing: border-box; }
-    #page-detalhamento #visualization-detalhes .vis-labelset{ padding-top: 14px; box-sizing: border-box; }
-
-    /* Detalhamento: melhora distribuição dos grupos (mínimo entre divisórias + itens mais centralizados) */
-    #page-detalhamento #visualization-detalhes .vis-group{
-      min-height: 96px !important;
-      padding-top: 18px !important;
-      padding-bottom: 18px !important;
+    #page-detalhamento #visualization-detalhes .vis-group {
+      min-height: calc(96px * var(--timeline-zoom, 1)) !important;
+      padding-top: calc(18px * var(--timeline-zoom, 1)) !important;
+      padding-bottom: calc(18px * var(--timeline-zoom, 1)) !important;
       box-sizing: border-box !important;
     }
-    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label{ min-height: 96px !important; }
-    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label .vis-inner{
-      min-height: 96px !important;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label { min-height: calc(96px * var(--timeline-zoom, 1)) !important; }
+    #page-detalhamento #visualization-detalhes .vis-labelset .vis-label .vis-inner {
+      min-height: calc(96px * var(--timeline-zoom, 1)) !important; display:flex; align-items:center; justify-content:center;
     }
-
-  
 
     /* Geral: toggle idêntico ao Detalhamento */
     #page-geral .cards-mode-toggle-right { margin-left: auto; }
-    #page-geral .cards-mode-toggle {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-      padding: 0;
-      border: none;
-      background: transparent;
-    }
-    #page-geral .cards-mode-label {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--color-text-primary);
-      line-height: 1.1;
-    }
-    #page-geral .cards-switch {
-      position: relative;
-      width: 44px;
-      height: 24px;
-      display: inline-block;
-      cursor: pointer;
-      user-select: none;
-    }
-    #page-geral .cards-switch input {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      margin: 0;
-      cursor: pointer;
-    }
-    #page-geral .cards-switch-track {
-      position: absolute;
-      inset: 0;
-      background: rgba(94,82,64,0.20);
-      border: 1px solid rgba(94,82,64,0.25);
-      border-radius: 999px;
-      transition: all 0.18s ease;
-    }
-    #page-geral .cards-switch-thumb {
-      position: absolute;
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      top: 2px;
-      background: #fff;
-      border-radius: 999px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.18);
-      transition: transform 0.18s ease;
-    }
-    #page-geral .cards-switch input:checked ~ .cards-switch-track {
-      background: rgba(236,103,24,0.95);
-      border-color: rgba(236,103,24,1);
-      box-shadow: 0 4px 12px rgba(236,103,24,0.18);
-    }
+    #page-geral .cards-mode-toggle { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 0; border: none; background: transparent; }
+    #page-geral .cards-mode-label { font-size: 0.92rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
+    #page-geral .cards-switch { position: relative; width: 44px; height: 24px; display: inline-block; cursor: pointer; user-select: none; }
+    #page-geral .cards-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+    #page-geral .cards-switch-track { position: absolute; inset: 0; background: rgba(94,82,64,0.20); border: 1px solid rgba(94,82,64,0.25); border-radius: 999px; transition: all 0.18s ease; }
+    #page-geral .cards-switch-thumb { position: absolute; height: 18px; width: 18px; left: 3px; top: 2px; background: #fff; border-radius: 999px; box-shadow: 0 2px 5px rgba(0,0,0,0.18); transition: transform 0.18s ease; }
+    #page-geral .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-geral .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
   </style>
@@ -544,26 +303,21 @@
   <div class="container">
     <header>
       <img id="page-logo" class="page-logo" src="./logo.jpg" alt="Caaqui" loading="eager" decoding="async" onerror="this.onerror=null; this.src='./logo.png';" />
-
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
         <button onclick="switchPage('detalhamento')" id="link-detalhamento" class="menu-btn">Projetos - Detalhamento</button>
       </nav>
-
       <h1>Roadmap - Projetos Caaqui</h1>
       <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
     </header>
 
-    <!-- PÁGINA GERAL -->
     <div id="page-geral" style="display:block;">
       <input type="text" id="spreadsheet-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv" style="display:none;" />
-
       <div class="panel" id="filters-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <div class="panel-title" style="margin-bottom:0;">Filtros</div>
           <button class="btn-source" id="change-source" type="button" onclick="openModal()">Alterar fonte do dado</button>
         </div>
-
         <div class="filters-grid" id="filters-grid-geral">
           <div class="form-group" id="stack-filter-group-geral">
             <label for="stack-filter">Filtrar por Stack</label>
@@ -572,7 +326,6 @@
             </select>
             <p class="hint">Filtre os itens por stack: App, Web, Data, etc.</p>
           </div>
-
           <div class="form-group">
             <label for="view-mode">Modo de Visualização</label>
             <select id="view-mode">
@@ -603,24 +356,21 @@
 
       <div class="timeline-container" id="timeline-container" style="margin-top:18px;">
         <div class="zoom-controls">
-          <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
-          <button class="zoom-btn" id="zoom-out" title="Diminuir zoom">-</button>
+          <button class="zoom-btn" id="zoom-in" title="Aumentar zoom do eixo X">+</button>
+          <button class="zoom-btn" id="zoom-out" title="Diminuir zoom do eixo X">-</button>
           <button class="zoom-btn" id="zoom-fit" title="Ajustar ao conteúdo">⤢</button>
         </div>
         <div id="visualization" class="visualization"></div>
       </div>
     </div>
 
-    <!-- PÁGINA DETALHAMENTO -->
     <div id="page-detalhamento" style="display:none;">
-      <input type="text" id="spreadsheet-url-detalhes" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=260383576&single=true&output=csv" />
-
+      <input type="text" id="spreadsheet-url-detalhes" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=260383576&single=true&output=csv" style="display:none;" />
       <div class="panel" id="filters-panel-detalhes">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <div class="panel-title" style="margin-bottom:0;">Filtros</div>
           <button class="btn-source" id="change-source-detalhes" type="button" onclick="openModal()">Alterar fonte do dado</button>
         </div>
-
         <div class="filters-grid" id="filters-grid-detalhes">
           <div class="form-group">
             <label for="stack-filter-detalhes">Filtrar por Projeto</label>
@@ -629,7 +379,6 @@
             </select>
             <p class="hint">Filtre por Projeto (coluna Projeto).</p>
           </div>
-
           <div class="form-group">
             <label for="responsavel-filter-detalhes">Filtrar por Responsável</label>
             <div class="multi-select" data-select="responsavel-filter-detalhes">
@@ -642,9 +391,8 @@
             <select id="responsavel-filter-detalhes" multiple style="display:none;">
               <option value="all" selected>Todos</option>
             </select>
-            <p class="hint">Baseado na coluna Responsável/Nome do responsável (selecione mais de um).</p>
+            <p class="hint">Baseado na coluna Responsável (selecione mais de um).</p>
           </div>
-
           <div class="form-group">
             <label for="status-filter-detalhes">Filtrar por Status</label>
             <div class="multi-select" data-select="status-filter-detalhes">
@@ -659,7 +407,6 @@
             </select>
             <p class="hint">Baseado na coluna Status (selecione mais de um).</p>
           </div>
-
           <div class="form-group">
             <label for="view-mode-detalhes">Modo de Visualização</label>
             <select id="view-mode-detalhes">
@@ -668,7 +415,7 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
-            <p class=\"hint\">Ajuste a escala de tempo do roadmap.</p>
+            <p class="hint">Ajuste a escala de tempo do roadmap.</p>
           </div>
         </div>
       </div>
@@ -690,15 +437,14 @@
 
       <div class="timeline-container" id="timeline-container-detalhes" style="margin-top:18px;">
         <div class="zoom-controls">
-          <button class="zoom-btn" id="zoom-in-detalhes" title="Aumentar zoom">+</button>
-          <button class="zoom-btn" id="zoom-out-detalhes" title="Diminuir zoom">-</button>
+          <button class="zoom-btn" id="zoom-in-detalhes" title="Aumentar zoom do eixo X">+</button>
+          <button class="zoom-btn" id="zoom-out-detalhes" title="Diminuir zoom do eixo X">-</button>
           <button class="zoom-btn" id="zoom-fit-detalhes" title="Ajustar ao conteúdo">⤢</button>
         </div>
         <div id="visualization-detalhes" class="visualization"></div>
       </div>
     </div>
 
-    <!-- Modal Alterar Fonte -->
     <div class="modal-overlay" id="source-modal" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
         <div class="modal-header">
@@ -717,15 +463,34 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <script>
-    // --- MENU ---
+    // ==========================================
+    // CONFIGURAÇÕES GERAIS E DECLARAÇÃO DE VARIÁVEIS 
+    // ==========================================
+    const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+    const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+    
+    let componentZoom = { geral: 1, detalhamento: 1 };
     let currentPage = 'geral';
+    
+    let timelines = { geral: null, detalhamento: null };
+    let allParsedData = { geral: null, detalhamento: null };
+
+    let availableStacks = { geral: new Set(), detalhamento: new Set() };
+    let availableResponsaveis = { detalhamento: new Set() };
+    let availableStatuses = { detalhamento: new Set() };
+
+    let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
+    let clickHandlerBound = { geral: false, detalhamento: false };
+    
+    let todayTimer = { geral: null, detalhamento: null };
+    const TODAYID = 'today';
+
+    // --- MENU ---
     function switchPage(page) {
       currentPage = page;
-
       document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
       document.getElementById('page-detalhamento').style.display = page === 'detalhamento' ? 'block' : 'none';
 
@@ -746,21 +511,7 @@
       }, 50);
     }
 
-    // --- TIMELINES / CACHE ---
-    let timelines = { geral: null, detalhamento: null };
-    let allParsedData = { geral: null, detalhamento: null };
-
-    let availableStacks = { geral: new Set(), detalhamento: new Set() };
-    let availableResponsaveis = { detalhamento: new Set() };
-    let availableStatuses = { detalhamento: new Set() };
-
-    let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
-    let clickHandlerBound = { geral: false, detalhamento: false };
-
     // --- HOJE ---
-    let todayTimer = { geral: null, detalhamento: null };
-    const TODAYID = 'today';
-
     function formatTodayTitle(now) {
       const d = now.toLocaleDateString('pt-BR');
       return `Hoje (${d})`;
@@ -838,7 +589,6 @@
       return m ? m[1].trim() : s;
     }
 
-    
     function getCardsModeDetalhamento() {
       const el = document.getElementById('cards-mode-toggle-detalhes');
       if (!el) return 'updated';
@@ -857,9 +607,7 @@
     }
 
     function getSelectedValues(selectEl) {
-      return Array.from(selectEl.options)
-        .filter(o => o.selected)
-        .map(o => o.value);
+      return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value);
     }
 
     function formatSelectedLabel(selectEl) {
@@ -945,13 +693,7 @@
     function splitPeople(text) {
       const s = String(text || '').trim();
       if (!s) return [];
-      return s
-        .replace(/\n/g, ',')
-        .replace(/\s*;\s*/g, ',')
-        .replace(/\s*\/\s*/g, ',')
-        .split(',')
-        .map(x => x.trim())
-        .filter(Boolean);
+      return s.replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean);
     }
 
     function sameCI(a, b) {
@@ -959,15 +701,9 @@
     }
 
     function normalizeList(list) {
-      return (Array.isArray(list) ? list : [])
-        .map(v => String(v || '').trim())
-        .filter(Boolean)
-        .filter(v => v !== 'all');
+      return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all');
     }
 
-
-
-    // Geral: toggle de agrupamento (Por stack vs Geral)
     function getGroupingModeGeral() {
       const el = document.getElementById('grouping-toggle-geral');
       if (!el) return 'stack';
@@ -991,95 +727,13 @@
       }
     }
 
-// CSV robusto (auto delimiter + sep=;)
-    function parseCSVLine(line, delimiter) {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        } else if (char === delimiter && !inQuotes) {
-          result.push(current);
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current);
-      return result;
-    }
-
     function parseCSV(csvText) {
-      csvText = String(csvText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const rawLines = csvText.split('\n');
-
-      let firstUsefulIdx = -1;
-      for (let i = 0; i < rawLines.length; i++) {
-        if (rawLines[i] && rawLines[i].trim()) { firstUsefulIdx = i; break; }
-      }
-      if (firstUsefulIdx === -1) return [];
-
-      let delimiter = ',';
-      let startIndex = firstUsefulIdx;
-      const firstUseful = rawLines[firstUsefulIdx].trim();
-
-      if (firstUseful.toLowerCase().startsWith('sep=')) {
-        delimiter = firstUseful.substring(4, 5) || ';';
-        startIndex = firstUsefulIdx + 1;
-      } else {
-        const candidates = [',', ';', '\t'];
-        function score(delim) {
-          const parts = parseCSVLine(firstUseful, delim);
-          return parts.length;
-        }
-        const best = candidates.map(d => ({ d, s: score(d) })).sort((a,b)=>b.s-a.s)[0];
-        delimiter = best.d;
-      }
-
-      const lines = [];
-      let currentLine = '';
-      let inQuotes = false;
-
-      for (let i = startIndex; i < rawLines.length; i++) {
-        const part = rawLines[i];
-        for (let j = 0; j < part.length; j++) {
-          const ch = part[j];
-          if (ch === '"') {
-            if (inQuotes && part[j + 1] === '"') { currentLine += '"'; j++; continue; }
-            inQuotes = !inQuotes;
-          }
-          currentLine += ch;
-        }
-        if (!inQuotes) { lines.push(currentLine); currentLine = ''; }
-        else { currentLine += '\n'; }
-      }
-      if (currentLine) lines.push(currentLine);
-      if (!lines.length) return [];
-
-      const headers = parseCSVLine(lines[0], delimiter).map((h, idx) => {
-        let hh = String(h || '').replace(/"/g, '').trim();
-        if (idx === 0) hh = hh.replace(/^\uFEFF/, '');
-        return hh;
-      });
-
-      const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        if (!lines[i] || !lines[i].trim()) continue;
-        const values = parseCSVLine(lines[i], delimiter);
-        const row = {};
-        headers.forEach((header, idx) => { row[header] = values[idx] !== undefined ? String(values[idx]) : ''; });
-        rows.push(row);
-      }
-      return rows;
+      const result = Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true });
+      return result.data || [];
     }
 
-    // Datas
     function parseBRDate(dateValue) {
-      if (dateValue === null || dateValue === undefined) return null;
+      if (dateValue === null || dateValue === undefined || dateValue === '') return null;
       if (typeof dateValue === 'number') {
         const d = new Date((dateValue - 25569) * 86400 * 1000);
         return isNaN(d) ? null : d;
@@ -1113,16 +767,8 @@
       return date.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
     }
 
-    // Headers robustos
     function normalizeKeyName(name) {
-      return String(name || '')
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[\u00A0]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .replace(/[^a-z0-9 ]/g, '');
+      return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '');
     }
 
     function getCell(row, candidates) {
@@ -1132,10 +778,8 @@
 
       for (const c of candidates) {
         if (row[c] !== undefined) return row[c];
-
         const nk = normalizeKeyName(c);
         if (normKeys.has(nk)) return row[normKeys.get(nk)];
-
         for (const [n, orig] of normKeys.entries()) {
           if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig];
         }
@@ -1143,41 +787,28 @@
       return '';
     }
 
-    // Zoom estilo lupa com Ctrl+Scroll
-    const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;        // 1 semana
-    const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2;  // 2 anos
+    // --- NOVA FUNÇÃO DE ZOOM ESTRUTURAL DO COMPONENTE ---
+    function updateZoomCSS(pageKey, newZoom) {
+       componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+       const root = document.documentElement;
+       root.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+       
+       if (timelines[pageKey]) {
+          timelines[pageKey].redraw(); 
+       }
+    }
 
-    
-
-    // Zoom estilo lupa com Ctrl+Scroll
-    const ZOOMMINRANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
-    const ZOOMMAXRANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
-function bindCtrlWheelZoom(container, pageKey) {
+    function bindCtrlWheelZoom(container, pageKey) {
       if (!container) return;
       container.addEventListener('wheel', (e) => {
-        if (!e.ctrlKey) return;
-        e.preventDefault();
-        const tl = timelines[pageKey];
-        if (!tl) return;
-
-        const rect = container.getBoundingClientRect();
-        const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-        const perc = rect.width ? (x / rect.width) : 0.5;
-
-        const win = tl.getWindow();
-        const start = win.start.valueOf();
-        const end = win.end.valueOf();
-        const range = Math.max(1, end - start);
-        const anchor = start + range * perc;
-
-        const zoomFactor = (e.deltaY < 0) ? 0.8 : 1.25;
-        let newRange = range * zoomFactor;
-        newRange = Math.max(ZOOM_MIN_RANGE, Math.min(ZOOM_MAX_RANGE, newRange));
-
-        const newStart = anchor - newRange * perc;
-        const newEnd = anchor + newRange * (1 - perc);
-
-        tl.setWindow(newStart, newEnd, { animation: false });
+        if (!e.ctrlKey) return; 
+        e.preventDefault(); 
+        
+        let currentZ = componentZoom[pageKey];
+        const zoomStep = 0.1;
+        if (e.deltaY < 0) { currentZ += zoomStep; } else { currentZ -= zoomStep; }
+        
+        updateZoomCSS(pageKey, currentZ);
       }, { passive: false });
     }
 
@@ -1186,13 +817,12 @@ function bindCtrlWheelZoom(container, pageKey) {
       if (!res.ok) throw new Error(`Erro ao acessar planilha (${res.status}).`);
       const csvText = await res.text();
       if (csvText.trim().startsWith('<!DOCTYPE html') || csvText.trim().startsWith('<html')) {
-        throw new Error('O link retornou uma página HTML em vez de CSV. Verifique se a planilha está publicada na web.');
+        throw new Error('O link retornou HTML em vez de CSV. Verifique a planilha.');
       }
       return parseCSV(csvText);
     }
 
     // --- PARSERS ---
-    
     function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
       const items = [];
       const groups = [];
@@ -1209,67 +839,80 @@ function bindCtrlWheelZoom(container, pageKey) {
         const row = rows[i];
 
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
-        const dataInicio = parseBRDate(getCell(row, ['Start date']));
+        let dataInicio = parseBRDate(getCell(row, ['Start date']));
         const dataTarget = parseBRDate(getCell(row, ['Target end']));
-        const dataFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+        const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
         const status = String(getCell(row, ['Status']) || 'planejado').trim();
         const chave = String(getCell(row, ['Chave','Key','Link']) || '').trim();
 
-        if (!resumo || !dataInicio || !dataFinish) continue;
+        if (!resumo) continue; 
 
-        // Stacks podem vir como "App;Web;Data", "App, Web", "App/Web", etc.
-        const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
-        const cleanedStacks = stacksRaw
-          .replace(/\s*\n\s*/g, ',')
-          .replace(/\s*;\s*/g, ',')
-          .replace(/\s*\/\s*/g, ',')
-          .replace(/\s*\|\s*/g, ',');
+        if (!dataTarget && !dataFinishReal) {
+          const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
+          const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
+          const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
+          stacksArray.forEach(st => availableStacks.geral.add(st));
+          continue; 
+        }
 
-        const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
-        stacksArray.forEach(st => availableStacks.geral.add(st));
-
-        const titleMatch = resumo.match(/\[(.*?)\]/);
-        const displayTitle = titleMatch ? titleMatch[1] : resumo;
-
-        const statusNormalized = String(status || 'planejado')
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/\s+/g, '-');
-
-        const totalDuration = dataFinish - dataInicio;
-        const targetDuration = dataTarget ? (dataTarget - dataInicio) : totalDuration;
-        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+        if (!dataInicio) { dataInicio = new Date(); }
+        let dataFinalDoCard = dataFinishReal || dataTarget;
+        if (dataInicio > dataFinalDoCard) { dataInicio = new Date(dataFinalDoCard); dataInicio.setDate(dataInicio.getDate() - 15); }
 
         let customStyle;
-        if (dataTarget && dataTarget < dataFinish) {
+        if (dataTarget && dataFinalDoCard.getTime() > dataTarget.getTime()) {
+          const totalDuration = dataFinalDoCard.getTime() - dataInicio.getTime();
+          const targetDuration = dataTarget.getTime() - dataInicio.getTime();
+          let targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+          targetPercent = Math.max(0, Math.min(100, targetPercent)); 
           customStyle = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
         } else {
           customStyle = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
         }
 
+        const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
+        const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
+        const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
+        stacksArray.forEach(st => availableStacks.geral.add(st));
+
+        const titleMatch = resumo.match(/\[(.*?)\]/);
+        const displayTitle = titleMatch ? titleMatch[1] : resumo;
+        const statusNormalized = String(status || 'planejado').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
         const badgeStyle = `background: rgba(98,108,113,0.12); color:#13343b;`;
 
-        if (groupingMode === 'geral') {
-          items.push({
-            id: `geral-${i}`,
-            content: `
-              <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <strong>${displayTitle}</strong>
-                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; ${badgeStyle} font-weight:800;">${status}</span>
-                </div>
-                <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}</div>
+        const tooltipHtml = `
+          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+            <strong style="color:var(--color-primary); font-size:1rem;">${displayTitle}</strong><br/>
+            <b>Status:</b> ${status}<br/>
+            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+            <b>Início:</b> ${formatDate(dataInicio)}<br/>
+            <b>Previsão:</b> ${formatDate(dataTarget)}<br/>
+            <b>Fim Real:</b> ${formatDate(dataFinishReal)}
+          </div>
+        `;
+
+        const createItemObj = (idPrefix, grupo) => ({
+          id: idPrefix,
+          content: `
+            <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <strong>${displayTitle}</strong>
+                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; ${badgeStyle} font-weight:800;">${status}</span>
               </div>
-            `,
-            start: dataInicio,
-            end: dataFinish,
-            group: 'Geral',
-            className: `status-${statusNormalized}`,
-            style: customStyle,
-            title: resumo,
-            linkUrl: chave
-          });
+              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinishReal)}</div>
+            </div>
+          `,
+          start: dataInicio,
+          end: dataFinalDoCard,
+          group: grupo,
+          className: `status-${statusNormalized}`,
+          style: customStyle,
+          title: tooltipHtml, 
+          linkUrl: chave
+        });
+
+        if (groupingMode === 'geral') {
+          items.push(createItemObj(`geral-${i}`, 'Geral'));
           continue;
         }
 
@@ -1281,37 +924,14 @@ function bindCtrlWheelZoom(container, pageKey) {
             groupSet.add(stack);
             groups.push({ id: stack, content: stack });
           }
-
-          items.push({
-            id: `geral-${i}-${stackIdx}`,
-            content: `
-              <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <strong>${displayTitle}</strong>
-                  <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; ${badgeStyle} font-weight:800;">${status}</span>
-                </div>
-                <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(dataInicio)} | Target: ${formatDate(dataTarget)} | Finish: ${formatDate(dataFinish)}</div>
-              </div>
-            `,
-            start: dataInicio,
-            end: dataFinish,
-            group: stack,
-            className: `status-${statusNormalized}`,
-            style: customStyle,
-            title: resumo,
-            linkUrl: chave
-          });
+          items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
         });
       }
-
       return { items, groups };
     }
-
-
     
     function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
       const items = [];
-
       const allProjects = new Set();
       const epicByProject = new Map();
       const projectEpicLink = new Map();
@@ -1338,13 +958,12 @@ function bindCtrlWheelZoom(container, pageKey) {
         if (considerForFacets) {
           const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
           splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
-
           const st = String(getCell(row, ['Status']) || '').trim();
           if (st) availableStatuses.detalhamento.add(st);
         }
 
         if (!epicByProject.has(projetoRaw)) {
-          const epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
+          let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
           if (epicStart) {
             const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
             const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
@@ -1356,17 +975,13 @@ function bindCtrlWheelZoom(container, pageKey) {
             const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
             const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-            const green = '#34D399';
-            const greenBorder = '#065F46';
-            const orange = '#F97316';
-
+            const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
             let epicStyle;
             if (epicTarget && epicTarget < epicEnd) {
               epicStyle = `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`;
             } else {
               epicStyle = `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
             }
-
             epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
           }
         }
@@ -1381,19 +996,20 @@ function bindCtrlWheelZoom(container, pageKey) {
         if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
-        const childStart = parseBRDate(getCell(row, ['Start date']));
+        let childStart = parseBRDate(getCell(row, ['Start date']));
         const childTarget = parseBRDate(getCell(row, ['Target end']));
         const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
-        if (!resumo || !childStart) continue;
+        
+        if (!resumo) continue;
+        if (!childStart) { childStart = new Date(); }
 
         let childEnd = childFinish || childTarget;
-        if (!childEnd) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
-        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 24 * 60 * 60 * 1000);
+        if (!childEnd) childEnd = new Date(childStart.getTime() + 15 * 24 * 60 * 60 * 1000); 
+        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 15 * 24 * 60 * 60 * 1000);
 
         const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
         const responsavelList = splitPeople(responsavelRaw);
         const status = String(getCell(row, ['Status']) || 'planejado').trim();
-
         const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
 
         const passResp = (respFilters.length === 0) ? true : responsavelList.some(p => respFilters.some(f => sameCI(p, f)));
@@ -1403,20 +1019,12 @@ function bindCtrlWheelZoom(container, pageKey) {
         includedProjects.add(projetoRaw);
         if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
-        const statusNormalized = String(status || 'planejado')
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/\s+/g, '-');
-
+        const statusNormalized = String(status || 'planejado').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
         const totalDuration = childEnd - childStart;
         const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
         const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
 
-        const base = '#99F6E4';
-        const baseBorder = '#14B8A6';
-        const late = '#FDBA74';
-
+        const base = '#99F6E4'; const baseBorder = '#14B8A6'; const late = '#FDBA74';
         let style;
         if (childTarget && childTarget < childEnd) {
           style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
@@ -1424,10 +1032,23 @@ function bindCtrlWheelZoom(container, pageKey) {
           style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
         }
 
+        const tooltipHtml = `
+          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+            <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${resumo}</strong>
+            <b>Projeto:</b> ${projetoRaw}<br/>
+            <b>Responsável:</b> ${responsavelRaw || 'Não atribuído'}<br/>
+            <b>Status:</b> ${status}<br/>
+            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+            <b>Início:</b> ${formatDate(childStart)}<br/>
+            <b>Previsão:</b> ${formatDate(childTarget)}<br/>
+            <b>Fim Real:</b> ${formatDate(childEnd)}
+          </div>
+        `;
+
         items.push({
           id: `child-${i}`,
           content: `
-            <div style="padding:4px 8px; display:flex; flex-direction:column; gap:3px;">
+            <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <strong>${resumo}</strong>
                 <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
@@ -1442,7 +1063,7 @@ function bindCtrlWheelZoom(container, pageKey) {
           subgroup: 'child',
           className: `status-${statusNormalized}`,
           style,
-          title: `Projeto: ${projetoRaw}\nResumo: ${resumo}\nStart: ${formatDate(childStart)}\nTarget: ${formatDate(childTarget)}\nFinish: ${formatDate(childEnd)}\nStatus: ${status}${responsavelRaw ? `\nResponsável: ${responsavelRaw}` : ''}`,
+          title: tooltipHtml, 
           linkUrl: epicLinkUrl
         });
       }
@@ -1457,6 +1078,17 @@ function bindCtrlWheelZoom(container, pageKey) {
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
+
+        const epicTooltip = `
+          <div style="font-size:0.9rem; line-height:1.5;">
+            <strong style="color:var(--color-primary); font-size:1rem;">Epic: ${p}</strong><br/>
+            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+            <b>Start:</b> ${formatDate(info.start)}<br/>
+            <b>Target:</b> ${formatDate(info.target)}<br/>
+            <b>Finish:</b> ${formatDate(info.end)}
+          </div>
+        `;
+
         items.push({
           id: `epic-${p}`,
           content: `<div style="width:100%; height:100%;"></div>`,
@@ -1467,7 +1099,7 @@ function bindCtrlWheelZoom(container, pageKey) {
           order: -1000,
           className: 'epic-item',
           style: info.style,
-          title: `Projeto: ${p}\nStart: ${formatDate(info.start)}\nTarget: ${formatDate(info.target)}\nFinish: ${formatDate(info.end)}`,
+          title: epicTooltip,
           linkUrl: (projectEpicLink.get(p) || null)
         });
       });
@@ -1497,16 +1129,13 @@ function bindCtrlWheelZoom(container, pageKey) {
       return { items, groups };
     }
 
-
     // --- FILTER DROPDOWNS ---
     function updateStackFilterGeral() {
       const select = document.getElementById('stack-filter');
       const current = select.value;
       select.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStacks.geral).sort().forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v; opt.textContent = v;
-        select.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
       });
       if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
     }
@@ -1522,38 +1151,21 @@ function bindCtrlWheelZoom(container, pageKey) {
 
       projSelect.innerHTML = '<option value="all">Todos</option>';
       Array.from(availableStacks.detalhamento).sort().forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = extractBracketText(v);
-        projSelect.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = extractBracketText(v); projSelect.appendChild(opt);
       });
       if (currentProj !== 'all' && availableStacks.detalhamento.has(currentProj)) projSelect.value = currentProj;
 
       respSelect.innerHTML = '';
-      const allOptR = document.createElement('option');
-      allOptR.value = 'all';
-      allOptR.textContent = 'Todos';
-      respSelect.appendChild(allOptR);
+      const allOptR = document.createElement('option'); allOptR.value = 'all'; allOptR.textContent = 'Todos'; respSelect.appendChild(allOptR);
       Array.from(availableResponsaveis.detalhamento).sort().forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (currentResp.has(v)) opt.selected = true;
-        respSelect.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentResp.has(v)) opt.selected = true; respSelect.appendChild(opt);
       });
       if (currentResp.size === 0) allOptR.selected = true;
 
       stSelect.innerHTML = '';
-      const allOptS = document.createElement('option');
-      allOptS.value = 'all';
-      allOptS.textContent = 'Todos';
-      stSelect.appendChild(allOptS);
+      const allOptS = document.createElement('option'); allOptS.value = 'all'; allOptS.textContent = 'Todos'; stSelect.appendChild(allOptS);
       Array.from(availableStatuses.detalhamento).sort().forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (currentSt.has(v)) opt.selected = true;
-        stSelect.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
       });
       if (currentSt.size === 0) allOptS.selected = true;
 
@@ -1567,7 +1179,6 @@ function bindCtrlWheelZoom(container, pageKey) {
       const container = document.getElementById(containerId);
 
       itemLinkMap[pageKey] = new Map(data.items.map(it => [it.id, it.linkUrl]));
-
       const isDetalhes = (pageKey === 'detalhamento');
 
       const options = {
@@ -1577,27 +1188,23 @@ function bindCtrlWheelZoom(container, pageKey) {
         stack: true,
         stackSubgroups: true,
         subgroupOrder: function (a, b) {
-          const orderMap = (pageKey === 'detalhamento')
-            ? { child: 0, epic: 1, spacer: 2 }
-            : { epic: 0, child: 1, spacer: 2 };
+          const orderMap = (pageKey === 'detalhamento') ? { child: 0, epic: 1, spacer: 2 } : { epic: 0, child: 1, spacer: 2 };
           return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
         },
         groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
         groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
-        margin: {
-          axis: isDetalhes ? 52 : 40,
-          item: {
-            horizontal: 10,
-            vertical: isDetalhes ? 26 : 18
-          }
-        },
+        margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
         showCurrentTime: false,
-        zoomMin: ZOOMMINRANGE,
-        zoomMax: ZOOMMAXRANGE,
+        zoomMin: ZOOM_MIN_RANGE,
+        zoomMax: ZOOM_MAX_RANGE,
         locale: 'pt-BR',
         verticalScroll: true,
         horizontalScroll: true,
-        zoomable: false
+        zoomable: false,
+        tooltip: {
+          followMouse: true,
+          overflowMethod: 'cap'
+        }
       };
 
       if (timelines[pageKey]) {
@@ -1625,34 +1232,18 @@ function bindCtrlWheelZoom(container, pageKey) {
     function changeViewMode(pageKey) {
       const tl = timelines[pageKey];
       if (!tl) return;
-
       const suffix = pageKey === 'geral' ? '' : '-detalhes';
       const viewMode = document.getElementById('view-mode' + suffix).value;
-
       const now = new Date();
       let start, end;
 
       switch (viewMode) {
-        case 'week':
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
-          end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
-          break;
-        case 'month':
-          start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-          break;
-        case 'quarter':
-          start = new Date(now.getFullYear(), now.getMonth() - 4, 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-          break;
-        case 'year':
-          start = new Date(now.getFullYear() - 1, 0, 1);
-          end = new Date(now.getFullYear() + 1, 11, 31);
-          break;
-        default:
-          return;
+        case 'week': start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14); end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14); break;
+        case 'month': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); end = new Date(now.getFullYear(), now.getMonth() + 2, 0); break;
+        case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth() + 4, 0); break;
+        case 'year': start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() + 1, 11, 31); break;
+        default: return;
       }
-
       tl.setWindow(start, end, { animation: false });
       ensureTodayMarker(pageKey);
     }
@@ -1660,10 +1251,8 @@ function bindCtrlWheelZoom(container, pageKey) {
     // --- APPLY FILTERS ---
     function applyFilterGeral() {
       if (!allParsedData.geral) return;
-
       const mode = getGroupingModeGeral();
       const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-
       const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
       createTimeline(data, 'geral');
       updateStackFilterGeral();
@@ -1673,16 +1262,12 @@ function bindCtrlWheelZoom(container, pageKey) {
     function applyFilterDetalhamento() {
       if (!allParsedData.detalhamento) return;
       const proj = document.getElementById('stack-filter-detalhes').value;
-
       const respEl = document.getElementById('responsavel-filter-detalhes');
       const stEl = document.getElementById('status-filter-detalhes');
-
       const resp = Array.from(respEl.selectedOptions || []).map(o => o.value);
       const st = Array.from(stEl.selectedOptions || []).map(o => o.value);
-
       const respFilters = resp.length ? resp : ['all'];
       const stFilters = st.length ? st : ['all'];
-
       const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters, getCardsModeDetalhamento());
       createTimeline(data, 'detalhamento');
       updateDetalhamentoFilters();
@@ -1693,58 +1278,36 @@ function bindCtrlWheelZoom(container, pageKey) {
     async function handleLoadData(pageKey) {
       const suffix = pageKey === 'geral' ? '' : '-detalhes';
       const url = document.getElementById('spreadsheet-url' + suffix).value.trim();
-
-      if (!url) {
-        showStatus('error', 'Por favor, configure a fonte de dados.', pageKey);
-        return;
-      }
+      if (!url) { showStatus('error', 'Por favor, configure a fonte de dados.', pageKey); return; }
 
       showStatus('loading', 'Carregando dados da planilha...', pageKey);
-
       try {
         const rows = await fetchCSV(url);
         allParsedData[pageKey] = rows;
-
-        if (!rows || !rows.length) {
-          showStatus('error', 'Nenhum dado encontrado no CSV.', pageKey);
-          return;
-        }
+        if (!rows || !rows.length) { showStatus('error', 'Nenhum dado encontrado no CSV.', pageKey); return; }
 
         if (pageKey === 'geral') {
-        updateGroupingModeLabel();
-        const mode = getGroupingModeGeral();
-        const data = parseSheetDataGeral(rows, 'all', mode);
-          if (!data.items.length) {
-            const keys = Object.keys(rows[0] || {}).slice(0, 30).join(', ');
-            showStatus('error', 'Nenhum item válido. Headers detectados: ' + keys, pageKey);
-            return;
-          }
+          updateGroupingModeLabel();
+          const mode = getGroupingModeGeral();
+          const data = parseSheetDataGeral(rows, 'all', mode);
+          if (!data.items.length) { showStatus('error', 'Nenhum item válido.', pageKey); return; }
           createTimeline(data, 'geral');
           updateStackFilterGeral();
         } else {
           const data = parseSheetDataDetalhamento(rows, 'all', 'all', 'all');
-          if (!data.items.length) {
-            const keys = Object.keys(rows[0] || {}).slice(0, 30).join(', ');
-            showStatus('error', 'Nenhum item válido. Headers detectados: ' + keys, pageKey);
-            return;
-          }
+          if (!data.items.length) { showStatus('error', 'Nenhum item válido.', pageKey); return; }
           createTimeline(data, 'detalhamento');
           updateDetalhamentoFilters();
         }
 
         showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
         document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
-
-        // se a página estiver oculta, garante que ao entrar ela redesenhe
         setTimeout(() => {
           if (pageKey === 'geral' && timelines.geral) timelines.geral.redraw();
           if (pageKey === 'detalhamento' && timelines.detalhamento) timelines.detalhamento.redraw();
         }, 80);
-
         setTimeout(() => clearStatus(pageKey), 2500);
-      } catch (e) {
-        showStatus('error', e.message || 'Erro ao carregar dados.', pageKey);
-      }
+      } catch (e) { showStatus('error', e.message || 'Erro ao carregar dados.', pageKey); }
     }
 
     async function handleRefreshData(pageKey) {
@@ -1753,19 +1316,13 @@ function bindCtrlWheelZoom(container, pageKey) {
       if (!url) return;
 
       showStatus('loading', 'Atualizando dados...', pageKey);
-
       try {
         const rows = await fetchCSV(url);
         allParsedData[pageKey] = rows;
-
-        if (pageKey === 'geral') applyFilterGeral();
-        else applyFilterDetalhamento();
-
+        if (pageKey === 'geral') applyFilterGeral(); else applyFilterDetalhamento();
         showStatus('success', 'Dados atualizados com sucesso.', pageKey);
         setTimeout(() => clearStatus(pageKey), 2500);
-      } catch (e) {
-        showStatus('error', e.message || 'Erro ao atualizar dados.', pageKey);
-      }
+      } catch (e) { showStatus('error', e.message || 'Erro ao atualizar dados.', pageKey); }
     }
 
     // --- MODAL ---
@@ -1777,50 +1334,28 @@ function bindCtrlWheelZoom(container, pageKey) {
 
     function openModal() {
       const current = document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value.trim();
-      sourceInput.value = current;
-      modalOverlay.classList.add('is-open');
-      modalOverlay.setAttribute('aria-hidden', 'false');
+      sourceInput.value = current; modalOverlay.classList.add('is-open'); modalOverlay.setAttribute('aria-hidden', 'false');
       setTimeout(() => sourceInput.focus(), 0);
     }
 
-    function closeModal() {
-      modalOverlay.classList.remove('is-open');
-      modalOverlay.setAttribute('aria-hidden', 'true');
-    }
-
-    closeBtn.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
+    function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
+    closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
-
     saveBtn.addEventListener('click', () => {
-      const newUrl = sourceInput.value.trim();
-      document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = newUrl;
-      closeModal();
-
-      // Recarrega a página atual automaticamente após salvar a fonte
-      handleLoadData(currentPage);
+      const newUrl = sourceInput.value.trim(); document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = newUrl;
+      closeModal(); handleLoadData(currentPage);
     });
-
     sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-
     document.getElementById('show-example').addEventListener('click', (e) => {
-      e.preventDefault();
-      const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
-      document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl;
-      sourceInput.value = exampleUrl;
+      e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+      document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
     });
 
     // --- BINDINGS ---
     document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
-
     const groupingToggle = document.getElementById('grouping-toggle-geral');
-    if (groupingToggle) {
-      groupingToggle.addEventListener('change', () => {
-        updateGroupingModeLabel();
-        applyFilterGeral();
-      });
-    }
+    if (groupingToggle) { groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); }); }
     document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
 
     document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
@@ -1828,57 +1363,24 @@ function bindCtrlWheelZoom(container, pageKey) {
     document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
 
     const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
-    if (cardsModeToggle) {
-      cardsModeToggle.addEventListener('change', () => {
-        updateCardsModeLabel();
-        applyFilterDetalhamento();
-      });
-    }
+    if (cardsModeToggle) { cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); }); }
     document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
-    document.getElementById('zoom-in').addEventListener('click', () => {
-      const tl = timelines.geral; if (!tl) return;
-      const w = tl.getWindow();
-      const start = w.start.valueOf(); const end = w.end.valueOf();
-      const mid = (start + end) / 2;
-      let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8);
-      tl.setWindow(mid - range/2, mid + range/2, { animation: false });
-    });
-    document.getElementById('zoom-out').addEventListener('click', () => {
-      const tl = timelines.geral; if (!tl) return;
-      const w = tl.getWindow();
-      const start = w.start.valueOf(); const end = w.end.valueOf();
-      const mid = (start + end) / 2;
-      let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25);
-      tl.setWindow(mid - range/2, mid + range/2, { animation: false });
-    });
+    // Botões de Zoom do Eixo X (Lateral)
+    document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
     document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
 
-    document.getElementById('zoom-in-detalhes').addEventListener('click', () => {
-      const tl = timelines.detalhamento; if (!tl) return;
-      const w = tl.getWindow();
-      const start = w.start.valueOf(); const end = w.end.valueOf();
-      const mid = (start + end) / 2;
-      let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8);
-      tl.setWindow(mid - range/2, mid + range/2, { animation: false });
-    });
-    document.getElementById('zoom-out-detalhes').addEventListener('click', () => {
-      const tl = timelines.detalhamento; if (!tl) return;
-      const w = tl.getWindow();
-      const start = w.start.valueOf(); const end = w.end.valueOf();
-      const mid = (start + end) / 2;
-      let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25);
-      tl.setWindow(mid - range/2, mid + range/2, { animation: false });
-    });
+    document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
     document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
     document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
     document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
-
     document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
     document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
 
-    // Auto-load (duas páginas)
+    // Auto-load
     window.addEventListener('DOMContentLoaded', () => {
       handleLoadData('geral');
       handleLoadData('detalhamento');
