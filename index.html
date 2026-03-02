@@ -149,7 +149,13 @@
     }
     .zoom-btn:hover { background: var(--color-primary); color:#fff; border-color: var(--color-primary); }
     .zoom-btn:active { transform: scale(0.95); }
-    .visualization { height:100%; }
+    
+    /* Para o Zoom do CTRL + Mouse funcionar direitinho sem quebrar layout */
+    .visualization { 
+      height:100%; 
+      transform-origin: top left;
+      transition: zoom 0.1s ease;
+    }
 
     /* --- VIS TIMELINE --- */
     .vis-timeline { background:#fff !important; border:none; }
@@ -161,7 +167,9 @@
 
     /* LINHA DE SEPARAÇÃO DA COLUNA A MAIS FORTE */
     .vis-panel.vis-left {
+      z-index: 10 !important;
       border-right: 2px solid #8e9699 !important; /* Cor cinza mais forte para separar a coluna A */
+      box-shadow: 5px 0 15px rgba(0,0,0,0.12) !important;
     }
 
     .vis-current-time { display:none !important; }
@@ -235,7 +243,7 @@
       :root { --stack-col-width: 180px; } .filters-grid { flex-direction: column; align-items: stretch; } .filters-grid .form-group { min-width: 100%; }
     }
   
-    /* Detalhamento */
+    /* Detalhamento: cards mode toggle (right-aligned, label above, compact) */
     #page-detalhamento .cards-mode-toggle-right { margin-left: auto; }
     #page-detalhamento .cards-mode-toggle { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 0; border: none; background: transparent; }
     #page-detalhamento .cards-mode-label { font-size: 0.92rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
@@ -246,6 +254,7 @@
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
+    /* Epic pill thinner (Detalhamento) */
     #page-detalhamento .vis-item.epic-item {
       min-height: calc(10px * var(--timeline-zoom, 1)) !important;
       height: calc(10px * var(--timeline-zoom, 1)) !important;
@@ -253,11 +262,13 @@
       cursor: pointer !important;
     }
 
+    /* Spacer (only used in outdated mode) */
     #page-detalhamento .vis-item.spacer-item {
       opacity: 0 !important; background: transparent !important; border-color: transparent !important;
       min-height: calc(110px * var(--timeline-zoom, 1)) !important; height: calc(110px * var(--timeline-zoom, 1)) !important; pointer-events: none !important;
     }
 
+    /* Multi-select dropdown (Detalhamento filters) */
     #page-detalhamento .multi-select { position: relative; width: 100%; }
     #page-detalhamento .multi-select-trigger { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.95rem; background: var(--color-bg-primary); color: var(--color-text-primary); transition: border-color 0.2s ease; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
     #page-detalhamento .multi-select-trigger:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(236,103,24,0.12); }
@@ -269,12 +280,14 @@
     #page-detalhamento .multi-select-option:hover { background: rgba(94,82,64,0.06); }
     #page-detalhamento .multi-select-option input { width: 16px; height: 16px; }
 
+    /* Detalhamento: alinhar filtros (mesma altura/linha) */
     #page-detalhamento #filters-grid-detalhes { align-items: stretch; }
     #page-detalhamento #filters-grid-detalhes .form-group { display:flex; flex-direction:column; }
     #page-detalhamento #filters-grid-detalhes .hint { min-height: 18px; }
     #page-detalhamento #visualization-detalhes .vis-itemset { padding-top: 14px; box-sizing: border-box; }
     #page-detalhamento #visualization-detalhes .vis-labelset { padding-top: 14px; box-sizing: border-box; }
 
+    /* Detalhamento: melhora distribuição dos grupos (mínimo entre divisórias + itens mais centralizados) */
     #page-detalhamento #visualization-detalhes .vis-group {
       min-height: calc(96px * var(--timeline-zoom, 1)) !important;
       padding-top: calc(18px * var(--timeline-zoom, 1)) !important;
@@ -996,16 +1009,28 @@
         if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
 
         const resumo = String(getCell(row, ['Resumo']) || '').trim();
-        let childStart = parseBRDate(getCell(row, ['Start date']));
+        const childStart = parseBRDate(getCell(row, ['Start date']));
         const childTarget = parseBRDate(getCell(row, ['Target end']));
         const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
         
         if (!resumo) continue;
-        if (!childStart) { childStart = new Date(); }
 
-        let childEnd = childFinish || childTarget;
-        if (!childEnd) childEnd = new Date(childStart.getTime() + 15 * 24 * 60 * 60 * 1000); 
-        if (childEnd <= childStart) childEnd = new Date(childStart.getTime() + 15 * 24 * 60 * 60 * 1000);
+        // 1 e 2: Lógica atualizada para a aba "Projetos - Detalhamento"
+        // Validamos se o card possui pelo menos um Início e uma previsão/fim
+        const hasValidDates = childStart && (childTarget || childFinish);
+
+        if (cardsMode === 'updated' && !hasValidDates) {
+          continue; // Esconde cards com datas faltando quando em "Cards atualizados"
+        }
+        if (cardsMode === 'outdated' && hasValidDates) {
+          continue; // Esconde cards perfeitos quando em "Cards desatualizados"
+        }
+
+        // Criamos datas fictícias apenas para que o motor da Timeline consiga desenhar o bloco na tela
+        let renderStart = childStart || new Date();
+        let renderEnd = childFinish || childTarget;
+        if (!renderEnd) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000); 
+        if (renderEnd <= renderStart) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000);
 
         const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
         const responsavelList = splitPeople(responsavelRaw);
@@ -1020,18 +1045,20 @@
         if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
 
         const statusNormalized = String(status || 'planejado').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-        const totalDuration = childEnd - childStart;
-        const targetDuration = childTarget ? (childTarget - childStart) : totalDuration;
-        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+        const totalDuration = renderEnd - renderStart;
+        const targetDuration = childTarget ? (childTarget - renderStart) : totalDuration;
+        let targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+        targetPercent = Math.max(0, Math.min(100, targetPercent));
 
         const base = '#99F6E4'; const baseBorder = '#14B8A6'; const late = '#FDBA74';
         let style;
-        if (childTarget && childTarget < childEnd) {
+        if (childTarget && renderEnd > childTarget) {
           style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
         } else {
           style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
         }
 
+        // TOOLTIP CUSTOMIZADO COM INFORMAÇÕES EXATAS DO JIRA
         const tooltipHtml = `
           <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
             <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${resumo}</strong>
@@ -1041,7 +1068,7 @@
             <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
             <b>Início:</b> ${formatDate(childStart)}<br/>
             <b>Previsão:</b> ${formatDate(childTarget)}<br/>
-            <b>Fim Real:</b> ${formatDate(childEnd)}
+            <b>Fim Real:</b> ${formatDate(childFinish)}
           </div>
         `;
 
@@ -1053,12 +1080,12 @@
                 <strong>${resumo}</strong>
                 <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
               </div>
-              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childEnd)}</div>
+              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childFinish)}</div>
               ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
             </div>
           `,
-          start: childStart,
-          end: childEnd,
+          start: renderStart,
+          end: renderEnd,
           group: projetoRaw,
           subgroup: 'child',
           className: `status-${statusNormalized}`,
@@ -1068,10 +1095,8 @@
         });
       }
 
-      const eligibleProjects = (filterProjeto !== 'all') ? [filterProjeto] : Array.from(allProjects);
-      const projectsWithCards = Array.from(includedProjects);
-      const projectsWithoutCards = eligibleProjects.filter(p => !includedProjects.has(p));
-      const projectsToShow = (cardsMode === 'outdated') ? projectsWithoutCards : projectsWithCards;
+      // 3: Quando em modo "desatualizado", os projetos já trarão os cards vazios gerados acima
+      const projectsToShow = Array.from(includedProjects);
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
@@ -1103,28 +1128,6 @@
           linkUrl: (projectEpicLink.get(p) || null)
         });
       });
-
-      if (cardsMode === 'outdated') {
-        const now = new Date();
-        projectsToShow.forEach(p => {
-          const info = epicByProject.get(p);
-          const start = info ? info.start : now;
-          const end = new Date(start.getTime() + 24*60*60*1000);
-          items.push({
-            id: `spacer-${p}`,
-            content: '',
-            start,
-            end,
-            group: p,
-            subgroup: 'spacer',
-            order: 9999,
-            className: 'spacer-item',
-            style: 'background: transparent !important; border-color: transparent !important;',
-            title: '',
-            linkUrl: null
-          });
-        });
-      }
 
       return { items, groups };
     }
@@ -1198,8 +1201,8 @@
         zoomMin: ZOOM_MIN_RANGE,
         zoomMax: ZOOM_MAX_RANGE,
         locale: 'pt-BR',
-        verticalScroll: true,
-        horizontalScroll: true,
+        verticalScroll: true, // Libera o Scroll Vertical nativo da Timeline
+        horizontalScroll: false, // Desliga o arraste horizontal pelo mouse-wheel para evitar bugs
         zoomable: false,
         tooltip: {
           followMouse: true,
