@@ -350,6 +350,11 @@
   font-weight: 700 !important;
 }
 
+/* Destrói a camada invisível da biblioteca que bloqueia os tooltips e os cliques */
+.vis-overlay {
+  display: none !important;
+  pointer-events: none !important;
+}
 /* ============================================================================== */
 /* [CSS ATUALIZADO FIM] */
 /* ============================================================================== */
