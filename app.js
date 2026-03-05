@@ -1,4 +1,3 @@
-<script>
     // ==========================================
     // CONFIGURAÇÕES GERAIS E DECLARAÇÃO DE VARIÁVEIS 
     // ==========================================
@@ -908,4 +907,3 @@
       handleLoadData('geral');
       handleLoadData('detalhamento');
     });
-  </script>
