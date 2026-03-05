@@ -241,12 +241,18 @@
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-    /* Epic pill thinner (Detalhamento) */
+/* Epic pill (Detalhamento) - Larga e Quadrada */
     #page-detalhamento .vis-item.epic-item {
-      min-height: calc(10px * var(--timeline-zoom, 1)) !important;
-      height: calc(10px * var(--timeline-zoom, 1)) !important;
-      border-radius: 999px !important;
+      min-height: calc(26px * var(--timeline-zoom, 1)) !important;
+      height: calc(26px * var(--timeline-zoom, 1)) !important;
+      border-radius: 4px !important; /* Bordas mais quadradas (em vez de 999px) */
       cursor: pointer !important;
+    }
+    #page-detalhamento .vis-item.epic-item .vis-item-content {
+      padding: 0 8px !important;
+      height: 100%;
+      display: flex;
+      align-items: center;
     }
 
     /* Spacer (only used in outdated mode) */
