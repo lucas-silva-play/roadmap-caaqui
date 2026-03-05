@@ -152,12 +152,12 @@
     .vis-panel.vis-background .vis-grid.vis-vertical,
     .vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid rgba(0,0,0,0.08) !important; }
 
-    /* LINHA DE SEPARAÇÃO DA COLUNA A MAIS FORTE */
-    .vis-panel.vis-left {
-      z-index: 10 !important;
-      border-right: 2px solid #8e9699 !important; /* Cor cinza mais forte para separar a coluna A */
-      box-shadow: 5px 0 15px rgba(0,0,0,0.12) !important;
-    }
+/* LINHA DE SEPARAÇÃO DA COLUNA SUTIL */
+.vis-panel.vis-left {
+  z-index: 10 !important;
+  border-right: 1px solid rgba(0,0,0,0.08) !important; /* Linha super fina e clara */
+  box-shadow: none !important; /* Removemos a sombra pesada */
+}
 
     .vis-current-time { display:none !important; }
 
@@ -241,14 +241,6 @@
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-    /* Epic pill thinner (Detalhamento) */
-    #page-detalhamento .vis-item.epic-item {
-      min-height: calc(10px * var(--timeline-zoom, 1)) !important;
-      height: calc(10px * var(--timeline-zoom, 1)) !important;
-      border-radius: 999px !important;
-      cursor: pointer !important;
-    }
-
     /* Spacer (only used in outdated mode) */
     #page-detalhamento .vis-item.spacer-item {
       opacity: 0 !important; background: transparent !important; border-color: transparent !important;
@@ -296,3 +288,71 @@
     #page-geral .cards-switch-thumb { position: absolute; height: 18px; width: 18px; left: 3px; top: 2px; background: #fff; border-radius: 999px; box-shadow: 0 2px 5px rgba(0,0,0,0.18); transition: transform 0.18s ease; }
     #page-geral .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-geral .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
+
+/* ============================================================================== */
+/* [CSS ATUALIZADO] ADICIONE ESTAS REGRAS NO FINAL DO ARQUIVO style.css */
+/* ============================================================================== */
+/* Força negrito nos resumos (strong) dentro dos cards normais */
+.vis-item-content strong {
+  font-weight: 700 !important;
+}
+
+
+/* Força negrito nos resumos (strong) dentro dos cards normais */
+.vis-item-content strong {
+  font-weight: 700 !important;
+}
+
+/* Altura e Borda do Card do Epic */
+#page-detalhamento .vis-item.epic-item {
+  min-height: calc(38px * var(--timeline-zoom, 1)) !important;
+  height: calc(38px * var(--timeline-zoom, 1)) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+
+/* Alinhamento nativo à esquerda, COM o espaçamento (padding) para não colar na borda */
+#page-detalhamento .vis-item.epic-item .vis-item-content {
+  width: 100% !important;
+  height: 100% !important;
+  
+  /* O 16px abaixo é o respiro! Desgruda o texto do limite esquerdo */
+  padding: 0 16px !important; 
+  
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important; /* Mantém tudo na esquerda */
+  overflow: hidden !important;
+}
+
+/* ============================================================== */
+/* ANTÍDOTO PARA O BUG DO MOUSE/SCROLL (ZONAS MORTAS)             */
+/* ============================================================== */
+
+/* 1. Impede que o fundo do grid ou a película nativa roubem o mouse */
+.vis-panel.vis-background,
+.vis-overlay {
+  pointer-events: none !important;
+}
+
+/* 2. Garante que o painel do topo (meses) não desça invisivelmente sobre os cards */
+.vis-panel.vis-top {
+  z-index: 4 !important;
+  pointer-events: none !important; /* Deixa o mouse "atravessar" se vazar */
+}
+
+/* 3. Garante que o painel principal (onde os cards ficam) seja a área prioritária do mouse */
+.vis-panel.vis-center {
+  z-index: 3 !important;
+  pointer-events: auto !important;
+}
+
+/* 4. "Blinda" os cards para garantirem que sempre leiam o Hover/Tooltip */
+.vis-item {
+  z-index: 5 !important;
+  pointer-events: auto !important;
+}
+/* ============================================================================== */
+/* [CSS ATUALIZADO FIM] */
+/* ============================================================================== */
