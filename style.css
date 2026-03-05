@@ -318,6 +318,31 @@
   height: 100%;
   box-sizing: border-box; /* Garante que o padding não aumente a pill */
 }
+
+/* Altura e Borda dos Epics na visão de Detalhamento */
+#page-detalhamento .vis-item.epic-item {
+  min-height: calc(38px * var(--timeline-zoom, 1)) !important;
+  height: calc(38px * var(--timeline-zoom, 1)) !important;
+  border-radius: 4px !important; /* Deixa quadrado */
+  cursor: pointer !important;
+  overflow: hidden !important; 
+}
+
+/* Alinhamento do conteúdo dentro do Epic */
+#page-detalhamento .vis-item.epic-item .vis-item-content {
+  padding: 4px 8px !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Força negrito nos resumos (strong) dentro dos cards normais */
+.vis-item-content strong {
+  font-weight: 700 !important;
+}
+
 /* ============================================================================== */
 /* [CSS ATUALIZADO FIM] */
 /* ============================================================================== */
