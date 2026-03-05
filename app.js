@@ -1,4 +1,4 @@
-    // ==========================================
+        // ==========================================
     // CONFIGURAÇÕES GERAIS E DECLARAÇÃO DE VARIÁVEIS 
     // ==========================================
     const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
@@ -20,26 +20,23 @@
     let todayTimer = { geral: null, detalhamento: null };
     const TODAYID = 'today';
 
-    // --- MENU ---
-    function switchPage(page) {
+function switchPage(page) {
       currentPage = page;
+      // Liga/Desliga os containers
       document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
       document.getElementById('page-detalhamento').style.display = page === 'detalhamento' ? 'block' : 'none';
+      document.getElementById('page-avaliacoes').style.display = page === 'avaliacoes' ? 'block' : 'none';
 
-      const linkGeral = document.getElementById('link-geral');
-      const linkDetalhes = document.getElementById('link-detalhamento');
+      // Atualiza o estado visual (cor) dos botões do menu
+      document.getElementById('link-geral').classList.toggle('is-active', page === 'geral');
+      document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
+      document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-      if (page === 'geral') {
-        linkGeral.classList.add('is-active');
-        linkDetalhes.classList.remove('is-active');
-      } else {
-        linkDetalhes.classList.add('is-active');
-        linkGeral.classList.remove('is-active');
-      }
-
+      // Redesenha os componentes se necessário
       setTimeout(() => {
         if (page === 'geral' && timelines.geral) { timelines.geral.redraw(); ensureTodayMarker('geral'); }
         if (page === 'detalhamento' && timelines.detalhamento) { timelines.detalhamento.redraw(); ensureTodayMarker('detalhamento'); }
+        // No futuro, colocaremos a atualização dos gráficos aqui
       }, 50);
     }
 
