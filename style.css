@@ -250,17 +250,19 @@
 }
 
 /* Força tudo a ficar em uma única linha e colado na esquerda */
+/* Container do Epic: Precisa ser relativo para o texto absoluto funcionar */
 #page-detalhamento .vis-item.epic-item .vis-item-content {
-  padding: 0 12px !important;
+  position: relative !important;
   height: 100% !important;
-  width: 100% !important; /* <--- OBRIGATÓRIO PARA ALINHAR NA ESQUERDA */
-  box-sizing: border-box !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important; /* <--- PUXA PARA A ESQUERDA */
-  white-space: nowrap !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
   overflow: hidden !important;
+}
+
+/* Garante que a barra inteira aceite o hover do tooltip, mas não bloqueie o scroll */
+#page-detalhamento .vis-item.epic-item {
+  pointer-events: auto !important;
 }
 
     /* Spacer (only used in outdated mode) */
