@@ -728,6 +728,7 @@ projectsToShow.forEach(p => {
         locale: 'pt-BR',
         verticalScroll: true, 
         horizontalScroll: false, 
+        zoomable: false, /* <--- PROÍBE O ZOOM PELO SCROLL DO MOUSE */
         tooltip: {
           followMouse: true,
           overflowMethod: 'cap'
