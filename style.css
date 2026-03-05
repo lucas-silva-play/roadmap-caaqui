@@ -248,11 +248,14 @@
       border-radius: 4px !important; /* Bordas mais quadradas (em vez de 999px) */
       cursor: pointer !important;
     }
+    /* Alinhamento do conteúdo dentro do Epic (Ajustado para a Esquerda) */
     #page-detalhamento .vis-item.epic-item .vis-item-content {
-      padding: 0 8px !important;
-      height: 100%;
-      display: flex;
-      align-items: center;
+      padding: 4px 12px !important; /* Um pouco mais de margem lateral */
+      height: 100% !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important; /* Garante que o texto comece na esquerda */
     }
 
     /* Spacer (only used in outdated mode) */
