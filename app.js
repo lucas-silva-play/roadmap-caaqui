@@ -566,12 +566,12 @@
     let targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
     targetPercent = Math.max(0, Math.min(100, targetPercent));
 
-    const base = '#99F6E4'; const baseBorder = '#14B8A6'; const late = '#FDBA74';
+    // Cores padronizadas iguais às da aba "Geral"
     let style;
     if (childTarget && renderEnd > childTarget) {
-      style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
+      style = `background: linear-gradient(to right, rgba(33, 128, 141, 0.15) 0%, rgba(33, 128, 141, 0.15) ${targetPercent}%, rgba(255, 103, 31, 0.6) ${targetPercent}%, rgba(255, 103, 31, 0.6) 100%) !important; border-color: var(--color-primary) !important;`;
     } else {
-      style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
+      style = `background-color: rgba(33, 128, 141, 0.15) !important; border-color: var(--color-primary) !important;`;
     }
 
     const tooltipHtml = `
@@ -593,7 +593,7 @@
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <strong>${resumo}</strong>
-            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
+            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(98,108,113,0.12); color:#13343b; font-weight:800;">${status}</span>
           </div>
           <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childFinish)}</div>
           ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
@@ -726,14 +726,28 @@ projectsToShow.forEach(p => {
         zoomMin: ZOOM_MIN_RANGE,
         zoomMax: ZOOM_MAX_RANGE,
         locale: 'pt-BR',
-        verticalScroll: true, // Libera o Scroll Vertical nativo da Timeline
-        horizontalScroll: false, // Desliga o arraste horizontal pelo mouse-wheel para evitar bugs
-        zoomable: false,
+        verticalScroll: true, 
+        horizontalScroll: false, 
         tooltip: {
           followMouse: true,
           overflowMethod: 'cap'
         }
       };
+
+        function bindCtrlWheelZoom(container, pageKey) {
+      if (!container) return;
+      container.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return; 
+        e.preventDefault(); 
+        e.stopPropagation(); // <--- Adicione esta linha para bloquear a Timeline de dar um zoom estranho
+        
+        let currentZ = componentZoom[pageKey];
+        const zoomStep = 0.1;
+        if (e.deltaY < 0) { currentZ += zoomStep; } else { currentZ -= zoomStep; }
+        
+        updateZoomCSS(pageKey, currentZ);
+      }, { passive: false });
+    }
 
       if (timelines[pageKey]) {
         timelines[pageKey].setItems(data.items);
