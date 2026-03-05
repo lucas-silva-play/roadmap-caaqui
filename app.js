@@ -618,24 +618,24 @@ projectsToShow.forEach(p => {
     if (!info) return;
 
 const epicTooltip = `
-      <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
-        <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
-        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
-        <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
-        <b>Início:</b> ${formatDate(info.start)}<br/>
-        <b>Previsão:</b> ${formatDate(info.target)}<br/>
-        <b>Fim Real:</b> ${formatDate(info.end)}
-      </div>
-    `;
+          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+            <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
+            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
+            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+            <b>Início:</b> ${formatDate(info.start)}<br/>
+            <b>Previsão:</b> ${formatDate(info.target)}<br/>
+            <b>Fim Real:</b> ${formatDate(info.end)}
+          </div>
+        `;
 
-    const epicContent = `
-      <div style="width:100%; padding-left:12px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; pointer-events:none; white-space:nowrap; overflow:hidden;">
-        <strong style="font-weight:900; font-size:0.95rem; margin-right:8px; color:#065F46;">${extractBracketText(p)}</strong>
-        <span style="font-size:0.85rem; font-weight:400; color:#065F46;">
-          Data de início: ${formatDate(info.start)} | Data fim esperada: ${formatDate(info.target)} | Data fim real: ${formatDate(info.end)}
-        </span>
-      </div>
-    `;
+        const epicContent = `
+          <div style="display:flex; flex-direction:row; align-items:center; gap:8px; white-space:nowrap; pointer-events:none;">
+            <strong style="font-weight:900; font-size:0.95rem; color:#065F46;">${extractBracketText(p)}</strong>
+            <span style="font-size:0.85rem; font-weight:400; color:#065F46;">
+              Data de início: ${formatDate(info.start)} | Data fim esperada: ${formatDate(info.target)} | Data fim real: ${formatDate(info.end)}
+            </span>
+          </div>
+        `;
 
     items.push({
       id: `epic-${p}`,
@@ -707,7 +707,7 @@ const epicTooltip = `
       itemLinkMap[pageKey] = new Map(data.items.map(it => [it.id, it.linkUrl]));
       const isDetalhes = (pageKey === 'detalhamento');
 
-      const options = {
+const options = {
         width: '100%',
         height: '100%',
         orientation: 'top',
@@ -726,7 +726,7 @@ const epicTooltip = `
         locale: 'pt-BR',
         verticalScroll: true, 
         horizontalScroll: false, 
-        zoomable: false, /* Apenas isso bloqueia o zoom indesejado no scroll */
+        zoomable: false, /* Isso desliga o zoom no scroll da forma correta e nativa */
         tooltip: {
           followMouse: true,
           overflowMethod: 'cap'
