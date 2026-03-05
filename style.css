@@ -249,17 +249,18 @@
   cursor: pointer !important;
 }
 
-/* Força tudo a ficar em uma única linha e alinhado no centro vertical */
+/* Força tudo a ficar em uma única linha e colado na esquerda */
 #page-detalhamento .vis-item.epic-item .vis-item-content {
   padding: 0 12px !important;
   height: 100% !important;
+  width: 100% !important; /* <--- OBRIGATÓRIO PARA ALINHAR NA ESQUERDA */
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  white-space: nowrap !important; /* Proíbe a quebra de linha */
-  overflow: hidden !important; /* Esconde o texto de forma limpa se o card for muito pequeno */
+  justify-content: flex-start !important; /* <--- PUXA PARA A ESQUERDA */
+  white-space: nowrap !important;
+  overflow: hidden !important;
 }
 
     /* Spacer (only used in outdated mode) */
