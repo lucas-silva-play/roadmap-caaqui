@@ -623,12 +623,15 @@
       // [JS ATUALIZADO] SUBSTITUA TODO O LOOP projectsToShow.forEach(p => {
       // INCLUINDO A FUNÇÃO DE TOOLTIP E CRIAÇÃO DO ITEM
       // ==============================================================================
+      // 3: Quando em modo "desatualizado", os projetos já trarão os cards vazios gerados acima
+      const projectsToShow = Array.from(includedProjects);
+
+      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
 
-        // Tooltip padronizado com as larguras e dados iguais à página Geral (andard child cards)
-        // Criamos o HTML do Tooltip aqui, antes de criar o item
         const epicTooltip = `
           <div style="font-size:0.9rem; line-height:1.5; min-width: 250px; pointer-events: none;">
             <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
@@ -640,7 +643,6 @@
           </div>
         `;
 
-        // Conteúdo redesenhado: Nome (do colchete) em Negrito + Datas abaixo (regular, centered column flex)
         const epicContent = `
           <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#065F46; line-height:1.2; box-sizing: border-box;">
             <div style="font-weight:800; font-size:0.85rem;">${extractBracketText(p)}</div>
@@ -651,25 +653,6 @@
         items.push({
           id: `epic-${p}`,
           content: epicContent,
-          start: info.start,
-          end: info.end,
-          group: p,
-          subgroup: 'epic',
-          order: -1000,
-          className: 'epic-item',
-          style: info.style,
-          title: epicTooltip, // Aqui nós associamos o tooltip HTML que criamos acima
-          linkUrl: (projectEpicLink.get(p) || null)
-        });
-      });
-      // ==============================================================================
-      // [JS ATUALIZADO FIM]
-      // ==============================================================================
-
-        // Aqui injetamos a função extractBracketText(p) para pegar só o texto do colchete
-        items.push({
-          id: `epic-${p}`,
-          content: `<div style="width:100%; height:100%; display:flex; align-items:center; font-weight:800; font-size:0.85rem; color:#065F46;">${extractBracketText(p)}</div>`,
           start: info.start,
           end: info.end,
           group: p,
