@@ -617,8 +617,7 @@ projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
     if (!info) return;
 
-// Tooltip padronizado (sem códigos que bloqueiem o mouse)
-    const epicTooltip = `
+const epicTooltip = `
       <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
         <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
         <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
@@ -628,12 +627,11 @@ projectsToShow.forEach(p => {
         <b>Fim Real:</b> ${formatDate(info.end)}
       </div>
     `;
-    
-   // Texto alinhado FORÇADAMENTE à esquerda usando position: absolute
+
     const epicContent = `
-      <div style="position:absolute; left:0; top:0; bottom:0; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; padding-left:12px; color:#065F46; text-align:left; white-space:nowrap; pointer-events:none;">
-        <strong style="font-weight:900; font-size:0.95rem; margin-right:8px;">${extractBracketText(p)}</strong>
-        <span style="font-size:0.85rem; font-weight:400;">
+      <div style="width:100%; padding-left:12px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; pointer-events:none; white-space:nowrap; overflow:hidden;">
+        <strong style="font-weight:900; font-size:0.95rem; margin-right:8px; color:#065F46;">${extractBracketText(p)}</strong>
+        <span style="font-size:0.85rem; font-weight:400; color:#065F46;">
           Data de início: ${formatDate(info.start)} | Data fim esperada: ${formatDate(info.target)} | Data fim real: ${formatDate(info.end)}
         </span>
       </div>
@@ -728,8 +726,7 @@ projectsToShow.forEach(p => {
         locale: 'pt-BR',
         verticalScroll: true, 
         horizontalScroll: false, 
-        zoomable: false, 
-        zoomKey: '', // <--- ADICIONE ESTA LINHA. Deixar vazio destrói a camada de sobreposição nativamente.
+        zoomable: false, /* Apenas isso bloqueia o zoom indesejado no scroll */
         tooltip: {
           followMouse: true,
           overflowMethod: 'cap'
