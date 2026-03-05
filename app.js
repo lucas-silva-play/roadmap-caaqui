@@ -623,19 +623,22 @@
         const info = epicByProject.get(p);
         if (!info) return;
 
+        // Tooltip padronizado e com as larguras e dados iguais à página Geral
         const epicTooltip = `
-          <div style="font-size:0.9rem; line-height:1.5;">
-            <strong style="color:var(--color-primary); font-size:1rem;">Epic: ${p}</strong><br/>
+          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+            <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
+            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800;">EPIC</span>
             <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
-            <b>Start:</b> ${formatDate(info.start)}<br/>
-            <b>Target:</b> ${formatDate(info.target)}<br/>
-            <b>Finish:</b> ${formatDate(info.end)}
+            <b>Início:</b> ${formatDate(info.start)}<br/>
+            <b>Previsão:</b> ${formatDate(info.target)}<br/>
+            <b>Fim Real:</b> ${formatDate(info.end)}
           </div>
         `;
 
+        // Aqui injetamos a função extractBracketText(p) para pegar só o texto do colchete
         items.push({
           id: `epic-${p}`,
-          content: `<div style="width:100%; height:100%;"></div>`,
+          content: `<div style="width:100%; height:100%; display:flex; align-items:center; font-weight:800; font-size:0.85rem; color:#065F46;">${extractBracketText(p)}</div>`,
           start: info.start,
           end: info.end,
           group: p,
