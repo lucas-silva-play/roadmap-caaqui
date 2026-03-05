@@ -241,20 +241,6 @@
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-/* Altura e Formato dos Epics */
-#page-detalhamento .vis-item.epic-item {
-  min-height: calc(38px * var(--timeline-zoom, 1)) !important;
-  height: calc(38px * var(--timeline-zoom, 1)) !important;
-  border-radius: 4px !important; 
-  cursor: pointer !important;
-}
-
-
-/* Garante que a barra inteira aceite o hover do tooltip, mas não bloqueie o scroll */
-#page-detalhamento .vis-item.epic-item {
-  pointer-events: auto !important;
-}
-
     /* Spacer (only used in outdated mode) */
     #page-detalhamento .vis-item.spacer-item {
       opacity: 0 !important; background: transparent !important; border-color: transparent !important;
@@ -311,69 +297,35 @@
   font-weight: 700 !important;
 }
 
-/* Altura e Borda dos Epics na visão de Detalhamento */
-#page-detalhamento .vis-item.epic-item {
-  min-height: calc(38px * var(--timeline-zoom, 1)) !important;
-  height: calc(38px * var(--timeline-zoom, 1)) !important;
-  border-radius: 4px !important; /* Deixa quadrado */
-  cursor: pointer !important;
-  overflow: hidden !important; 
-}
 
 /* Força negrito nos resumos (strong) dentro dos cards normais */
 .vis-item-content strong {
   font-weight: 700 !important;
 }
 
-/* Destrói a camada invisível da biblioteca que bloqueia os tooltips e os cliques */
-.vis-overlay {
-  display: none !important;
-  pointer-events: none !important;
-}
-
-/* ============================================================== */
-/* 1. O CARD DO EPIC (A "Caixa" verde escuro/laranja) */
-/* ============================================================== */
+/* Altura e Borda do Card do Epic */
 #page-detalhamento .vis-item.epic-item {
   min-height: calc(38px * var(--timeline-zoom, 1)) !important;
   height: calc(38px * var(--timeline-zoom, 1)) !important;
   border-radius: 4px !important;
   cursor: pointer !important;
-  
-  /* A MÁGICA DO TOOLTIP AQUI: Garante que o mouse consiga "tocar" no card */
-  pointer-events: auto !important; 
 }
 
-/* ============================================================== */
-/* 2. O CONTEÚDO DO EPIC (O texto, datas, etc. que vão dentro da caixa) */
-/* ============================================================== */
+/* Alinhamento nativo à esquerda, COM o espaçamento (padding) para não colar na borda */
 #page-detalhamento .vis-item.epic-item .vis-item-content {
   width: 100% !important;
   height: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
   
-  /* Flexbox para alinhar as coisas */
+  /* O 16px abaixo é o respiro! Desgruda o texto do limite esquerdo */
+  padding: 0 16px !important; 
+  
+  box-sizing: border-box !important;
   display: flex !important;
-  align-items: center !important; /* Centraliza verticalmente (topo-base) */
-  justify-content: flex-start !important; /* Puxa o texto 100% para a esquerda */
-  
-  /* A MÁGICA DO ALINHAMENTO AQUI: A biblioteca usa "transform" no JS para 
-     forçar a centralização do texto. Isso anula a ordem dela! */
-  transform: none !important; 
-  left: 0 !important; /* Trava no canto esquerdo */
+  align-items: center !important;
+  justify-content: flex-start !important; /* Mantém tudo na esquerda */
+  overflow: hidden !important;
 }
 
-/* ============================================================== */
-/* 3. O DESTRUIDOR DA BARREIRA INVISÍVEL (Conserta Tooltip e Scroll) */
-/* ============================================================== */
-.vis-overlay {
-  /* A biblioteca cria uma película de vidro por cima de tudo para capturar o zoom.
-     Ao matar essa película, o mouse volta a encostar nos cards (liberando o tooltip)
-     e o scroll volta a rolar a página normalmente. */
-  display: none !important;
-  pointer-events: none !important;
-}
 /* ============================================================================== */
 /* [CSS ATUALIZADO FIM] */
 /* ============================================================================== */
