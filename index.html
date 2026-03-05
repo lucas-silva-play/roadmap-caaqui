@@ -11,7 +11,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <link rel="stylesheet" href="./style.css" />
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="container">
@@ -20,6 +22,8 @@
       <nav class="menu" aria-label="Menu" style="display:flex; gap:12px; align-items:center; margin: 16px 0 24px;">
         <button onclick="switchPage('geral')" id="link-geral" class="menu-btn is-active">Projetos - Geral</button>
         <button onclick="switchPage('detalhamento')" id="link-detalhamento" class="menu-btn">Projetos - Detalhamento</button>
+        <button onclick="switchPage('avaliacoes')" id="link-avaliacoes" class="menu-btn">Avaliações</button>
+      </nav>
       </nav>
       <h1>Roadmap - Projetos Caaqui</h1>
       <p class="subtitle">Conecte sua planilha do Google Sheets e visualize seu roadmap interativo</p>
@@ -156,6 +160,35 @@
           <button class="zoom-btn" id="zoom-fit-detalhes" title="Ajustar ao conteúdo">⤢</button>
         </div>
         <div id="visualization-detalhes" class="visualization"></div>
+      </div>
+    </div>
+
+    <div id="page-avaliacoes" style="display:none;">
+      <input type="text" id="spreadsheet-url-avaliacoes" value="" style="display:none;" />
+      
+      <div class="panel" id="filters-panel-avaliacoes">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div class="panel-title" style="margin-bottom:0;">Dashboard de Satisfação</div>
+          <button class="btn-source" id="change-source-avaliacoes" type="button" onclick="openModal()">Alterar fonte do dado</button>
+        </div>
+      </div>
+
+      <div id="status-message-avaliacoes"></div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="load-data-avaliacoes" type="button"><span>Carregar Avaliações</span></button>
+        <button class="btn btn-secondary" id="refresh-data-avaliacoes" type="button" style="display:none;"><span>Atualizar Dados</span></button>
+      </div>
+
+      <div style="display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap;">
+        <div class="panel" style="flex: 1; min-width: 300px;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--color-primary);">NPS (Net Promoter Score)</h3>
+          <canvas id="npsChart" height="250"></canvas>
+        </div>
+        <div class="panel" style="flex: 1; min-width: 300px;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--color-primary);">Nível de Satisfação</h3>
+          <canvas id="satChart" height="250"></canvas>
+        </div>
       </div>
     </div>
 
