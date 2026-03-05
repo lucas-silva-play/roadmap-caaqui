@@ -617,7 +617,7 @@ projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
     if (!info) return;
 
-    // Tooltip padronizado (removido o pointer-events daqui, pois estava no lugar errado)
+    // Tooltip limpo (removi qualquer propriedade que pudesse bugar o mouse)
     const epicTooltip = `
       <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
         <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
@@ -629,14 +629,13 @@ projectsToShow.forEach(p => {
       </div>
     `;
 
-    // NOVO LAYOUT: Lado a lado (row), com labels, sem negrito nas datas, 
-    // e o milagroso 'pointer-events: none' para consertar o tooltip intermitente!
+    // Layout cravado em 1 linha: Título dentro de <strong> e Datas dentro de <span>
     const epicContent = `
-      <div style="width:100%; height:100%; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:12px; color:#065F46; box-sizing: border-box; pointer-events: none; white-space: nowrap;">
-        <div style="font-weight:800; font-size:0.9rem;">${extractBracketText(p)}</div>
-        <div style="font-size:0.8rem; font-weight:400; opacity: 0.95;">
+      <div style="display:flex; flex-direction:row; align-items:center; white-space:nowrap; height:100%; color:#065F46;">
+        <strong style="font-weight:900; font-size:0.95rem; margin-right:8px;">${extractBracketText(p)}</strong>
+        <span style="font-size:0.85rem; font-weight:400;">
           Data de início: ${formatDate(info.start)} | Data fim esperada: ${formatDate(info.target)} | Data fim real: ${formatDate(info.end)}
-        </div>
+        </span>
       </div>
     `;
 
