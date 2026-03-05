@@ -628,12 +628,12 @@ projectsToShow.forEach(p => {
         <b>Fim Real:</b> ${formatDate(info.end)}
       </div>
     `;
-
-    // Texto alinhado 100% à esquerda com flex-start e text-align: left
+    
+   // Texto alinhado FORÇADAMENTE à esquerda usando position: absolute
     const epicContent = `
-      <div style="display:flex; flex-direction:row; align-items:center; justify-content:flex-start; width:100%; height:100%; color:#065F46; text-align:left;">
+      <div style="position:absolute; left:0; top:0; bottom:0; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; padding-left:12px; color:#065F46; text-align:left; white-space:nowrap; pointer-events:none;">
         <strong style="font-weight:900; font-size:0.95rem; margin-right:8px;">${extractBracketText(p)}</strong>
-        <span style="font-size:0.85rem; font-weight:400; white-space:nowrap;">
+        <span style="font-size:0.85rem; font-weight:400;">
           Data de início: ${formatDate(info.start)} | Data fim esperada: ${formatDate(info.target)} | Data fim real: ${formatDate(info.end)}
         </span>
       </div>
@@ -728,7 +728,8 @@ projectsToShow.forEach(p => {
         locale: 'pt-BR',
         verticalScroll: true, 
         horizontalScroll: false, 
-        zoomable: false, /* <--- PROÍBE O ZOOM PELO SCROLL DO MOUSE */
+        zoomable: false, 
+        zoomKey: '', // <--- ADICIONE ESTA LINHA. Deixar vazio destrói a camada de sobreposição nativamente.
         tooltip: {
           followMouse: true,
           overflowMethod: 'cap'
