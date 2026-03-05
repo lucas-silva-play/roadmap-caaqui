@@ -619,21 +619,52 @@
 
       const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
+      // ==============================================================================
+      // [JS ATUALIZADO] SUBSTITUA TODO O LOOP projectsToShow.forEach(p => {
+      // INCLUINDO A FUNÇÃO DE TOOLTIP E CRIAÇÃO DO ITEM
+      // ==============================================================================
       projectsToShow.forEach(p => {
         const info = epicByProject.get(p);
         if (!info) return;
 
-        // Tooltip padronizado e com as larguras e dados iguais à página Geral
+        // Tooltip padronizado com as larguras e dados iguais à página Geral (andard child cards)
+        // Criamos o HTML do Tooltip aqui, antes de criar o item
         const epicTooltip = `
-          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px; pointer-events: none;">
             <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
-            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800;">EPIC</span>
+            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
             <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
             <b>Início:</b> ${formatDate(info.start)}<br/>
             <b>Previsão:</b> ${formatDate(info.target)}<br/>
             <b>Fim Real:</b> ${formatDate(info.end)}
           </div>
         `;
+
+        // Conteúdo redesenhado: Nome (do colchete) em Negrito + Datas abaixo (regular, centered column flex)
+        const epicContent = `
+          <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#065F46; line-height:1.2; box-sizing: border-box;">
+            <div style="font-weight:800; font-size:0.85rem;">${extractBracketText(p)}</div>
+            <div style="font-size:0.75rem; font-weight:400; opacity: 0.9;">${formatDate(info.start)} | ${formatDate(info.target)} | ${formatDate(info.end)}</div>
+          </div>
+        `;
+
+        items.push({
+          id: `epic-${p}`,
+          content: epicContent,
+          start: info.start,
+          end: info.end,
+          group: p,
+          subgroup: 'epic',
+          order: -1000,
+          className: 'epic-item',
+          style: info.style,
+          title: epicTooltip, // Aqui nós associamos o tooltip HTML que criamos acima
+          linkUrl: (projectEpicLink.get(p) || null)
+        });
+      });
+      // ==============================================================================
+      // [JS ATUALIZADO FIM]
+      // ==============================================================================
 
         // Aqui injetamos a função extractBracketText(p) para pegar só o texto do colchete
         items.push({
