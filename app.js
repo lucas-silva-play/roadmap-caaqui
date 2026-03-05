@@ -463,210 +463,195 @@
     }
     
     function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-      const items = [];
-      const allProjects = new Set();
-      const epicByProject = new Map();
-      const projectEpicLink = new Map();
+  const items = [];
+  const allProjects = new Set();
+  const epicByProject = new Map();
+  const projectEpicLink = new Map();
 
-      const respFilters = normalizeList(filterResponsavel);
-      const statusFilters = normalizeList(filterStatus);
+  const respFilters = normalizeList(filterResponsavel);
+  const statusFilters = normalizeList(filterStatus);
 
-      availableStacks.detalhamento.clear();
-      availableResponsaveis.detalhamento.clear();
-      availableStatuses.detalhamento.clear();
+  availableStacks.detalhamento.clear();
+  availableResponsaveis.detalhamento.clear();
+  availableStatuses.detalhamento.clear();
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
-        if (!projetoRaw) continue;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
+    if (!projetoRaw) continue;
 
-        allProjects.add(projetoRaw);
-        availableStacks.detalhamento.add(projetoRaw);
+    allProjects.add(projetoRaw);
+    availableStacks.detalhamento.add(projetoRaw);
 
-        const epicLinkCandidate = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
-        if (epicLinkCandidate && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkCandidate);
+    const epicLinkCandidate = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
+    if (epicLinkCandidate && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkCandidate);
 
-        const considerForFacets = (filterProjeto === 'all' || projetoRaw === filterProjeto);
-        if (considerForFacets) {
-          const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
-          splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
-          const st = String(getCell(row, ['Status']) || '').trim();
-          if (st) availableStatuses.detalhamento.add(st);
-        }
-
-        if (!epicByProject.has(projetoRaw)) {
-          let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-          if (epicStart) {
-            const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-            const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
-            let epicEnd = epicFinish || epicTarget;
-            if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-            if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-
-            const totalDuration = epicEnd - epicStart;
-            const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-            const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-            const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
-            let epicStyle;
-            if (epicTarget && epicTarget < epicEnd) {
-              epicStyle = `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`;
-            } else {
-              epicStyle = `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
-            }
-            epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
-          }
-        }
-      }
-
-      const includedProjects = new Set();
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
-        if (!projetoRaw) continue;
-        if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
-
-        const resumo = String(getCell(row, ['Resumo']) || '').trim();
-        const childStart = parseBRDate(getCell(row, ['Start date']));
-        const childTarget = parseBRDate(getCell(row, ['Target end']));
-        const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
-        
-        if (!resumo) continue;
-
-        // 1 e 2: Lógica atualizada para a aba "Projetos - Detalhamento"
-        // Validamos se o card possui pelo menos um Início e uma previsão/fim
-        const hasValidDates = childStart && (childTarget || childFinish);
-
-        if (cardsMode === 'updated' && !hasValidDates) {
-          continue; // Esconde cards com datas faltando quando em "Cards atualizados"
-        }
-        if (cardsMode === 'outdated' && hasValidDates) {
-          continue; // Esconde cards perfeitos quando em "Cards desatualizados"
-        }
-
-        // Criamos datas fictícias apenas para que o motor da Timeline consiga desenhar o bloco na tela
-        let renderStart = childStart || new Date();
-        let renderEnd = childFinish || childTarget;
-        if (!renderEnd) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000); 
-        if (renderEnd <= renderStart) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000);
-
-        const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
-        const responsavelList = splitPeople(responsavelRaw);
-        const status = String(getCell(row, ['Status']) || 'planejado').trim();
-        const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
-
-        const passResp = (respFilters.length === 0) ? true : responsavelList.some(p => respFilters.some(f => sameCI(p, f)));
-        const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
-        if (!passResp || !passStatus) continue;
-
-        includedProjects.add(projetoRaw);
-        if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
-
-        const statusNormalized = String(status || 'planejado').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-        const totalDuration = renderEnd - renderStart;
-        const targetDuration = childTarget ? (childTarget - renderStart) : totalDuration;
-        let targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-        targetPercent = Math.max(0, Math.min(100, targetPercent));
-
-        const base = '#99F6E4'; const baseBorder = '#14B8A6'; const late = '#FDBA74';
-        let style;
-        if (childTarget && renderEnd > childTarget) {
-          style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
-        } else {
-          style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
-        }
-
-        // TOOLTIP CUSTOMIZADO COM INFORMAÇÕES EXATAS DO JIRA
-        const tooltipHtml = `
-          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
-            <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${resumo}</strong>
-            <b>Projeto:</b> ${projetoRaw}<br/>
-            <b>Responsável:</b> ${responsavelRaw || 'Não atribuído'}<br/>
-            <b>Status:</b> ${status}<br/>
-            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
-            <b>Início:</b> ${formatDate(childStart)}<br/>
-            <b>Previsão:</b> ${formatDate(childTarget)}<br/>
-            <b>Fim Real:</b> ${formatDate(childFinish)}
-          </div>
-        `;
-
-        items.push({
-          id: `child-${i}`,
-          content: `
-            <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
-              <div style="display:flex; align-items:center; gap:6px;">
-                <strong>${resumo}</strong>
-                <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
-              </div>
-              <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childFinish)}</div>
-              ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
-            </div>
-          `,
-          start: renderStart,
-          end: renderEnd,
-          group: projetoRaw,
-          subgroup: 'child',
-          className: `status-${statusNormalized}`,
-          style,
-          title: tooltipHtml, 
-          linkUrl: epicLinkUrl
-        });
-      }
-
-      // 3: Quando em modo "desatualizado", os projetos já trarão os cards vazios gerados acima
-      const projectsToShow = Array.from(includedProjects);
-
-      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
-
-      // ==============================================================================
-      // [JS ATUALIZADO] SUBSTITUA TODO O LOOP projectsToShow.forEach(p => {
-      // INCLUINDO A FUNÇÃO DE TOOLTIP E CRIAÇÃO DO ITEM
-      // ==============================================================================
-      // 3: Quando em modo "desatualizado", os projetos já trarão os cards vazios gerados acima
-      const projectsToShow = Array.from(includedProjects);
-
-      const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
-
-      projectsToShow.forEach(p => {
-        const info = epicByProject.get(p);
-        if (!info) return;
-
-        const epicTooltip = `
-          <div style="font-size:0.9rem; line-height:1.5; min-width: 250px; pointer-events: none;">
-            <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
-            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
-            <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
-            <b>Início:</b> ${formatDate(info.start)}<br/>
-            <b>Previsão:</b> ${formatDate(info.target)}<br/>
-            <b>Fim Real:</b> ${formatDate(info.end)}
-          </div>
-        `;
-
-        const epicContent = `
-          <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#065F46; line-height:1.2; box-sizing: border-box;">
-            <div style="font-weight:800; font-size:0.85rem;">${extractBracketText(p)}</div>
-            <div style="font-size:0.75rem; font-weight:400; opacity: 0.9;">${formatDate(info.start)} | ${formatDate(info.target)} | ${formatDate(info.end)}</div>
-          </div>
-        `;
-
-        items.push({
-          id: `epic-${p}`,
-          content: epicContent,
-          start: info.start,
-          end: info.end,
-          group: p,
-          subgroup: 'epic',
-          order: -1000,
-          className: 'epic-item',
-          style: info.style,
-          title: epicTooltip,
-          linkUrl: (projectEpicLink.get(p) || null)
-        });
-      });
-
-      return { items, groups };
+    const considerForFacets = (filterProjeto === 'all' || projetoRaw === filterProjeto);
+    if (considerForFacets) {
+      const respRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+      splitPeople(respRaw).forEach(p => availableResponsaveis.detalhamento.add(p));
+      const st = String(getCell(row, ['Status']) || '').trim();
+      if (st) availableStatuses.detalhamento.add(st);
     }
+
+    if (!epicByProject.has(projetoRaw)) {
+      let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
+      if (epicStart) {
+        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)','Finish Date (Epic)']));
+        let epicEnd = epicFinish || epicTarget;
+        if (!epicEnd) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+        if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+
+        const totalDuration = epicEnd - epicStart;
+        const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+        const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
+        let epicStyle;
+        if (epicTarget && epicTarget < epicEnd) {
+          epicStyle = `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`;
+        } else {
+          epicStyle = `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
+        }
+        epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
+      }
+    }
+  }
+
+  const includedProjects = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const projetoRaw = String(getCell(row, ['Projeto']) || '').trim();
+    if (!projetoRaw) continue;
+    if (filterProjeto !== 'all' && projetoRaw !== filterProjeto) continue;
+
+    const resumo = String(getCell(row, ['Resumo']) || '').trim();
+    const childStart = parseBRDate(getCell(row, ['Start date']));
+    const childTarget = parseBRDate(getCell(row, ['Target end']));
+    const childFinish = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+
+    if (!resumo) continue;
+
+    const hasValidDates = childStart && (childTarget || childFinish);
+
+    if (cardsMode === 'updated' && !hasValidDates) {
+      continue; 
+    }
+    if (cardsMode === 'outdated' && hasValidDates) {
+      continue; 
+    }
+
+    let renderStart = childStart || new Date();
+    let renderEnd = childFinish || childTarget;
+    if (!renderEnd) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000); 
+    if (renderEnd <= renderStart) renderEnd = new Date(renderStart.getTime() + 15 * 24 * 60 * 60 * 1000);
+
+    const responsavelRaw = String(getCell(row, ['Nome do responsável','Nome do responsavel','Responsável','Responsavel','Owner','Assignee','Responsavel nome']) || '').trim();
+    const responsavelList = splitPeople(responsavelRaw);
+    const status = String(getCell(row, ['Status']) || 'planejado').trim();
+    const epicLinkUrl = String(getCell(row, ['Epic Link','Epic link','Epic','Link Epic','URL Epic','Epic URL','EpicLink','Link da Epic']) || '').trim();
+
+    const passResp = (respFilters.length === 0) ? true : responsavelList.some(p => respFilters.some(f => sameCI(p, f)));
+    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+    if (!passResp || !passStatus) continue;
+
+    includedProjects.add(projetoRaw);
+    if (epicLinkUrl && !projectEpicLink.has(projetoRaw)) projectEpicLink.set(projetoRaw, epicLinkUrl);
+
+    const statusNormalized = String(status || 'planejado').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+    const totalDuration = renderEnd - renderStart;
+    const targetDuration = childTarget ? (childTarget - renderStart) : totalDuration;
+    let targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+    targetPercent = Math.max(0, Math.min(100, targetPercent));
+
+    const base = '#99F6E4'; const baseBorder = '#14B8A6'; const late = '#FDBA74';
+    let style;
+    if (childTarget && renderEnd > childTarget) {
+      style = `background: linear-gradient(to right, ${base} 0%, ${base} ${targetPercent}%, ${late} ${targetPercent}%, ${late} 100%) !important; border-color: ${baseBorder} !important;`;
+    } else {
+      style = `background-color: ${base} !important; border-color: ${baseBorder} !important;`;
+    }
+
+    const tooltipHtml = `
+      <div style="font-size:0.9rem; line-height:1.5; min-width: 250px;">
+        <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${resumo}</strong>
+        <b>Projeto:</b> ${projetoRaw}<br/>
+        <b>Responsável:</b> ${responsavelRaw || 'Não atribuído'}<br/>
+        <b>Status:</b> ${status}<br/>
+        <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+        <b>Início:</b> ${formatDate(childStart)}<br/>
+        <b>Previsão:</b> ${formatDate(childTarget)}<br/>
+        <b>Fim Real:</b> ${formatDate(childFinish)}
+      </div>
+    `;
+
+    items.push({
+      id: `child-${i}`,
+      content: `
+        <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <strong>${resumo}</strong>
+            <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(0,0,0,0.12); color:#13343b; font-weight:800;">${status}</span>
+          </div>
+          <div style="font-size:0.75rem; opacity:0.85;">Start: ${formatDate(childStart)} | Target: ${formatDate(childTarget)} | Finish: ${formatDate(childFinish)}</div>
+          ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
+        </div>
+      `,
+      start: renderStart,
+      end: renderEnd,
+      group: projetoRaw,
+      subgroup: 'child',
+      className: `status-${statusNormalized}`,
+      style,
+      title: tooltipHtml, 
+      linkUrl: epicLinkUrl
+    });
+  }
+
+  const projectsToShow = Array.from(includedProjects);
+  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+
+  projectsToShow.forEach(p => {
+    const info = epicByProject.get(p);
+    if (!info) return;
+
+    const epicTooltip = `
+      <div style="font-size:0.9rem; line-height:1.5; min-width: 250px; pointer-events: none;">
+        <strong style="color:var(--color-primary); font-size:1rem; display:block; margin-bottom:4px;">${p}</strong>
+        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background: rgba(255,255,255,0.2); font-weight:800; color:#fff;">EPIC</span>
+        <hr style="margin:6px 0; border:0; border-top:1px solid rgba(255,255,255,0.2);">
+        <b>Início:</b> ${formatDate(info.start)}<br/>
+        <b>Previsão:</b> ${formatDate(info.target)}<br/>
+        <b>Fim Real:</b> ${formatDate(info.end)}
+      </div>
+    `;
+
+    const epicContent = `
+      <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:#065F46; line-height:1.2; box-sizing: border-box;">
+        <div style="font-weight:800; font-size:0.85rem;">${extractBracketText(p)}</div>
+        <div style="font-size:0.75rem; font-weight:400; opacity: 0.9;">${formatDate(info.start)} | ${formatDate(info.target)} | ${formatDate(info.end)}</div>
+      </div>
+    `;
+
+    items.push({
+      id: `epic-${p}`,
+      content: epicContent,
+      start: info.start,
+      end: info.end,
+      group: p,
+      subgroup: 'epic',
+      order: -1000,
+      className: 'epic-item',
+      style: info.style,
+      title: epicTooltip,
+      linkUrl: (projectEpicLink.get(p) || null)
+    });
+  });
+
+  return { items, groups };
+}
 
     // --- FILTER DROPDOWNS ---
     function updateStackFilterGeral() {
