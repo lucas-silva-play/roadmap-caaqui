@@ -152,12 +152,12 @@
     .vis-panel.vis-background .vis-grid.vis-vertical,
     .vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid rgba(0,0,0,0.08) !important; }
 
-    /* LINHA DE SEPARAÇÃO DA COLUNA A MAIS FORTE */
-    .vis-panel.vis-left {
-      z-index: 10 !important;
-      border-right: 2px solid #8e9699 !important; /* Cor cinza mais forte para separar a coluna A */
-      box-shadow: 5px 0 15px rgba(0,0,0,0.12) !important;
-    }
+/* LINHA DE SEPARAÇÃO DA COLUNA SUTIL */
+.vis-panel.vis-left {
+  z-index: 10 !important;
+  border-right: 1px solid rgba(0,0,0,0.08) !important; /* Linha super fina e clara */
+  box-shadow: none !important; /* Removemos a sombra pesada */
+}
 
     .vis-current-time { display:none !important; }
 
@@ -326,6 +326,33 @@
   overflow: hidden !important;
 }
 
+/* ============================================================== */
+/* ANTÍDOTO PARA O BUG DO MOUSE/SCROLL (ZONAS MORTAS)             */
+/* ============================================================== */
+
+/* 1. Impede que o fundo do grid ou a película nativa roubem o mouse */
+.vis-panel.vis-background,
+.vis-overlay {
+  pointer-events: none !important;
+}
+
+/* 2. Garante que o painel do topo (meses) não desça invisivelmente sobre os cards */
+.vis-panel.vis-top {
+  z-index: 4 !important;
+  pointer-events: none !important; /* Deixa o mouse "atravessar" se vazar */
+}
+
+/* 3. Garante que o painel principal (onde os cards ficam) seja a área prioritária do mouse */
+.vis-panel.vis-center {
+  z-index: 3 !important;
+  pointer-events: auto !important;
+}
+
+/* 4. "Blinda" os cards para garantirem que sempre leiam o Hover/Tooltip */
+.vis-item {
+  z-index: 5 !important;
+  pointer-events: auto !important;
+}
 /* ============================================================================== */
 /* [CSS ATUALIZADO FIM] */
 /* ============================================================================== */
