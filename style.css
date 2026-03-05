@@ -302,3 +302,22 @@
     #page-geral .cards-switch-thumb { position: absolute; height: 18px; width: 18px; left: 3px; top: 2px; background: #fff; border-radius: 999px; box-shadow: 0 2px 5px rgba(0,0,0,0.18); transition: transform 0.18s ease; }
     #page-geral .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-geral .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
+
+/* ============================================================================== */
+/* [CSS ATUALIZADO] ADICIONE ESTAS REGRAS NO FINAL DO ARQUIVO style.css */
+/* ============================================================================== */
+/* Força negrito nos resumos (strong) dentro dos cards normais */
+.vis-item-content strong {
+  font-weight: 700 !important;
+}
+
+/* Garante espaçamento e alinhamento no conteúdo vertical dos Epics */
+/* Isso vai fazer as pills que mostrei no turn anterior ficarem padronizadas */
+#page-detalhamento .vis-item.epic-item .vis-item-content {
+  padding: 4px 8px !important; /* Espaçamento interno vertical e horizontal */
+  height: 100%;
+  box-sizing: border-box; /* Garante que o padding não aumente a pill */
+}
+/* ============================================================================== */
+/* [CSS ATUALIZADO FIM] */
+/* ============================================================================== */
