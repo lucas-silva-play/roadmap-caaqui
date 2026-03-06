@@ -198,7 +198,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado
+// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -697,6 +697,7 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
+// Quebra textos longos para não empurrar o gráfico
 function wrapText(text, maxLineLength) {
   const words = text.split(' ');
   const lines = [];
@@ -709,13 +710,13 @@ function wrapText(text, maxLineLength) {
   return lines;
 }
 
-// Cores Degradê Exatas: 1=Vermelho, 2=Laranja, 3=Cinza, 4=VerdeClaro, 5=VerdeEscuro
+// Cores Degradê Refinadas
 function getColorForAverage(avg) {
-  if (avg >= 4.5) return '#22c55e'; 
-  if (avg >= 3.5) return '#84cc16'; 
-  if (avg >= 2.5) return '#9ca3af'; 
-  if (avg >= 1.5) return '#f97316'; 
-  return '#ef4444'; 
+  if (avg >= 4.5) return '#22c55e'; // Verde
+  if (avg >= 3.5) return '#84cc16'; // Verde claro
+  if (avg >= 2.5) return '#d1d5db'; // Cinza suave e leve
+  if (avg >= 1.5) return '#f09694'; // Vermelho claro / salmão
+  return '#d9534f'; // Vermelho agradável (não estourado)
 }
 
 function updateFiltersAvaliacoes() {
@@ -771,7 +772,7 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // 1. CÁLCULO NPS (Média Exata)
+  // 1. CÁLCULO NPS (Média Exata em vez de fórmula tradicional)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -790,10 +791,12 @@ function renderGraficosAvaliacoes(rows) {
   document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
   npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
   
+  // Cor do NPS de 0 a 10
   if (npsAverage !== '-') {
-    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; // Verde
-    else if (npsAverage >= 7.0) npsTextEl.style.color = '#facc15'; // Amarelo
-    else npsTextEl.style.color = '#ef4444'; // Vermelho
+    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+    else npsTextEl.style.color = '#d9534f';
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -807,8 +810,8 @@ function renderGraficosAvaliacoes(rows) {
     data: {
       labels: npsLabels,
       datasets: [
-        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#EF4444', borderRadius: 4 },
-        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#facc15', borderRadius: 4 },
+        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
+        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
         { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
       ]
     },
@@ -935,7 +938,6 @@ function renderGraficosAvaliacoes(rows) {
 
     const abaAvgNum = abaSatCount > 0 ? parseFloat((abaSatSum / abaSatCount).toFixed(2)) : null;
     const abaAvgText = abaAvgNum ? abaAvgNum.toFixed(2) : '-';
-    // Puxa a cor inteligente baseada na média da aba
     const abaAvgColor = abaAvgNum ? getColorForAverage(abaAvgNum) : 'var(--color-text-primary)';
     
     const canvasHeight = Math.max(180, displayLabels.length * 75 + 60);
@@ -987,7 +989,7 @@ function renderGraficosAvaliacoes(rows) {
     });
   });
 
-  // Atualiza a Média Global Dinâmica lá no HTML (Também com a cor inteligente)
+  // Atualiza a Média Global Dinâmica com Cor
   const globalAvg = globalSatCount > 0 ? parseFloat((globalSatSum / globalSatCount).toFixed(2)) : null;
   const globalEl = document.getElementById('satisfacao-geral-text');
   if (globalEl) {
