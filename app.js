@@ -1170,6 +1170,5 @@ async function handleLoadData(pageKey) {
             }
           }
         });
-      });
     }
 
