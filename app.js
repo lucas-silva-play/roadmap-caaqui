@@ -1160,7 +1160,7 @@ async function handleLoadData(pageKey) {
             indexAxis: 'y', // <-- Isso deita o gráfico (Barras Horizontais)
             plugins: { legend: { display: false } },
             scales: {
-              x: { beginAtZero: true, max: 5 }, // Assume escala de notas até 5 (você pode alterar para 10 se for o caso do seu Forms)
+              x: { beginAtZero: true, max: 5 }, // Assume escala de notas até 5
               y: { ticks: { autoSkip: false } }
             }
           }
