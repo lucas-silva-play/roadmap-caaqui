@@ -737,181 +737,40 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-      // ==== 1. CÁLCULO NPS (Por Média) ====
-      let promoters = 0; let passives = 0; let detractors = 0;
-      let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
-      let sumNps = 0;
-      let totalNps = 0;
+  // 1. CÁLCULO NPS (Média Geral)
+  let promoters = 0; let passives = 0; let detractors = 0;
+  let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
+  let sumNps = 0;
+  let totalNps = 0;
 
-      rows.forEach(row => {
-        const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
-        if (npsRaw !== undefined && npsRaw !== '') {
-          const score = parseInt(npsRaw, 10);
-          if (!isNaN(score) && score >= 0 && score <= 10) {
-            npsCounts[score]++;
-            sumNps += score; // Soma as notas para a média
-            totalNps++;
-            if (score >= 9) promoters++;
-            else if (score >= 7) passives++;
-            else detractors++;
-          }
-        }
-      });
-
-      // Média Geral
-      const npsAverage = totalNps > 0 ? (sumNps / totalNps).toFixed(1) : '-';
-      
-      const npsTextEl = document.getElementById('nps-score-text');
-      document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
-      npsTextEl.textContent = npsAverage;
-      
-      // Cores por média (ex: Maior que 8.5 Verde)
-      if (npsAverage !== '-') {
-        const numAvg = parseFloat(npsAverage);
-        if (numAvg >= 8.5) npsTextEl.style.color = '#10B981'; 
-        else if (numAvg >= 7.0) npsTextEl.style.color = '#3B82F6';
-        else if (numAvg >= 5.0) npsTextEl.style.color = '#F59E0B';
-        else npsTextEl.style.color = '#EF4444';
+  rows.forEach(row => {
+    const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
+    if (npsRaw !== undefined && npsRaw !== '') {
+      const score = parseInt(npsRaw, 10);
+      if (!isNaN(score) && score >= 0 && score <= 10) {
+        npsCounts[score]++;
+        sumNps += score; // Soma as notas para a média
+        totalNps++;
+        if (score >= 9) promoters++;
+        else if (score >= 7) passives++;
+        else detractors++;
       }
-
-      // ---- GRÁFICO NPS (BARRAS DE 0 a 10) ----
-      if (chartInstances.nps) chartInstances.nps.destroy();
-      const npsLabels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-      
-      const dataDetratores = npsLabels.map(l => parseInt(l) <= 6 ? npsCounts[l] : null);
-      const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
-      const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
-
-      chartInstances.nps = new Chart(document.getElementById('npsChart'), {
-        type: 'bar',
-        data: {
-          labels: npsLabels,
-          datasets: [
-            { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#EF4444', borderRadius: 4 },
-            { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#FCD34D', borderRadius: 4 },
-            { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#10B981', borderRadius: 4 }
-          ]
-        },
-        options: {
-          maintainAspectRatio: false, // Fundamental para o CSS controlar a altura
-          plugins: { legend: { position: 'bottom' } },
-          scales: {
-            x: { stacked: true, title: { display: true, text: 'Nota' } },
-            y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
-          }
-        }
-      });
-
-      // ==== 2. GRÁFICOS DE SATISFAÇÃO (Barras Empilhadas por Nota 1 a 5) ====
-      const satContainer = document.getElementById('sat-charts-container');
-      satContainer.innerHTML = ''; 
-      Object.values(chartInstancesSat).forEach(c => c.destroy()); 
-      chartInstancesSat = {};
-
-      if (rows.length === 0) {
-        satContainer.innerHTML = '<p style="color:#626c71; text-align:center;">Nenhum dado encontrado para este filtro.</p>';
-        return;
-      }
-
-      const rowsByAba = {};
-      rows.forEach(r => {
-        if (!rowsByAba[r._abaOrigin]) rowsByAba[r._abaOrigin] = [];
-        rowsByAba[r._abaOrigin].push(r);
-      });
-
-      Object.keys(rowsByAba).sort().forEach((abaName, index) => {
-        const abaRows = rowsByAba[abaName];
-        if (abaRows.length === 0) return;
-
-        const headers = Object.keys(abaRows[0]);
-        const satHeaders = headers.filter(h => 
-          (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && 
-          (!/nps|0 a 10|recomend/i.test(h))
-        );
-
-        if (satHeaders.length === 0) return; 
-
-        const labels = [];
-        // Armazenam as contagens de 1 a 5 para cada pergunta
-        const counts = { '1': [], '2': [], '3': [], '4': [], '5': [] };
-
-        satHeaders.forEach(h => {
-          let qCounts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-          let hasValidData = false;
-
-          abaRows.forEach(r => {
-            const val = parseFloat(r[h]);
-            if (!isNaN(val) && val >= 1 && val <= 5) {
-              qCounts[String(val)]++;
-              hasValidData = true;
-            }
-          });
-
-          if (hasValidData) {
-            labels.push(h); // A pergunta
-            counts['1'].push(qCounts['1']);
-            counts['2'].push(qCounts['2']);
-            counts['3'].push(qCounts['3']);
-            counts['4'].push(qCounts['4']);
-            counts['5'].push(qCounts['5']);
-          }
-        });
-
-        if (labels.length === 0) return;
-
-        // Calcula a altura ideal do canvas baseado em quantas perguntas existem
-        const canvasHeight = Math.max(180, labels.length * 60 + 60);
-
-        const wrapper = document.createElement('div');
-        wrapper.style.marginBottom = '16px';
-        wrapper.innerHTML = `
-          <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:12px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
-          <div style="position: relative; width: 100%; height: ${canvasHeight}px;">
-            <canvas id="satChart_${index}"></canvas>
-          </div>
-        `;
-        satContainer.appendChild(wrapper);
-
-        // Desenha o gráfico Horizontal de Barras Empilhadas 
-        chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
-          type: 'bar',
-          data: {
-            labels: labels.map(l => l.length > 55 ? l.substring(0, 52) + '...' : l), 
-            datasets: [
-              { label: 'Nota 1', data: counts['1'], backgroundColor: '#ef4444', borderRadius: 2 }, // Vermelho
-              { label: 'Nota 2', data: counts['2'], backgroundColor: '#f97316', borderRadius: 2 }, // Laranja
-              { label: 'Nota 3', data: counts['3'], backgroundColor: '#facc15', borderRadius: 2 }, // Amarelo
-              { label: 'Nota 4', data: counts['4'], backgroundColor: '#a3e635', borderRadius: 2 }, // Verde claro
-              { label: 'Nota 5', data: counts['5'], backgroundColor: '#22c55e', borderRadius: 2 }  // Verde escuro
-            ]
-          },
-          options: {
-            indexAxis: 'y', // Deita o gráfico
-            maintainAspectRatio: false,
-            plugins: { 
-              legend: { display: true, position: 'bottom' },
-              tooltip: { mode: 'index', intersect: false } // Mostra todas as fatias da barra juntas no tooltip
-            },
-            scales: {
-              x: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } },
-              y: { stacked: true, ticks: { autoSkip: false } }
-            }
-          }
-        });
-      });
     }
+  });
 
-  const totalNps = promoters + passives + detractors;
-  const npsScore = totalNps > 0 ? Math.round(((promoters / totalNps) - (detractors / totalNps)) * 100) : 0;
+  const npsAverage = totalNps > 0 ? (sumNps / totalNps).toFixed(1) : '-';
   
   const npsTextEl = document.getElementById('nps-score-text');
   document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
-  npsTextEl.textContent = totalNps > 0 ? npsScore : '-';
+  npsTextEl.textContent = npsAverage;
   
-  if (npsScore >= 75) npsTextEl.style.color = '#10B981'; 
-  else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6';
-  else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B';
-  else npsTextEl.style.color = '#EF4444';
+  if (npsAverage !== '-') {
+    const numAvg = parseFloat(npsAverage);
+    if (numAvg >= 8.5) npsTextEl.style.color = '#10B981'; 
+    else if (numAvg >= 7.0) npsTextEl.style.color = '#3B82F6';
+    else if (numAvg >= 5.0) npsTextEl.style.color = '#F59E0B';
+    else npsTextEl.style.color = '#EF4444';
+  }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
   const npsLabels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -930,6 +789,7 @@ function renderGraficosAvaliacoes(rows) {
       ]
     },
     options: {
+      maintainAspectRatio: false, 
       plugins: { legend: { position: 'bottom' } },
       scales: {
         x: { stacked: true, title: { display: true, text: 'Nota' } },
@@ -938,7 +798,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Por Perguntas) 
+  // 2. GRÁFICOS DE SATISFAÇÃO (Por Perguntas - Barras Empilhadas)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
@@ -960,21 +820,49 @@ function renderGraficosAvaliacoes(rows) {
     if (abaRows.length === 0) return;
 
     const headers = Object.keys(abaRows[0]);
-    const satHeaders = headers.filter(h => (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && (!/nps|0 a 10|recomend/i.test(h)));
+    const satHeaders = headers.filter(h => 
+      (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && 
+      (!/nps|0 a 10|recomend/i.test(h))
+    );
+
     if (satHeaders.length === 0) return; 
 
-    const labels = []; const averages = [];
+    const labels = [];
+    const counts = { '1': [], '2': [], '3': [], '4': [], '5': [] };
+
     satHeaders.forEach(h => {
-      let sum = 0, count = 0;
-      abaRows.forEach(r => { const val = parseFloat(r[h]); if (!isNaN(val)) { sum += val; count++; } });
-      if (count > 0) { labels.push(h); averages.push((sum/count).toFixed(2)); }
+      let qCounts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+      let hasValidData = false;
+
+      abaRows.forEach(r => {
+        const val = parseFloat(r[h]);
+        if (!isNaN(val) && val >= 1 && val <= 5) {
+          qCounts[String(val)]++;
+          hasValidData = true;
+        }
+      });
+
+      if (hasValidData) {
+        labels.push(h); 
+        counts['1'].push(qCounts['1']);
+        counts['2'].push(qCounts['2']);
+        counts['3'].push(qCounts['3']);
+        counts['4'].push(qCounts['4']);
+        counts['5'].push(qCounts['5']);
+      }
     });
+
     if (labels.length === 0) return;
 
+    const canvasHeight = Math.max(180, labels.length * 60 + 60);
+
     const wrapper = document.createElement('div');
+    wrapper.style.marginBottom = '16px';
     wrapper.innerHTML = `
-      <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
-      <canvas id="satChart_${index}" style="max-height: 250px;"></canvas>
+      <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:12px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
+      <div style="position: relative; width: 100%; height: ${canvasHeight}px;">
+        <canvas id="satChart_${index}"></canvas>
+      </div>
     `;
     satContainer.appendChild(wrapper);
 
@@ -982,11 +870,25 @@ function renderGraficosAvaliacoes(rows) {
       type: 'bar',
       data: {
         labels: labels.map(l => l.length > 55 ? l.substring(0, 52) + '...' : l), 
-        datasets: [{ label: 'Nota Média', data: averages, backgroundColor: '#ec6718', borderRadius: 4 }]
+        datasets: [
+          { label: 'Nota 1', data: counts['1'], backgroundColor: '#ef4444', borderRadius: 2 }, 
+          { label: 'Nota 2', data: counts['2'], backgroundColor: '#f97316', borderRadius: 2 }, 
+          { label: 'Nota 3', data: counts['3'], backgroundColor: '#facc15', borderRadius: 2 }, 
+          { label: 'Nota 4', data: counts['4'], backgroundColor: '#a3e635', borderRadius: 2 }, 
+          { label: 'Nota 5', data: counts['5'], backgroundColor: '#22c55e', borderRadius: 2 }  
+        ]
       },
       options: {
-        indexAxis: 'y', plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true, max: 5 }, y: { ticks: { autoSkip: false } } }
+        indexAxis: 'y', 
+        maintainAspectRatio: false,
+        plugins: { 
+          legend: { display: true, position: 'bottom' },
+          tooltip: { mode: 'index', intersect: false } 
+        },
+        scales: {
+          x: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } },
+          y: { stacked: true, ticks: { autoSkip: false } }
+        }
       }
     });
   });
