@@ -56,14 +56,33 @@ const TODAYID = 'today';
 // ==========================================
 function switchPage(page) {
   currentPage = page;
+  
+  // Liga/desliga as páginas
   document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
   document.getElementById('page-detalhamento').style.display = page === 'detalhamento' ? 'block' : 'none';
   document.getElementById('page-avaliacoes').style.display = page === 'avaliacoes' ? 'block' : 'none';
 
+  // Atualiza cor dos botões
   document.getElementById('link-geral').classList.toggle('is-active', page === 'geral');
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
+  // --- NOVA LÓGICA DO TÍTULO DINÂMICO ---
+  const mainTitle = document.getElementById('main-title');
+  const mainSubtitle = document.getElementById('main-subtitle');
+  
+  if (page === 'geral') {
+    if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
+    if (mainSubtitle) mainSubtitle.textContent = 'Conecte sua planilha do Google Sheets e visualize seu roadmap interativo';
+  } else if (page === 'detalhamento') {
+    if (mainTitle) mainTitle.textContent = 'Roadmap - Detalhamento';
+    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os cards detalhados por projeto, responsável e status';
+  } else if (page === 'avaliacoes') {
+    if (mainTitle) mainTitle.textContent = 'Índices de satisfação - Caaqui';
+    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
+  }
+
+  // Redesenha as timelines
   setTimeout(() => {
     if (page === 'geral' && timelines.geral) { timelines.geral.redraw(); ensureTodayMarker('geral'); }
     if (page === 'detalhamento' && timelines.detalhamento) { timelines.detalhamento.redraw(); ensureTodayMarker('detalhamento'); }
