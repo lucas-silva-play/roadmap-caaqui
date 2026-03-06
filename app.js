@@ -707,9 +707,11 @@ function updateFiltersAvaliacoes() {
   const selectMes = document.getElementById('mes-filter-avaliacoes');
   const currentMes = selectMes.value;
   selectMes.innerHTML = '<option value="all">Todo o período</option>';
+  
+  // ORDENAÇÃO CRESCENTE DE DATA CORRIGIDA
   Array.from(availableMeses).sort((a,b) => {
     const [m1, y1] = a.split('/'); const [m2, y2] = b.split('/');
-    return new Date(y2, m2-1) - new Date(y1, m1-1); 
+    return new Date(y1, m1-1) - new Date(y2, m2-1); 
   }).forEach(v => {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectMes.appendChild(opt);
   });
@@ -749,7 +751,7 @@ function renderGraficosAvaliacoes(rows) {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) {
         npsCounts[score]++;
-        sumNps += score; // Soma as notas para a média
+        sumNps += score; 
         totalNps++;
         if (score >= 9) promoters++;
         else if (score >= 7) passives++;
@@ -798,7 +800,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Por Perguntas - Barras Empilhadas)
+  // 2. GRÁFICOS DE SATISFAÇÃO (Uma barra por pergunta com a MÉDIA de 1 a 5)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
@@ -820,44 +822,57 @@ function renderGraficosAvaliacoes(rows) {
     if (abaRows.length === 0) return;
 
     const headers = Object.keys(abaRows[0]);
-    const satHeaders = headers.filter(h => 
-      (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && 
-      (!/nps|0 a 10|recomend/i.test(h))
-    );
+    
+    // Ignora colunas que são metadados óbvios ou do NPS
+    const excludeRegex = /nps|0 a 10|recomend|carimbo|timestamp|data|e-mail|email|empresa|nome|_abaorigin/i;
+    const potentialHeaders = headers.filter(h => !excludeRegex.test(h));
 
-    if (satHeaders.length === 0) return; 
+    if (potentialHeaders.length === 0) return; 
 
     const labels = [];
-    const counts = { '1': [], '2': [], '3': [], '4': [], '5': [] };
+    const averages = [];
+    const barColors = [];
 
-    satHeaders.forEach(h => {
-      let qCounts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    // Vasculha as colunas. Se tiver notas de 1 a 5, valida e calcula a média.
+    potentialHeaders.forEach(h => {
+      let sumSatisfacao = 0;
+      let totalRespostas = 0;
       let hasValidData = false;
 
       abaRows.forEach(r => {
         const val = parseFloat(r[h]);
         if (!isNaN(val) && val >= 1 && val <= 5) {
-          qCounts[String(val)]++;
+          sumSatisfacao += val;
+          totalRespostas++;
           hasValidData = true;
         }
       });
 
       if (hasValidData) {
-        labels.push(h); 
-        counts['1'].push(qCounts['1']);
-        counts['2'].push(qCounts['2']);
-        counts['3'].push(qCounts['3']);
-        counts['4'].push(qCounts['4']);
-        counts['5'].push(qCounts['5']);
+        // Média exata
+        const avg = parseFloat((sumSatisfacao / totalRespostas).toFixed(2));
+        
+        // Encurta a pergunta se for muito grande
+        let shortName = h.length > 70 ? h.substring(0, 67) + '...' : h;
+        labels.push(shortName); 
+        averages.push(avg);
+
+        // Cor dinâmica baseada na nota (Heatmap)
+        if (avg >= 4.5) barColors.push('#22c55e'); // Verde escuro (Excelente)
+        else if (avg >= 4.0) barColors.push('#a3e635'); // Verde claro (Bom)
+        else if (avg >= 3.0) barColors.push('#facc15'); // Amarelo (Médio)
+        else if (avg >= 2.0) barColors.push('#f97316'); // Laranja (Ruim)
+        else barColors.push('#ef4444'); // Vermelho (Crítico)
       }
     });
 
     if (labels.length === 0) return;
 
+    // Altura dinâmica baseada na quantidade de perguntas
     const canvasHeight = Math.max(180, labels.length * 60 + 60);
 
     const wrapper = document.createElement('div');
-    wrapper.style.marginBottom = '16px';
+    wrapper.style.marginBottom = '24px';
     wrapper.innerHTML = `
       <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:12px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
       <div style="position: relative; width: 100%; height: ${canvasHeight}px;">
@@ -866,28 +881,39 @@ function renderGraficosAvaliacoes(rows) {
     `;
     satContainer.appendChild(wrapper);
 
+    // O gráfico agora é uma ÚNICA barra por pergunta, indo até a nota média no Eixo X
     chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
       type: 'bar',
       data: {
-        labels: labels.map(l => l.length > 55 ? l.substring(0, 52) + '...' : l), 
-        datasets: [
-          { label: 'Nota 1', data: counts['1'], backgroundColor: '#ef4444', borderRadius: 2 }, 
-          { label: 'Nota 2', data: counts['2'], backgroundColor: '#f97316', borderRadius: 2 }, 
-          { label: 'Nota 3', data: counts['3'], backgroundColor: '#facc15', borderRadius: 2 }, 
-          { label: 'Nota 4', data: counts['4'], backgroundColor: '#a3e635', borderRadius: 2 }, 
-          { label: 'Nota 5', data: counts['5'], backgroundColor: '#22c55e', borderRadius: 2 }  
-        ]
+        labels: labels, 
+        datasets: [{ 
+          label: 'Nota Média', 
+          data: averages, 
+          backgroundColor: barColors, 
+          borderRadius: 4 
+        }]
       },
       options: {
-        indexAxis: 'y', 
+        indexAxis: 'y', // Deita o gráfico
         maintainAspectRatio: false,
         plugins: { 
-          legend: { display: true, position: 'bottom' },
-          tooltip: { mode: 'index', intersect: false } 
+          legend: { display: false },
+          tooltip: { 
+            callbacks: {
+              label: function(context) {
+                return ' Média: ' + context.parsed.x;
+              }
+            }
+          } 
         },
         scales: {
-          x: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } },
-          y: { stacked: true, ticks: { autoSkip: false } }
+          x: { 
+            beginAtZero: true, 
+            max: 5, 
+            ticks: { stepSize: 1 }, 
+            title: { display: true, text: 'Nota Média (1 a 5)' } 
+          },
+          y: { ticks: { autoSkip: false } }
         }
       }
     });
