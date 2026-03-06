@@ -1,44 +1,45 @@
-        // ==========================================
-    // CONFIGURAÇÕES GERAIS E DECLARAÇÃO DE VARIÁVEIS 
     // ==========================================
-    const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
-    const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
-    
-    let componentZoom = { geral: 1, detalhamento: 1 };
-    let currentPage = 'geral';
-    
-    let timelines = { geral: null, detalhamento: null };
-    let allParsedData = { geral: null, detalhamento: null };
+// CONFIGURAÇÕES GERAIS E DECLARAÇÃO DE VARIÁVEIS 
+// ==========================================
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+
+let componentZoom = { geral: 1, detalhamento: 1 };
+let currentPage = 'geral';
+
+let timelines = { geral: null, detalhamento: null };
+let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 
 // --- VARIÁVEIS DE AVALIAÇÕES ---
-    let chartInstances = { nps: null, sat: null };
-    
-    // LISTA DE LINKS DAS SUAS PESQUISAS PUBLICADAS EM CSV
-    const LINKS_AVALIACOES = [
-      {
-        nome: "CRM - Ops",
-        url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" // Troque pelo link real da aba CRM
-      },
-      {
-        nome: "Growth - Ops",
-        url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" // Troque pelo link real da aba Growth
-      }
-    ];
+// LISTA DE LINKS DAS SUAS PESQUISAS PUBLICADAS EM CSV
+const LINKS_AVALIACOES = [
+  {
+    nome: "CRM - Ops",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
+  },
+  {
+    nome: "Growth - Ops",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" 
+  }
+];
 
-    let availableAbas = new Set();
-    let availableMeses = new Set(); // <--- NOVA 
-    let chartInstances = { nps: null };
-    let chartInstancesSat = {}; // <--- NOVA (guarda múltiplos gráficos)
+let availableAbas = new Set();
+let availableMeses = new Set(); 
+let chartInstances = { nps: null };
+let chartInstancesSat = {}; // guarda múltiplos gráficos
 
-    let availableStacks = { geral: new Set(), detalhamento: new Set() };
-    let availableResponsaveis = { detalhamento: new Set() };
-    let availableStatuses = { detalhamento: new Set() };
+// --- VARIÁVEIS DO ROADMAP ---
+let availableStacks = { geral: new Set(), detalhamento: new Set() };
+let availableResponsaveis = { detalhamento: new Set() };
+let availableStatuses = { detalhamento: new Set() };
 
-    let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
-    let clickHandlerBound = { geral: false, detalhamento: false };
-    
-    let todayTimer = { geral: null, detalhamento: null };
-    const TODAYID = 'today';
+let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
+let clickHandlerBound = { geral: false, detalhamento: false };
+
+let todayTimer = { geral: null, detalhamento: null };
+const TODAYID = 'today';
+
+// (A partir daqui começa a sua função switchPage... pode deixar como está)
 
 function switchPage(page) {
       currentPage = page;
