@@ -10,6 +10,21 @@
     let timelines = { geral: null, detalhamento: null };
     let allParsedData = { geral: null, detalhamento: null };
 
+// --- VARIÁVEIS DE AVALIAÇÕES ---
+    let chartInstances = { nps: null, sat: null };
+    
+    // LISTA DE LINKS DAS SUAS PESQUISAS PUBLICADAS EM CSV
+    const LINKS_AVALIACOES = [
+      {
+        nome: "CRM - Ops",
+        url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" // Troque pelo link real da aba CRM
+      },
+      {
+        nome: "Growth - Ops",
+        url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" // Troque pelo link real da aba Growth
+      }
+    ];
+
     let availableStacks = { geral: new Set(), detalhamento: new Set() };
     let availableResponsaveis = { detalhamento: new Set() };
     let availableStatuses = { detalhamento: new Set() };
@@ -812,40 +827,54 @@ const options = {
       updateCardsModeLabel();
     }
 
-    // --- LOAD / REFRESH ---
-    async function handleLoadData(pageKey) {
+async function handleLoadData(pageKey) {
       const suffix = pageKey === 'geral' ? '' : '-detalhes';
-      const url = document.getElementById('spreadsheet-url' + suffix).value.trim();
-      if (!url) { showStatus('error', 'Por favor, configure a fonte de dados.', pageKey); return; }
+      const urlInput = document.getElementById('spreadsheet-url' + suffix);
+      const url = urlInput ? urlInput.value.trim() : null;
 
-      showStatus('loading', 'Carregando dados da planilha...', pageKey);
+      showStatus('loading', 'Carregando dados...', pageKey);
       try {
-        const rows = await fetchCSV(url);
-        allParsedData[pageKey] = rows;
-        if (!rows || !rows.length) { showStatus('error', 'Nenhum dado encontrado no CSV.', pageKey); return; }
+        if (pageKey === 'avaliacoes') {
+          // LÓGICA NOVA PARA AVALIAÇÕES (MÚLTIPLOS LINKS)
+          allParsedData.avaliacoes = {};
+          
+          for (const config of LINKS_AVALIACOES) {
+            if (!config.url) continue;
+            // Busca o CSV. O nosso fetchCSV já existe e é perfeito pra isso!
+            const rows = await fetchCSV(config.url);
+            allParsedData.avaliacoes[config.nome] = rows;
+          }
+          
+          updateAbaFilterAvaliacoes();
+          applyFilterAvaliacoes();
+          
+          document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
+        } 
+        else {
+          // LÓGICA ANTIGA DO ROADMAP (Geral e Detalhamento)
+          if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
+          const rows = await fetchCSV(url);
+          allParsedData[pageKey] = rows;
 
-        if (pageKey === 'geral') {
-          updateGroupingModeLabel();
-          const mode = getGroupingModeGeral();
-          const data = parseSheetDataGeral(rows, 'all', mode);
-          if (!data.items.length) { showStatus('error', 'Nenhum item válido.', pageKey); return; }
-          createTimeline(data, 'geral');
-          updateStackFilterGeral();
-        } else {
-          const data = parseSheetDataDetalhamento(rows, 'all', 'all', 'all');
-          if (!data.items.length) { showStatus('error', 'Nenhum item válido.', pageKey); return; }
-          createTimeline(data, 'detalhamento');
-          updateDetalhamentoFilters();
+          if (pageKey === 'geral') {
+            updateGroupingModeLabel();
+            const data = parseSheetDataGeral(rows, 'all', getGroupingModeGeral());
+            createTimeline(data, 'geral');
+            updateStackFilterGeral();
+          } else if (pageKey === 'detalhamento') {
+            const data = parseSheetDataDetalhamento(rows, 'all', 'all', 'all');
+            createTimeline(data, 'detalhamento');
+            updateDetalhamentoFilters();
+          }
+          document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
+          setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
         }
 
-        showStatus('success', 'Roadmap carregado com sucesso.', pageKey);
-        document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
-        setTimeout(() => {
-          if (pageKey === 'geral' && timelines.geral) timelines.geral.redraw();
-          if (pageKey === 'detalhamento' && timelines.detalhamento) timelines.detalhamento.redraw();
-        }, 80);
+        showStatus('success', 'Dados carregados com sucesso.', pageKey);
         setTimeout(() => clearStatus(pageKey), 2500);
-      } catch (e) { showStatus('error', e.message || 'Erro ao carregar dados.', pageKey); }
+      } catch (e) { 
+        showStatus('error', e.message || 'Erro ao carregar dados.', pageKey); 
+      }
     }
 
     async function handleRefreshData(pageKey) {
@@ -918,8 +947,126 @@ const options = {
     document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
     document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
 
+    document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+    document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+    document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes')); // Usaremos handleLoad direto para forçar download
+
     // Auto-load
     window.addEventListener('DOMContentLoaded', () => {
       handleLoadData('geral');
       handleLoadData('detalhamento');
+      handleLoadData('avaliacoes'); // <- NOVA TELA CARREGA AUTOMÁTICO AQUI
     });
+
+            // ==========================================
+    // FUNÇÕES DA PÁGINA DE AVALIAÇÕES (GRÁFICOS)
+    // ==========================================
+
+    function updateAbaFilterAvaliacoes() {
+      const select = document.getElementById('aba-filter-avaliacoes');
+      const current = select.value;
+      select.innerHTML = '<option value="all">Todas as Áreas (Consolidado)</option>';
+      
+      Object.keys(allParsedData.avaliacoes).sort().forEach(nomeAba => {
+        const opt = document.createElement('option'); 
+        opt.value = nomeAba; 
+        opt.textContent = nomeAba; 
+        select.appendChild(opt);
+      });
+      if (current !== 'all' && allParsedData.avaliacoes[current]) select.value = current;
+    }
+
+    function applyFilterAvaliacoes() {
+      if (!allParsedData.avaliacoes) return;
+      const aba = document.getElementById('aba-filter-avaliacoes').value;
+      
+      let rowsToRender = [];
+      if (aba === 'all') {
+        // "Join" em memória! Pega todas as linhas de todos os forms e junta num tabelão só
+        Object.values(allParsedData.avaliacoes).forEach(rows => {
+          rowsToRender = rowsToRender.concat(rows);
+        });
+      } else {
+        rowsToRender = allParsedData.avaliacoes[aba] || [];
+      }
+      
+      renderGraficosAvaliacoes(rowsToRender);
+    }
+
+    function renderGraficosAvaliacoes(rows) {
+      let promoters = 0; let passives = 0; let detractors = 0;
+      let satCounts = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }; // Inicializa com de 1 a 5 por padrão
+
+      rows.forEach(row => {
+        // Procura pela coluna de NPS (Acha palavras como "0 a 10", "recomendaria", "NPS")
+        const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar', 'probabilidade']);
+        if (npsRaw !== undefined && npsRaw !== '') {
+          const score = parseInt(npsRaw, 10);
+          if (!isNaN(score)) {
+            if (score >= 9) promoters++;
+            else if (score >= 7) passives++;
+            else if (score >= 0) detractors++;
+          }
+        }
+
+        // Procura pela coluna de Satisfação (Acha "grau de", "satisfação", etc)
+        const satRaw = String(getCell(row, ['satisfação', 'grau de', 'satisfeito', 'atendimento']) || '').trim();
+        if (satRaw && satRaw.length < 20) { // Ignora se for uma pergunta aberta muito longa
+          satCounts[satRaw] = (satCounts[satRaw] || 0) + 1;
+        }
+      });
+
+      // ---- RENDERIZA NPS ----
+      const totalNps = promoters + passives + detractors;
+      // Fórmula Oficial do NPS = % Promotores - % Detratores
+      const npsScore = totalNps > 0 ? Math.round(((promoters / totalNps) - (detractors / totalNps)) * 100) : 0;
+      
+      const npsTextEl = document.getElementById('nps-score-text');
+      document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
+      npsTextEl.textContent = totalNps > 0 ? npsScore : '-';
+      
+      // Cores da régua oficial de NPS
+      if (npsScore >= 75) npsTextEl.style.color = '#10B981'; // Zona de Excelência (Verde)
+      else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6'; // Zona de Qualidade (Azul)
+      else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B'; // Zona de Aperfeiçoamento (Amarelo)
+      else npsTextEl.style.color = '#EF4444'; // Zona Crítica (Vermelho)
+
+      if (chartInstances.nps) chartInstances.nps.destroy();
+      chartInstances.nps = new Chart(document.getElementById('npsChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Promotores (9-10)', 'Neutros (7-8)', 'Detratores (0-6)'],
+          datasets: [{
+            data: [promoters, passives, detractors],
+            backgroundColor: ['#10B981', '#FCD34D', '#EF4444'], 
+            borderWidth: 0
+          }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
+      });
+
+      // ---- RENDERIZA SATISFAÇÃO ----
+      // Removemos as notas vazias (que nasceram zeradas) para limpar o gráfico
+      const satLabels = Object.keys(satCounts).filter(k => satCounts[k] > 0 || ['1','2','3','4','5'].includes(k));
+      const satData = satLabels.map(k => satCounts[k]);
+
+      if (chartInstances.sat) chartInstances.sat.destroy();
+      chartInstances.sat = new Chart(document.getElementById('satChart'), {
+        type: 'bar',
+        data: {
+          labels: satLabels,
+          datasets: [{
+            label: 'Respostas',
+            data: satData,
+            backgroundColor: '#ec6718', // Laranja Caaqui
+            borderRadius: 4
+          }]
+        },
+        options: { 
+          plugins: { legend: { display: false } }, 
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+        }
+      });
+    }
+    });
+
