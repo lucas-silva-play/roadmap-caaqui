@@ -1068,5 +1068,4 @@ async function handleLoadData(pageKey) {
         }
       });
     }
-    });
 
