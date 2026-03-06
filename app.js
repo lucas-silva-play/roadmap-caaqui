@@ -25,6 +25,11 @@
       }
     ];
 
+    let availableAbas = new Set();
+    let availableMeses = new Set(); // <--- NOVA 
+    let chartInstances = { nps: null };
+    let chartInstancesSat = {}; // <--- NOVA (guarda múltiplos gráficos)
+
     let availableStacks = { geral: new Set(), detalhamento: new Set() };
     let availableResponsaveis = { detalhamento: new Set() };
     let availableStatuses = { detalhamento: new Set() };
@@ -835,21 +840,18 @@ async function handleLoadData(pageKey) {
       showStatus('loading', 'Carregando dados...', pageKey);
       try {
         if (pageKey === 'avaliacoes') {
-          // LÓGICA NOVA PARA AVALIAÇÕES (MÚLTIPLOS LINKS)
           allParsedData.avaliacoes = {};
-          
           for (const config of LINKS_AVALIACOES) {
             if (!config.url) continue;
-            // Busca o CSV. O nosso fetchCSV já existe e é perfeito pra isso!
             const rows = await fetchCSV(config.url);
             allParsedData.avaliacoes[config.nome] = rows;
           }
-          
-          updateAbaFilterAvaliacoes();
+          // CHAMADA ATUALIZADA AQUI:
+          updateFiltersAvaliacoes(); 
           applyFilterAvaliacoes();
           
           document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
-        } 
+        }
         else {
           // LÓGICA ANTIGA DO ROADMAP (Geral e Detalhamento)
           if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -958,114 +960,216 @@ async function handleLoadData(pageKey) {
       handleLoadData('avaliacoes'); // <- NOVA TELA CARREGA AUTOMÁTICO AQUI
     });
 
-            // ==========================================
+     // ==========================================
     // FUNÇÕES DA PÁGINA DE AVALIAÇÕES (GRÁFICOS)
     // ==========================================
 
-    function updateAbaFilterAvaliacoes() {
-      const select = document.getElementById('aba-filter-avaliacoes');
-      const current = select.value;
-      select.innerHTML = '<option value="all">Todas as Áreas (Consolidado)</option>';
-      
+    function extractMonthYear(dateString) {
+      const d = parseBRDate(dateString); // Aproveitamos sua função que já trata datas BR
+      if (!d) return null;
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${yyyy}`;
+    }
+
+    function updateFiltersAvaliacoes() {
+      // 1. Atualiza filtro de ABAS
+      const selectAba = document.getElementById('aba-filter-avaliacoes');
+      const currentAba = selectAba.value;
+      selectAba.innerHTML = '<option value="all">Todas as Áreas (Consolidado)</option>';
       Object.keys(allParsedData.avaliacoes).sort().forEach(nomeAba => {
-        const opt = document.createElement('option'); 
-        opt.value = nomeAba; 
-        opt.textContent = nomeAba; 
-        select.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = nomeAba; opt.textContent = nomeAba; selectAba.appendChild(opt);
       });
-      if (current !== 'all' && allParsedData.avaliacoes[current]) select.value = current;
+      if (currentAba !== 'all' && allParsedData.avaliacoes[currentAba]) selectAba.value = currentAba;
+
+      // 2. Atualiza filtro de MESES
+      availableMeses.clear();
+      Object.values(allParsedData.avaliacoes).forEach(rows => {
+        rows.forEach(row => {
+          const my = extractMonthYear(getCell(row, ['Carimbo de data/hora', 'Timestamp', 'Data']));
+          if (my) availableMeses.add(my);
+        });
+      });
+
+      const selectMes = document.getElementById('mes-filter-avaliacoes');
+      const currentMes = selectMes.value;
+      selectMes.innerHTML = '<option value="all">Todo o período</option>';
+      // Ordena os meses decrescente (mais novo primeiro)
+      Array.from(availableMeses).sort((a,b) => {
+        const [m1, y1] = a.split('/'); const [m2, y2] = b.split('/');
+        return new Date(y2, m2-1) - new Date(y1, m1-1); 
+      }).forEach(v => {
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectMes.appendChild(opt);
+      });
+      if (currentMes !== 'all' && availableMeses.has(currentMes)) selectMes.value = currentMes;
     }
 
     function applyFilterAvaliacoes() {
       if (!allParsedData.avaliacoes) return;
       const aba = document.getElementById('aba-filter-avaliacoes').value;
+      const mes = document.getElementById('mes-filter-avaliacoes').value;
       
-      let rowsToRender = [];
-      if (aba === 'all') {
-        // "Join" em memória! Pega todas as linhas de todos os forms e junta num tabelão só
-        Object.values(allParsedData.avaliacoes).forEach(rows => {
-          rowsToRender = rowsToRender.concat(rows);
+      let filteredRows = [];
+      Object.entries(allParsedData.avaliacoes).forEach(([nomeAba, rows]) => {
+        if (aba !== 'all' && nomeAba !== aba) return; // Corta se não for da aba selecionada
+        
+        rows.forEach(row => {
+          if (mes !== 'all') {
+            const rowMes = extractMonthYear(getCell(row, ['Carimbo de data/hora', 'Timestamp', 'Data']));
+            if (rowMes !== mes) return; // Corta se não for do mês selecionado
+          }
+          // Injeta de qual aba veio para agruparmos depois
+          row._abaOrigin = nomeAba; 
+          filteredRows.push(row);
         });
-      } else {
-        rowsToRender = allParsedData.avaliacoes[aba] || [];
-      }
+      });
       
-      renderGraficosAvaliacoes(rowsToRender);
+      renderGraficosAvaliacoes(filteredRows);
     }
 
     function renderGraficosAvaliacoes(rows) {
+      // ==== 1. CÁLCULO NPS ====
       let promoters = 0; let passives = 0; let detractors = 0;
-      let satCounts = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }; // Inicializa com de 1 a 5 por padrão
-
+      let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
+      
       rows.forEach(row => {
-        // Procura pela coluna de NPS (Acha palavras como "0 a 10", "recomendaria", "NPS")
-        const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar', 'probabilidade']);
+        const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
         if (npsRaw !== undefined && npsRaw !== '') {
           const score = parseInt(npsRaw, 10);
-          if (!isNaN(score)) {
+          if (!isNaN(score) && score >= 0 && score <= 10) {
+            npsCounts[score]++;
             if (score >= 9) promoters++;
             else if (score >= 7) passives++;
-            else if (score >= 0) detractors++;
+            else detractors++;
           }
-        }
-
-        // Procura pela coluna de Satisfação (Acha "grau de", "satisfação", etc)
-        const satRaw = String(getCell(row, ['satisfação', 'grau de', 'satisfeito', 'atendimento']) || '').trim();
-        if (satRaw && satRaw.length < 20) { // Ignora se for uma pergunta aberta muito longa
-          satCounts[satRaw] = (satCounts[satRaw] || 0) + 1;
         }
       });
 
-      // ---- RENDERIZA NPS ----
       const totalNps = promoters + passives + detractors;
-      // Fórmula Oficial do NPS = % Promotores - % Detratores
       const npsScore = totalNps > 0 ? Math.round(((promoters / totalNps) - (detractors / totalNps)) * 100) : 0;
       
       const npsTextEl = document.getElementById('nps-score-text');
       document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
       npsTextEl.textContent = totalNps > 0 ? npsScore : '-';
       
-      // Cores da régua oficial de NPS
-      if (npsScore >= 75) npsTextEl.style.color = '#10B981'; // Zona de Excelência (Verde)
-      else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6'; // Zona de Qualidade (Azul)
-      else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B'; // Zona de Aperfeiçoamento (Amarelo)
-      else npsTextEl.style.color = '#EF4444'; // Zona Crítica (Vermelho)
+      if (npsScore >= 75) npsTextEl.style.color = '#10B981'; 
+      else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6';
+      else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B';
+      else npsTextEl.style.color = '#EF4444';
 
+      // ---- GRÁFICO NPS (BARRAS DE 0 a 10) ----
       if (chartInstances.nps) chartInstances.nps.destroy();
+      const npsLabels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+      
+      // Separamos em 3 datasets para a legenda com emojis funcionar com cores distintas
+      const dataDetratores = npsLabels.map(l => parseInt(l) <= 6 ? npsCounts[l] : null);
+      const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
+      const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
+
       chartInstances.nps = new Chart(document.getElementById('npsChart'), {
-        type: 'doughnut',
-        data: {
-          labels: ['Promotores (9-10)', 'Neutros (7-8)', 'Detratores (0-6)'],
-          datasets: [{
-            data: [promoters, passives, detractors],
-            backgroundColor: ['#10B981', '#FCD34D', '#EF4444'], 
-            borderWidth: 0
-          }]
-        },
-        options: { plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
-      });
-
-      // ---- RENDERIZA SATISFAÇÃO ----
-      // Removemos as notas vazias (que nasceram zeradas) para limpar o gráfico
-      const satLabels = Object.keys(satCounts).filter(k => satCounts[k] > 0 || ['1','2','3','4','5'].includes(k));
-      const satData = satLabels.map(k => satCounts[k]);
-
-      if (chartInstances.sat) chartInstances.sat.destroy();
-      chartInstances.sat = new Chart(document.getElementById('satChart'), {
         type: 'bar',
         data: {
-          labels: satLabels,
-          datasets: [{
-            label: 'Respostas',
-            data: satData,
-            backgroundColor: '#ec6718', // Laranja Caaqui
-            borderRadius: 4
-          }]
+          labels: npsLabels,
+          datasets: [
+            { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#EF4444', borderRadius: 4 },
+            { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#FCD34D', borderRadius: 4 },
+            { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#10B981', borderRadius: 4 }
+          ]
         },
-        options: { 
-          plugins: { legend: { display: false } }, 
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+        options: {
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            x: { stacked: true, title: { display: true, text: 'Nota' } },
+            y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+          }
         }
+      });
+
+      // ==== 2. GRÁFICOS DE SATISFAÇÃO (Por Perguntas) ====
+      const satContainer = document.getElementById('sat-charts-container');
+      satContainer.innerHTML = ''; 
+      Object.values(chartInstancesSat).forEach(c => c.destroy()); 
+      chartInstancesSat = {};
+
+      if (rows.length === 0) {
+        satContainer.innerHTML = '<p style="color:#626c71; text-align:center;">Nenhum dado encontrado para este filtro.</p>';
+        return;
+      }
+
+      // Agrupa as respostas separadas por qual "Aba/Form" elas vieram
+      const rowsByAba = {};
+      rows.forEach(r => {
+        if (!rowsByAba[r._abaOrigin]) rowsByAba[r._abaOrigin] = [];
+        rowsByAba[r._abaOrigin].push(r);
+      });
+
+      // Cria um gráfico para cada Aba
+      Object.keys(rowsByAba).sort().forEach((abaName, index) => {
+        const abaRows = rowsByAba[abaName];
+        if (abaRows.length === 0) return;
+
+        // Vasculha as colunas dessa aba procurando por perguntas de satisfação
+        const headers = Object.keys(abaRows[0]);
+        const satHeaders = headers.filter(h => 
+          (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && 
+          (!/nps|0 a 10|recomend/i.test(h))
+        );
+
+        if (satHeaders.length === 0) return; 
+
+        const labels = [];
+        const averages = [];
+
+        // Calcula a média de cada pergunta (coluna) achada
+        satHeaders.forEach(h => {
+          let sum = 0, count = 0;
+          abaRows.forEach(r => {
+            const val = parseFloat(r[h]);
+            if (!isNaN(val)) { sum += val; count++; }
+          });
+          if (count > 0) {
+            labels.push(h); // A própria pergunta vira o rótulo do eixo Y
+            averages.push((sum/count).toFixed(2));
+          }
+        });
+
+        if (labels.length === 0) return;
+
+        // Injeta o HTML (título da aba + canvas)
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+          <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
+          <canvas id="satChart_${index}" style="max-height: 250px;"></canvas>
+        `;
+        satContainer.appendChild(wrapper);
+
+        // Desenha o gráfico Horizontal
+        chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
+          type: 'bar',
+          data: {
+            // Se a pergunta for gigante, corta com "..."
+            labels: labels.map(l => l.length > 55 ? l.substring(0, 52) + '...' : l), 
+            datasets: [{
+              label: 'Nota Média',
+              data: averages,
+              backgroundColor: '#ec6718', // Laranja Caaqui
+              borderRadius: 4
+            }]
+          },
+          options: {
+            indexAxis: 'y', // <-- Isso deita o gráfico (Barras Horizontais)
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, max: 5 }, // Assume escala de notas até 5 (você pode alterar para 10 se for o caso do seu Forms)
+              y: { ticks: { autoSkip: false } }
+
+    document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+    document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); // <--- Ouvi o mês novo
+    document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+    document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+            }
+          }
+        });
       });
     }
 
