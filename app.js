@@ -13,20 +13,8 @@ let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 // --- VARIÁVEIS DE AVALIAÇÕES ---
 const LINKS_AVALIACOES = [
   {
-    nome: "Martech & CRM",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1217446178&single=true&output=csv" 
-  },
-  {
-    nome: "Martech & Growth",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=497373877&single=true&output=csv" 
-  },
-  {
     nome: "CRM - Ops",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
-  },
-  {
-    nome: "CRM - Imp",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1290903938&single=true&output=csv" 
   },
   {
     nome: "Growth - Ops",
@@ -210,6 +198,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// Tratador de Datas Melhorado e Blindado contra "03/26"
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -218,14 +207,14 @@ function parseBRDate(dateValue) {
   }
   const raw = String(dateValue).trim();
   if (!raw) return null;
-  const s = raw.replace(/^\"|\"$/g, '').replace(/\u00A0/g, ' ').trim();
+  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
 
-  // Trava do Bug de 2001 (Quando a data vem como "03/26")
+  // Tratamento da data curta que gerava bug 2001
   const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
   if (shortDate) {
     let p1 = parseInt(shortDate[1], 10);
     let p2 = parseInt(shortDate[2], 10);
-    let year = new Date().getFullYear(); // Usa o ano atual em vez de 2001
+    let year = new Date().getFullYear(); // Assume o ano atual para garantir
     let m = p1, d = p2;
     if (p1 > 12) { d = p1; m = p2; }
     return new Date(year, m - 1, d);
@@ -709,7 +698,7 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-// Quebra textos longos para caber no Eixo Y perfeitamente e Multilinha
+// Quebra textos longos para não empurrar o gráfico, gerando múltiplas linhas no Eixo Y
 function wrapText(text, maxLineLength) {
   const words = text.split(' ');
   const lines = [];
@@ -722,13 +711,13 @@ function wrapText(text, maxLineLength) {
   return lines;
 }
 
-// Cores Degradê Exatas (1=Vermelho, 3=Cinza, 5=Verde)
+// Cores Degradê Exatas: 1=Vermelho, 2=Laranja, 3=Cinza, 4=VerdeClaro, 5=VerdeEscuro
 function getColorForAverage(avg) {
-  if (avg >= 4.5) return '#22c55e'; // Verde escuro (5)
-  if (avg >= 3.5) return '#84cc16'; // Verde claro (4)
-  if (avg >= 2.5) return '#9ca3af'; // Cinza (3)
-  if (avg >= 1.5) return '#f97316'; // Laranja (2)
-  return '#ef4444'; // Vermelho (1)
+  if (avg >= 4.5) return '#22c55e'; 
+  if (avg >= 3.5) return '#84cc16'; 
+  if (avg >= 2.5) return '#9ca3af'; 
+  if (avg >= 1.5) return '#f97316'; 
+  return '#ef4444'; 
 }
 
 function updateFiltersAvaliacoes() {
@@ -785,34 +774,32 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // 1. CÁLCULO NPS (Média Geral)
+  // 1. CÁLCULO NPS
   let promoters = 0; let passives = 0; let detractors = 0;
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
-  let sumNps = 0; let totalNps = 0;
-
+  
   rows.forEach(row => {
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) {
-        npsCounts[score]++; sumNps += score; totalNps++;
+        npsCounts[score]++;
         if (score >= 9) promoters++; else if (score >= 7) passives++; else detractors++;
       }
     }
   });
 
-  const npsAverage = totalNps > 0 ? (sumNps / totalNps).toFixed(1) : '-';
+  const totalNps = promoters + passives + detractors;
+  const npsScore = totalNps > 0 ? Math.round(((promoters / totalNps) - (detractors / totalNps)) * 100) : 0;
+  
   const npsTextEl = document.getElementById('nps-score-text');
   document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
-  npsTextEl.textContent = npsAverage;
+  npsTextEl.textContent = totalNps > 0 ? npsScore : '-';
   
-  if (npsAverage !== '-') {
-    const numAvg = parseFloat(npsAverage);
-    if (numAvg >= 8.5) npsTextEl.style.color = '#10B981'; 
-    else if (numAvg >= 7.0) npsTextEl.style.color = '#3B82F6';
-    else if (numAvg >= 5.0) npsTextEl.style.color = '#F59E0B';
-    else npsTextEl.style.color = '#EF4444';
-  }
+  if (npsScore >= 75) npsTextEl.style.color = '#10B981'; 
+  else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6';
+  else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B';
+  else npsTextEl.style.color = '#EF4444';
 
   if (chartInstances.nps) chartInstances.nps.destroy();
   const npsLabels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -840,16 +827,14 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para bloquear datas e usar a pergunta completa)
+  // 2. GRÁFICOS DE SATISFAÇÃO E MÉDIA GLOBAL (A Prova de Falhas)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
 
-  if (rows.length === 0) {
-    satContainer.innerHTML = '<p style="color:#626c71; text-align:center;">Nenhum dado encontrado para este filtro.</p>';
-    return;
-  }
+  let globalSatSum = 0;
+  let globalSatCount = 0;
 
   const rowsByAba = {};
   rows.forEach(r => {
@@ -863,7 +848,7 @@ function renderGraficosAvaliacoes(rows) {
 
     const headers = Object.keys(abaRows[0]);
     
-    // Procura onde está o texto real das perguntas. Se a primeira linha tiver textos grandes, ela é o cabeçalho.
+    // Auto-detecta se o formulário jogou as perguntas reais na Linha 2
     let isRow0Questions = false;
     headers.forEach(h => {
       const val = abaRows[0][h];
@@ -873,54 +858,77 @@ function renderGraficosAvaliacoes(rows) {
     });
 
     const startIndex = isRow0Questions ? 1 : 0;
-    
-    // Mapeia qual é a pergunta real de cada coluna
     const questionMap = {};
     headers.forEach(h => {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    // Lista negra: Palavras que NUNCA são perguntas de satisfação
+    const validCols = [];
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
-    const validCols = headers.filter(h => {
-      const fullQuestion = questionMap[h].toLowerCase();
-      if (!fullQuestion || fullQuestion.length < 5) return false;
-      return !excludeKeywords.some(kw => fullQuestion.includes(kw));
+    // O Radar de Segurança: Exige que as respostas numéricas sejam estritamente 1, 2, 3, 4 ou 5
+    headers.forEach(h => {
+      const fullQ = questionMap[h].toLowerCase();
+      if (!fullQ || fullQ.length < 5) return;
+      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
+
+      let validCount = 0;
+      let invalidCount = 0;
+      
+      for (let i = startIndex; i < abaRows.length; i++) {
+        const rawVal = String(abaRows[i][h]).trim();
+        if (!rawVal) continue;
+        
+        // Essa Regex garante que "03/26" seja classificado como Inválido!
+        if (/^[1-5]$/.test(rawVal)) {
+            validCount++;
+        } else {
+            invalidCount++;
+        }
+      }
+      
+      // Só aprova a coluna se ela tiver apenas notas de 1 a 5 (zero lixo!)
+      if (validCount > 0 && invalidCount === 0) {
+          validCols.push(h);
+      }
     });
 
     if (validCols.length === 0) return; 
 
-    const displayLabels = []; // Eixo Y
-    const fullQuestions = []; // Tooltip
+    const displayLabels = []; 
+    const fullQuestions = []; 
     const averages = [];
     const barColors = [];
+    
+    let abaSatSum = 0;
+    let abaSatCount = 0;
 
     validCols.forEach(h => {
-      let sumSatisfacao = 0;
-      let totalRespostas = 0;
-      let hasValidData = false;
+      let qSum = 0;
+      let qCount = 0;
 
       abaRows.slice(startIndex).forEach(r => {
         const rawVal = String(r[h]).trim();
-        // A TRAVA DE SEGURANÇA: Exige que seja estritamente NÚMERO DE 1 a 5. Ignora datas que parecem números!
-        if (/^[1-5]$/.test(rawVal) || /^[1-5]\.[0-9]+$/.test(rawVal) || /^[1-5],[0-9]+$/.test(rawVal)) {
-          const val = parseFloat(rawVal.replace(',', '.'));
-          if (val >= 1 && val <= 5) {
-              sumSatisfacao += val;
-              totalRespostas++;
-              hasValidData = true;
-          }
+        if (/^[1-5]$/.test(rawVal)) {
+            const val = parseFloat(rawVal);
+            qSum += val;
+            qCount++;
+            
+            // Soma para a Média Global e da Aba
+            abaSatSum += val;
+            abaSatCount++;
+            globalSatSum += val;
+            globalSatCount++;
         }
       });
 
-      if (hasValidData && totalRespostas > 0) {
-        const avg = parseFloat((sumSatisfacao / totalRespostas).toFixed(2));
+      if (qCount > 0) {
+        const avg = parseFloat((qSum / qCount).toFixed(2));
         const fullQ = questionMap[h] || h;
         
         fullQuestions.push(fullQ);
-        // Coloca a pergunta pura no Eixo Y (em múltiplas linhas pra não espremer o gráfico)
-        displayLabels.push(wrapText(fullQ, 40)); 
+        // O Eixo Y fica limpo, apenas a pergunta em múltiplas linhas
+        displayLabels.push(wrapText(fullQ, 55)); 
         averages.push(avg);
         barColors.push(getColorForAverage(avg));
       }
@@ -928,12 +936,15 @@ function renderGraficosAvaliacoes(rows) {
 
     if (displayLabels.length === 0) return;
 
-    // Altura calculada automaticamente pelo número de perguntas
-    const canvasHeight = Math.max(220, displayLabels.length * 80 + 60);
+    const abaAvg = abaSatCount > 0 ? (abaSatSum / abaSatCount).toFixed(2) : '-';
+    const canvasHeight = Math.max(180, displayLabels.length * 75 + 60);
+    
     const wrapper = document.createElement('div');
     wrapper.style.marginBottom = '32px';
     wrapper.innerHTML = `
-      <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:12px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
+      <h4 style="font-size:1.1rem; color:var(--color-primary); margin-bottom:16px; text-align:center; font-weight:800;">
+        Formulário: ${abaName} <span style="color:var(--color-text-primary); font-size:1rem; font-weight:600;">(Média: ${abaAvg})</span>
+      </h4>
       <div style="position: relative; width: 100%; height: ${canvasHeight}px;">
         <canvas id="satChart_${index}"></canvas>
       </div>
@@ -970,11 +981,16 @@ function renderGraficosAvaliacoes(rows) {
         },
         scales: {
           x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 }, title: { display: true, text: 'Nota Média (1 a 5)' } },
-          y: { ticks: { autoSkip: false, font: { size: 11 } } }
+          y: { ticks: { autoSkip: false, font: { size: 12 } } }
         }
       }
     });
   });
+
+  // Atualiza a Média Global Dinâmica lá no HTML 
+  const globalAvg = globalSatCount > 0 ? (globalSatSum / globalSatCount).toFixed(2) : '-';
+  const globalEl = document.getElementById('satisfacao-geral-text');
+  if (globalEl) globalEl.textContent = globalAvg;
 }
 
 
