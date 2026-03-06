@@ -13,10 +13,22 @@ let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 // --- VARIÁVEIS DE AVALIAÇÕES ---
 const LINKS_AVALIACOES = [
   {
-    nome: "CRM - Ops",
+    nome: "Martech & CRM",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1217446178&single=true&output=csv" 
+  },
+  {
+    nome: "Martech & Growth",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=497373877&single=true&output=csv" 
+  },
+  {
+    nome: "CRM - Operação",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
   },
   {
+    nome: "CRM - Implementação",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1290903938&single=true&output=csv" 
+  },
+{
     nome: "Growth - Ops",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" 
   }
