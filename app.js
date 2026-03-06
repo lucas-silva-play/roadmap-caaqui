@@ -79,7 +79,6 @@ function openItemLink(url) {
   window.open(u, '_blank', 'noopener,noreferrer');
 }
 
-// --- MARCADOR DE HOJE ---
 function formatTodayTitle(now) {
   const d = now.toLocaleDateString('pt-BR');
   return `Hoje (${d})`;
@@ -199,6 +198,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// Tratador de Datas Melhorado (Protege contra ano 2001 do "03/26")
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -207,7 +207,16 @@ function parseBRDate(dateValue) {
   }
   const raw = String(dateValue).trim();
   if (!raw) return null;
-  const s = raw.replace(/^\"|\"$/g, '').replace(/\u00A0/g, ' ').trim();
+  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
+
+  // Se for apenas MM/YY ou DD/MM (Ex: 03/26)
+  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (shortDate) {
+    let a = parseInt(shortDate[1], 10);
+    let b = parseInt(shortDate[2], 10);
+    if (b > 12) return new Date(2000 + b, a - 1, 1); // Ex: 03/26 vira Mar/2026
+    else return new Date(new Date().getFullYear(), b - 1, a); // Assume dia/mês do ano atual
+  }
 
   const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?.*$/);
   if (br) {
@@ -216,11 +225,13 @@ function parseBRDate(dateValue) {
     const d = new Date(yyyy, mm - 1, dd);
     return isNaN(d) ? null : d;
   }
+  
   const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$/);
   if (iso) {
     const d = new Date(parseInt(iso[1], 10), parseInt(iso[2], 10) - 1, parseInt(iso[3], 10));
     return isNaN(d) ? null : d;
   }
+  
   const d2 = new Date(s);
   return isNaN(d2) ? null : d2;
 }
@@ -687,8 +698,8 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-// Quebra textos muito longos para caber no tooltip perfeitamente
-function wrapTextTooltip(text, maxLineLength) {
+// Quebra textos muito longos para caber no Eixo Y perfeitamente
+function wrapText(text, maxLineLength) {
   const words = text.split(' ');
   const lines = [];
   let currentLine = '';
@@ -698,6 +709,15 @@ function wrapTextTooltip(text, maxLineLength) {
   });
   if (currentLine) lines.push(currentLine.trim());
   return lines;
+}
+
+// Lógica de Cores Degradê (1=Vermelho, 3=Cinza, 5=Verde)
+function getColorForAverage(avg) {
+  if (avg >= 4.5) return '#22c55e'; // Verde escuro (5)
+  if (avg >= 3.5) return '#84cc16'; // Verde claro (4)
+  if (avg >= 2.5) return '#9ca3af'; // Cinza (3)
+  if (avg >= 1.5) return '#f97316'; // Laranja (2)
+  return '#ef4444'; // Vermelho (1)
 }
 
 function updateFiltersAvaliacoes() {
@@ -809,7 +829,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para achar perguntas na linha 2)
+  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para achar perguntas na linha 2 e formatar Eixo Y)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
@@ -831,8 +851,13 @@ function renderGraficosAvaliacoes(rows) {
     if (abaRows.length === 0) return;
 
     const headers = Object.keys(abaRows[0]);
-    const excludeRegex = /nps|0 a 10|recomend|carimbo|timestamp|data|e-mail|email|empresa|nome|_abaorigin/i;
-    const potentialHeaders = headers.filter(h => !excludeRegex.test(h));
+    
+    // Lista negra: Palavras que NUNCA são a pergunta do gráfico de satisfação
+    const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
+    const potentialHeaders = headers.filter(h => {
+      const hl = h.toLowerCase();
+      return !excludeKeywords.some(kw => hl.includes(kw));
+    });
 
     if (potentialHeaders.length === 0) return; 
 
@@ -851,12 +876,12 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h]).trim() : String(h).trim();
     });
 
-    const displayLabels = []; // Eixo Y truncado
-    const fullQuestions = []; // Para o Tooltip
+    const displayLabels = []; // Eixo Y Multilinha
+    const fullQuestions = []; // Para o Tooltip Completo
     const averages = [];
     const barColors = [];
 
-    // Vasculha as respostas (ignorando a linha de perguntas, se houver)
+    // Vasculha as respostas (ignorando a linha de perguntas)
     potentialHeaders.forEach(h => {
       let sumSatisfacao = 0;
       let totalRespostas = 0;
@@ -874,25 +899,21 @@ function renderGraficosAvaliacoes(rows) {
       if (hasValidData) {
         const avg = parseFloat((sumSatisfacao / totalRespostas).toFixed(2));
         const fullQ = questionMap[h] || h;
-        fullQuestions.push(fullQ);
         
-        let shortName = fullQ.length > 50 ? fullQ.substring(0, 47) + '...' : fullQ;
-        displayLabels.push(`[Média: ${avg}] ${shortName}`); 
+        fullQuestions.push(fullQ);
+        // Chart.js transforma Array de Strings em Múltiplas Linhas no Eixo Y!
+        displayLabels.push(wrapText(fullQ, 40)); 
         averages.push(avg);
-
-        if (avg >= 4.5) barColors.push('#22c55e'); // Excelente
-        else if (avg >= 4.0) barColors.push('#a3e635'); // Bom
-        else if (avg >= 3.0) barColors.push('#facc15'); // Médio
-        else if (avg >= 2.0) barColors.push('#f97316'); // Ruim
-        else barColors.push('#ef4444'); // Crítico
+        barColors.push(getColorForAverage(avg));
       }
     });
 
     if (displayLabels.length === 0) return;
 
-    const canvasHeight = Math.max(180, displayLabels.length * 50 + 60);
+    // Altura dinâmica baseada na quantidade de perguntas
+    const canvasHeight = Math.max(220, displayLabels.length * 80 + 60);
     const wrapper = document.createElement('div');
-    wrapper.style.marginBottom = '24px';
+    wrapper.style.marginBottom = '32px';
     wrapper.innerHTML = `
       <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:12px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
       <div style="position: relative; width: 100%; height: ${canvasHeight}px;">
@@ -920,9 +941,8 @@ function renderGraficosAvaliacoes(rows) {
           tooltip: { 
             callbacks: {
               title: function(tooltipItems) {
-                // Puxa a pergunta completa do array e quebra as linhas para não estourar a tela
-                const fullText = fullQuestions[tooltipItems[0].dataIndex];
-                return wrapTextTooltip(fullText, 50);
+                // Puxa a pergunta 100% completa e quebra em linhas para o Tooltip não vazar da tela
+                return wrapText(fullQuestions[tooltipItems[0].dataIndex], 60);
               },
               label: function(context) {
                 return ' Média de satisfação: ' + context.parsed.x;
@@ -932,7 +952,7 @@ function renderGraficosAvaliacoes(rows) {
         },
         scales: {
           x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 }, title: { display: true, text: 'Nota Média (1 a 5)' } },
-          y: { ticks: { autoSkip: false } }
+          y: { ticks: { autoSkip: false, font: { size: 11 } } }
         }
       }
     });
