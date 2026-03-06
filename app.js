@@ -1143,7 +1143,7 @@ async function handleLoadData(pageKey) {
         `;
         satContainer.appendChild(wrapper);
 
-        // Desenha o gráfico Horizontal
+      // Desenha o gráfico Horizontal
         chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
           type: 'bar',
           data: {
@@ -1162,13 +1162,55 @@ async function handleLoadData(pageKey) {
             scales: {
               x: { beginAtZero: true, max: 5 }, // Assume escala de notas até 5 (você pode alterar para 10 se for o caso do seu Forms)
               y: { ticks: { autoSkip: false } }
-
-    document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
-    document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); // <--- Ouvi o mês novo
-    document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
-    document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
             }
           }
         });
+      });
     }
 
+    // ==========================================
+    // BINDINGS (EVENTOS DOS BOTÕES) - AVALIAÇÕES E ROADMAP
+    // ==========================================
+    
+    // Os eventos DEVEM ficar soltos aqui embaixo, fora de qualquer função
+    
+    // Eventos Avaliações
+    document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+    document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
+    document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+    document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+    
+    // Eventos Roadmap Geral e Detalhamento
+    document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+    const groupingToggle = document.getElementById('grouping-toggle-geral');
+    if (groupingToggle) { groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); }); }
+    document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
+
+    document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+    document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+    document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+
+    const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
+    if (cardsModeToggle) { cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); }); }
+    document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+
+    // Botões de Zoom do Eixo X (Lateral)
+    document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+
+    document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.max(ZOOM_MIN_RANGE, (end - start) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const start = w.start.valueOf(); const end = w.end.valueOf(); const mid = (start + end) / 2; let range = Math.min(ZOOM_MAX_RANGE, (end - start) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+    document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+
+    document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
+    document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
+    document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
+    document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+
+    // Auto-load (Carrega as 3 páginas ao abrir o site)
+    window.addEventListener('DOMContentLoaded', () => {
+      handleLoadData('geral');
+      handleLoadData('detalhamento');
+      handleLoadData('avaliacoes'); 
+    });
