@@ -163,7 +163,7 @@
       </div>
     </div>
 
-    <div id="page-avaliacoes" style="display:none;">
+<div id="page-avaliacoes" style="display:none;">
       <div class="panel" id="filters-panel-avaliacoes">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <div class="panel-title" style="margin-bottom:0;">Dashboard de Satisfação</div>
@@ -174,7 +174,12 @@
             <select id="aba-filter-avaliacoes">
               <option value="all">Todas as Áreas (Consolidado)</option>
             </select>
-            <p class="hint">Escolha a pesquisa que deseja visualizar.</p>
+          </div>
+          <div class="form-group">
+            <label for="mes-filter-avaliacoes">Filtrar por Mês/Ano</label>
+            <select id="mes-filter-avaliacoes">
+              <option value="all">Todo o período</option>
+            </select>
           </div>
         </div>
       </div>
@@ -186,20 +191,18 @@
         <button class="btn btn-secondary" id="refresh-data-avaliacoes" type="button" style="display:none;"><span>Atualizar Dados</span></button>
       </div>
 
-      <div style="display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap;">
-        <div class="panel" style="flex: 1; min-width: 320px; display:flex; flex-direction:column; align-items:center;">
+      <div style="display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap; align-items: flex-start;">
+        <div class="panel" style="flex: 1; min-width: 400px; display:flex; flex-direction:column; align-items:center;">
           <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--color-primary);">NPS (Net Promoter Score)</h3>
           <h1 id="nps-score-text" style="font-size: 3.5rem; font-weight: 800; margin-bottom: 4px; color: var(--color-text-primary); line-height: 1;">-</h1>
           <p id="nps-total-text" style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 16px;">0 respostas</p>
-          <div style="position: relative; width: 100%; max-width: 260px;">
+          <div style="position: relative; width: 100%;">
             <canvas id="npsChart"></canvas>
           </div>
         </div>
-        <div class="panel" style="flex: 1; min-width: 320px; display:flex; flex-direction:column; align-items:center;">
-          <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--color-primary);">Nível de Satisfação (Geral)</h3>
-          <div style="position: relative; width: 100%; max-width: 360px;">
-            <canvas id="satChart"></canvas>
-          </div>
+        <div class="panel" style="flex: 1.5; min-width: 400px; display:flex; flex-direction:column;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--color-primary); text-align:center;">Nível de Satisfação (Por Pergunta)</h3>
+          <div id="sat-charts-container" style="display:flex; flex-direction:column; gap:24px; width: 100%;"></div>
         </div>
       </div>
     </div>
