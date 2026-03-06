@@ -687,6 +687,19 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
+// Quebra textos muito longos para caber no tooltip perfeitamente
+function wrapTextTooltip(text, maxLineLength) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = '';
+  words.forEach(w => {
+    if ((currentLine + w).length > maxLineLength) { lines.push(currentLine.trim()); currentLine = w + ' '; } 
+    else { currentLine += w + ' '; }
+  });
+  if (currentLine) lines.push(currentLine.trim());
+  return lines;
+}
+
 function updateFiltersAvaliacoes() {
   const selectAba = document.getElementById('aba-filter-avaliacoes');
   const currentAba = selectAba.value;
@@ -708,10 +721,12 @@ function updateFiltersAvaliacoes() {
   const currentMes = selectMes.value;
   selectMes.innerHTML = '<option value="all">Todo o período</option>';
   
-  // ORDENAÇÃO CRESCENTE DE DATA CORRIGIDA
+  // ORDENAÇÃO CRESCENTE DE DATA (Mais antigo pro mais novo)
   Array.from(availableMeses).sort((a,b) => {
     const [m1, y1] = a.split('/'); const [m2, y2] = b.split('/');
-    return new Date(y1, m1-1) - new Date(y2, m2-1); 
+    const d1 = new Date(parseInt(y1), parseInt(m1)-1);
+    const d2 = new Date(parseInt(y2), parseInt(m2)-1);
+    return d1 - d2; 
   }).forEach(v => {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectMes.appendChild(opt);
   });
@@ -742,26 +757,20 @@ function renderGraficosAvaliacoes(rows) {
   // 1. CÁLCULO NPS (Média Geral)
   let promoters = 0; let passives = 0; let detractors = 0;
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
-  let sumNps = 0;
-  let totalNps = 0;
+  let sumNps = 0; let totalNps = 0;
 
   rows.forEach(row => {
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) {
-        npsCounts[score]++;
-        sumNps += score; 
-        totalNps++;
-        if (score >= 9) promoters++;
-        else if (score >= 7) passives++;
-        else detractors++;
+        npsCounts[score]++; sumNps += score; totalNps++;
+        if (score >= 9) promoters++; else if (score >= 7) passives++; else detractors++;
       }
     }
   });
 
   const npsAverage = totalNps > 0 ? (sumNps / totalNps).toFixed(1) : '-';
-  
   const npsTextEl = document.getElementById('nps-score-text');
   document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
   npsTextEl.textContent = npsAverage;
@@ -800,7 +809,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Uma barra por pergunta com a MÉDIA de 1 a 5)
+  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para achar perguntas na linha 2)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
@@ -822,24 +831,38 @@ function renderGraficosAvaliacoes(rows) {
     if (abaRows.length === 0) return;
 
     const headers = Object.keys(abaRows[0]);
-    
-    // Ignora colunas que são metadados óbvios ou do NPS
     const excludeRegex = /nps|0 a 10|recomend|carimbo|timestamp|data|e-mail|email|empresa|nome|_abaorigin/i;
     const potentialHeaders = headers.filter(h => !excludeRegex.test(h));
 
     if (potentialHeaders.length === 0) return; 
 
-    const labels = [];
+    // DETECÇÃO DA LINHA DE PERGUNTAS (Para caso o Forms tenha jogado a pergunta pra linha 2)
+    let isRow0Questions = false;
+    potentialHeaders.forEach(h => {
+      const val = abaRows[0][h];
+      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 5) {
+        isRow0Questions = true;
+      }
+    });
+
+    const startIndex = isRow0Questions ? 1 : 0;
+    const questionMap = {};
+    potentialHeaders.forEach(h => {
+      questionMap[h] = isRow0Questions ? String(abaRows[0][h]).trim() : String(h).trim();
+    });
+
+    const displayLabels = []; // Eixo Y truncado
+    const fullQuestions = []; // Para o Tooltip
     const averages = [];
     const barColors = [];
 
-    // Vasculha as colunas. Se tiver notas de 1 a 5, valida e calcula a média.
+    // Vasculha as respostas (ignorando a linha de perguntas, se houver)
     potentialHeaders.forEach(h => {
       let sumSatisfacao = 0;
       let totalRespostas = 0;
       let hasValidData = false;
 
-      abaRows.forEach(r => {
+      abaRows.slice(startIndex).forEach(r => {
         const val = parseFloat(r[h]);
         if (!isNaN(val) && val >= 1 && val <= 5) {
           sumSatisfacao += val;
@@ -849,28 +872,25 @@ function renderGraficosAvaliacoes(rows) {
       });
 
       if (hasValidData) {
-        // Média exata
         const avg = parseFloat((sumSatisfacao / totalRespostas).toFixed(2));
+        const fullQ = questionMap[h] || h;
+        fullQuestions.push(fullQ);
         
-        // Encurta a pergunta se for muito grande
-        let shortName = h.length > 70 ? h.substring(0, 67) + '...' : h;
-        labels.push(shortName); 
+        let shortName = fullQ.length > 50 ? fullQ.substring(0, 47) + '...' : fullQ;
+        displayLabels.push(`[Média: ${avg}] ${shortName}`); 
         averages.push(avg);
 
-        // Cor dinâmica baseada na nota (Heatmap)
-        if (avg >= 4.5) barColors.push('#22c55e'); // Verde escuro (Excelente)
-        else if (avg >= 4.0) barColors.push('#a3e635'); // Verde claro (Bom)
-        else if (avg >= 3.0) barColors.push('#facc15'); // Amarelo (Médio)
-        else if (avg >= 2.0) barColors.push('#f97316'); // Laranja (Ruim)
-        else barColors.push('#ef4444'); // Vermelho (Crítico)
+        if (avg >= 4.5) barColors.push('#22c55e'); // Excelente
+        else if (avg >= 4.0) barColors.push('#a3e635'); // Bom
+        else if (avg >= 3.0) barColors.push('#facc15'); // Médio
+        else if (avg >= 2.0) barColors.push('#f97316'); // Ruim
+        else barColors.push('#ef4444'); // Crítico
       }
     });
 
-    if (labels.length === 0) return;
+    if (displayLabels.length === 0) return;
 
-    // Altura dinâmica baseada na quantidade de perguntas
-    const canvasHeight = Math.max(180, labels.length * 60 + 60);
-
+    const canvasHeight = Math.max(180, displayLabels.length * 50 + 60);
     const wrapper = document.createElement('div');
     wrapper.style.marginBottom = '24px';
     wrapper.innerHTML = `
@@ -881,11 +901,10 @@ function renderGraficosAvaliacoes(rows) {
     `;
     satContainer.appendChild(wrapper);
 
-    // O gráfico agora é uma ÚNICA barra por pergunta, indo até a nota média no Eixo X
     chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
       type: 'bar',
       data: {
-        labels: labels, 
+        labels: displayLabels, 
         datasets: [{ 
           label: 'Nota Média', 
           data: averages, 
@@ -894,25 +913,25 @@ function renderGraficosAvaliacoes(rows) {
         }]
       },
       options: {
-        indexAxis: 'y', // Deita o gráfico
+        indexAxis: 'y', 
         maintainAspectRatio: false,
         plugins: { 
           legend: { display: false },
           tooltip: { 
             callbacks: {
+              title: function(tooltipItems) {
+                // Puxa a pergunta completa do array e quebra as linhas para não estourar a tela
+                const fullText = fullQuestions[tooltipItems[0].dataIndex];
+                return wrapTextTooltip(fullText, 50);
+              },
               label: function(context) {
-                return ' Média: ' + context.parsed.x;
+                return ' Média de satisfação: ' + context.parsed.x;
               }
             }
           } 
         },
         scales: {
-          x: { 
-            beginAtZero: true, 
-            max: 5, 
-            ticks: { stepSize: 1 }, 
-            title: { display: true, text: 'Nota Média (1 a 5)' } 
-          },
+          x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 }, title: { display: true, text: 'Nota Média (1 a 5)' } },
           y: { ticks: { autoSkip: false } }
         }
       }
