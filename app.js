@@ -646,4 +646,331 @@ function changeViewMode(pageKey) {
   switch (viewMode) {
     case 'week': start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14); end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14); break;
     case 'month': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); end = new Date(now.getFullYear(), now.getMonth() + 2, 0); break;
-    case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth()
+    case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth() + 4, 0); break;
+    case 'year': start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() + 1, 11, 31); break;
+    default: return;
+  }
+  tl.setWindow(start, end, { animation: false });
+  ensureTodayMarker(pageKey);
+}
+
+function applyFilterGeral() {
+  if (!allParsedData.geral) return;
+  const mode = getGroupingModeGeral();
+  const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
+  createTimeline(data, 'geral');
+  updateStackFilterGeral();
+  updateGroupingModeLabel();
+}
+
+function applyFilterDetalhamento() {
+  if (!allParsedData.detalhamento) return;
+  const proj = document.getElementById('stack-filter-detalhes').value;
+  const respEl = document.getElementById('responsavel-filter-detalhes');
+  const stEl = document.getElementById('status-filter-detalhes');
+  const respFilters = Array.from(respEl.selectedOptions || []).map(o => o.value).length ? Array.from(respEl.selectedOptions || []).map(o => o.value) : ['all'];
+  const stFilters = Array.from(stEl.selectedOptions || []).map(o => o.value).length ? Array.from(stEl.selectedOptions || []).map(o => o.value) : ['all'];
+  const data = parseSheetDataDetalhamento(allParsedData.detalhamento, proj, respFilters, stFilters, getCardsModeDetalhamento());
+  createTimeline(data, 'detalhamento');
+  updateDetalhamentoFilters();
+  updateCardsModeLabel();
+}
+
+
+// ==========================================
+// 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
+// ==========================================
+function extractMonthYear(dateString) {
+  const d = parseBRDate(dateString);
+  if (!d) return null;
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+function updateFiltersAvaliacoes() {
+  const selectAba = document.getElementById('aba-filter-avaliacoes');
+  const currentAba = selectAba.value;
+  selectAba.innerHTML = '<option value="all">Todas as Áreas (Consolidado)</option>';
+  Object.keys(allParsedData.avaliacoes).sort().forEach(nomeAba => {
+    const opt = document.createElement('option'); opt.value = nomeAba; opt.textContent = nomeAba; selectAba.appendChild(opt);
+  });
+  if (currentAba !== 'all' && allParsedData.avaliacoes[currentAba]) selectAba.value = currentAba;
+
+  availableMeses.clear();
+  Object.values(allParsedData.avaliacoes).forEach(rows => {
+    rows.forEach(row => {
+      const my = extractMonthYear(getCell(row, ['Carimbo de data/hora', 'Timestamp', 'Data']));
+      if (my) availableMeses.add(my);
+    });
+  });
+
+  const selectMes = document.getElementById('mes-filter-avaliacoes');
+  const currentMes = selectMes.value;
+  selectMes.innerHTML = '<option value="all">Todo o período</option>';
+  Array.from(availableMeses).sort((a,b) => {
+    const [m1, y1] = a.split('/'); const [m2, y2] = b.split('/');
+    return new Date(y2, m2-1) - new Date(y1, m1-1); 
+  }).forEach(v => {
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectMes.appendChild(opt);
+  });
+  if (currentMes !== 'all' && availableMeses.has(currentMes)) selectMes.value = currentMes;
+}
+
+function applyFilterAvaliacoes() {
+  if (!allParsedData.avaliacoes) return;
+  const aba = document.getElementById('aba-filter-avaliacoes').value;
+  const mes = document.getElementById('mes-filter-avaliacoes').value;
+  
+  let filteredRows = [];
+  Object.entries(allParsedData.avaliacoes).forEach(([nomeAba, rows]) => {
+    if (aba !== 'all' && nomeAba !== aba) return; 
+    rows.forEach(row => {
+      if (mes !== 'all') {
+        const rowMes = extractMonthYear(getCell(row, ['Carimbo de data/hora', 'Timestamp', 'Data']));
+        if (rowMes !== mes) return; 
+      }
+      row._abaOrigin = nomeAba; 
+      filteredRows.push(row);
+    });
+  });
+  renderGraficosAvaliacoes(filteredRows);
+}
+
+function renderGraficosAvaliacoes(rows) {
+  // 1. CÁLCULO NPS 
+  let promoters = 0; let passives = 0; let detractors = 0;
+  let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
+  
+  rows.forEach(row => {
+    const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
+    if (npsRaw !== undefined && npsRaw !== '') {
+      const score = parseInt(npsRaw, 10);
+      if (!isNaN(score) && score >= 0 && score <= 10) {
+        npsCounts[score]++;
+        if (score >= 9) promoters++;
+        else if (score >= 7) passives++;
+        else detractors++;
+      }
+    }
+  });
+
+  const totalNps = promoters + passives + detractors;
+  const npsScore = totalNps > 0 ? Math.round(((promoters / totalNps) - (detractors / totalNps)) * 100) : 0;
+  
+  const npsTextEl = document.getElementById('nps-score-text');
+  document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
+  npsTextEl.textContent = totalNps > 0 ? npsScore : '-';
+  
+  if (npsScore >= 75) npsTextEl.style.color = '#10B981'; 
+  else if (npsScore >= 50) npsTextEl.style.color = '#3B82F6';
+  else if (npsScore >= 0) npsTextEl.style.color = '#F59E0B';
+  else npsTextEl.style.color = '#EF4444';
+
+  if (chartInstances.nps) chartInstances.nps.destroy();
+  const npsLabels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+  const dataDetratores = npsLabels.map(l => parseInt(l) <= 6 ? npsCounts[l] : null);
+  const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
+  const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
+
+  chartInstances.nps = new Chart(document.getElementById('npsChart'), {
+    type: 'bar',
+    data: {
+      labels: npsLabels,
+      datasets: [
+        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#EF4444', borderRadius: 4 },
+        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#FCD34D', borderRadius: 4 },
+        { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#10B981', borderRadius: 4 }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { stacked: true, title: { display: true, text: 'Nota' } },
+        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+      }
+    }
+  });
+
+  // 2. GRÁFICOS DE SATISFAÇÃO (Por Perguntas) 
+  const satContainer = document.getElementById('sat-charts-container');
+  satContainer.innerHTML = ''; 
+  Object.values(chartInstancesSat).forEach(c => c.destroy()); 
+  chartInstancesSat = {};
+
+  if (rows.length === 0) {
+    satContainer.innerHTML = '<p style="color:#626c71; text-align:center;">Nenhum dado encontrado para este filtro.</p>';
+    return;
+  }
+
+  const rowsByAba = {};
+  rows.forEach(r => {
+    if (!rowsByAba[r._abaOrigin]) rowsByAba[r._abaOrigin] = [];
+    rowsByAba[r._abaOrigin].push(r);
+  });
+
+  Object.keys(rowsByAba).sort().forEach((abaName, index) => {
+    const abaRows = rowsByAba[abaName];
+    if (abaRows.length === 0) return;
+
+    const headers = Object.keys(abaRows[0]);
+    const satHeaders = headers.filter(h => (/grau|satisfa|avalia|satisfeito|atendimento/i.test(h)) && (!/nps|0 a 10|recomend/i.test(h)));
+    if (satHeaders.length === 0) return; 
+
+    const labels = []; const averages = [];
+    satHeaders.forEach(h => {
+      let sum = 0, count = 0;
+      abaRows.forEach(r => { const val = parseFloat(r[h]); if (!isNaN(val)) { sum += val; count++; } });
+      if (count > 0) { labels.push(h); averages.push((sum/count).toFixed(2)); }
+    });
+    if (labels.length === 0) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <h4 style="font-size:0.95rem; color:#626c71; margin-bottom:8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formulário: ${abaName}</h4>
+      <canvas id="satChart_${index}" style="max-height: 250px;"></canvas>
+    `;
+    satContainer.appendChild(wrapper);
+
+    chartInstancesSat[abaName] = new Chart(document.getElementById(`satChart_${index}`), {
+      type: 'bar',
+      data: {
+        labels: labels.map(l => l.length > 55 ? l.substring(0, 52) + '...' : l), 
+        datasets: [{ label: 'Nota Média', data: averages, backgroundColor: '#ec6718', borderRadius: 4 }]
+      },
+      options: {
+        indexAxis: 'y', plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, max: 5 }, y: { ticks: { autoSkip: false } } }
+      }
+    });
+  });
+}
+
+
+// ==========================================
+// 7. GERENCIADOR DE DADOS (FETCH/LOAD)
+// ==========================================
+async function handleLoadData(pageKey) {
+  const suffix = pageKey === 'geral' ? '' : '-detalhes';
+  const urlInput = document.getElementById('spreadsheet-url' + suffix);
+  const url = urlInput ? urlInput.value.trim() : null;
+
+  showStatus('loading', 'Carregando dados...', pageKey);
+  try {
+    if (pageKey === 'avaliacoes') {
+      allParsedData.avaliacoes = {};
+      for (const config of LINKS_AVALIACOES) {
+        if (!config.url) continue;
+        const rows = await fetchCSV(config.url);
+        allParsedData.avaliacoes[config.nome] = rows;
+      }
+      updateFiltersAvaliacoes(); 
+      applyFilterAvaliacoes();
+      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
+    }
+    else {
+      if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
+      const rows = await fetchCSV(url);
+      allParsedData[pageKey] = rows;
+
+      if (pageKey === 'geral') {
+        updateGroupingModeLabel();
+        createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
+        updateStackFilterGeral();
+      } else if (pageKey === 'detalhamento') {
+        createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
+        updateDetalhamentoFilters();
+      }
+      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
+      setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
+    }
+    showStatus('success', 'Dados carregados com sucesso.', pageKey);
+    setTimeout(() => clearStatus(pageKey), 2500);
+  } catch (e) { showStatus('error', e.message || 'Erro ao carregar dados.', pageKey); }
+}
+
+async function handleRefreshData(pageKey) {
+  if (pageKey === 'avaliacoes') { handleLoadData('avaliacoes'); return; }
+  
+  const suffix = pageKey === 'geral' ? '' : '-detalhes';
+  const url = document.getElementById('spreadsheet-url' + suffix).value.trim();
+  if (!url) return;
+
+  showStatus('loading', 'Atualizando dados...', pageKey);
+  try {
+    const rows = await fetchCSV(url);
+    allParsedData[pageKey] = rows;
+    if (pageKey === 'geral') applyFilterGeral(); else applyFilterDetalhamento();
+    showStatus('success', 'Dados atualizados com sucesso.', pageKey);
+    setTimeout(() => clearStatus(pageKey), 2500);
+  } catch (e) { showStatus('error', e.message || 'Erro ao atualizar dados.', pageKey); }
+}
+
+
+// ==========================================
+// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// ==========================================
+const modalOverlay = document.getElementById('source-modal');
+const closeBtn = document.getElementById('modal-close');
+const cancelBtn = document.getElementById('modal-cancel');
+const saveBtn = document.getElementById('modal-save');
+const sourceInput = document.getElementById('source-input');
+
+function openModal() {
+  const current = document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value.trim();
+  sourceInput.value = current; modalOverlay.classList.add('is-open'); modalOverlay.setAttribute('aria-hidden', 'false');
+  setTimeout(() => sourceInput.focus(), 0);
+}
+
+function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
+closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
+saveBtn.addEventListener('click', () => {
+  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
+  closeModal(); handleLoadData(currentPage);
+});
+sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+document.getElementById('show-example').addEventListener('click', (e) => {
+  e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
+});
+
+// Eventos Avaliações
+document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
+document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
+
+// Eventos Roadmap Geral e Detalhamento
+document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+const groupingToggle = document.getElementById('grouping-toggle-geral');
+if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
+document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
+
+document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+
+const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
+if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
+document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+
+// Botões de Zoom do Eixo X
+document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+
+document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
+document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
+document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
+document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+
+// Auto-load Inicial
+window.addEventListener('DOMContentLoaded', () => {
+  handleLoadData('geral');
+  handleLoadData('detalhamento');
+  handleLoadData('avaliacoes'); 
+});
