@@ -198,7 +198,6 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado (Protege contra ano 2001 do "03/26")
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -207,15 +206,17 @@ function parseBRDate(dateValue) {
   }
   const raw = String(dateValue).trim();
   if (!raw) return null;
-  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
+  const s = raw.replace(/^\"|\"$/g, '').replace(/\u00A0/g, ' ').trim();
 
-  // Se for apenas MM/YY ou DD/MM (Ex: 03/26)
+  // Trava do Bug de 2001 (Quando a data vem como "03/26")
   const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
   if (shortDate) {
-    let a = parseInt(shortDate[1], 10);
-    let b = parseInt(shortDate[2], 10);
-    if (b > 12) return new Date(2000 + b, a - 1, 1); // Ex: 03/26 vira Mar/2026
-    else return new Date(new Date().getFullYear(), b - 1, a); // Assume dia/mês do ano atual
+    let p1 = parseInt(shortDate[1], 10);
+    let p2 = parseInt(shortDate[2], 10);
+    let year = new Date().getFullYear(); // Usa o ano atual em vez de 2001
+    let m = p1, d = p2;
+    if (p1 > 12) { d = p1; m = p2; }
+    return new Date(year, m - 1, d);
   }
 
   const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?.*$/);
@@ -225,13 +226,11 @@ function parseBRDate(dateValue) {
     const d = new Date(yyyy, mm - 1, dd);
     return isNaN(d) ? null : d;
   }
-  
   const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$/);
   if (iso) {
     const d = new Date(parseInt(iso[1], 10), parseInt(iso[2], 10) - 1, parseInt(iso[3], 10));
     return isNaN(d) ? null : d;
   }
-  
   const d2 = new Date(s);
   return isNaN(d2) ? null : d2;
 }
@@ -698,7 +697,7 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-// Quebra textos muito longos para caber no Eixo Y perfeitamente
+// Quebra textos longos para caber no Eixo Y perfeitamente e Multilinha
 function wrapText(text, maxLineLength) {
   const words = text.split(' ');
   const lines = [];
@@ -711,7 +710,7 @@ function wrapText(text, maxLineLength) {
   return lines;
 }
 
-// Lógica de Cores Degradê (1=Vermelho, 3=Cinza, 5=Verde)
+// Cores Degradê Exatas (1=Vermelho, 3=Cinza, 5=Verde)
 function getColorForAverage(avg) {
   if (avg >= 4.5) return '#22c55e'; // Verde escuro (5)
   if (avg >= 3.5) return '#84cc16'; // Verde claro (4)
@@ -829,7 +828,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para achar perguntas na linha 2 e formatar Eixo Y)
+  // 2. GRÁFICOS DE SATISFAÇÃO (Inteligência para bloquear datas e usar a pergunta completa)
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
@@ -852,56 +851,63 @@ function renderGraficosAvaliacoes(rows) {
 
     const headers = Object.keys(abaRows[0]);
     
-    // Lista negra: Palavras que NUNCA são a pergunta do gráfico de satisfação
-    const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
-    const potentialHeaders = headers.filter(h => {
-      const hl = h.toLowerCase();
-      return !excludeKeywords.some(kw => hl.includes(kw));
-    });
-
-    if (potentialHeaders.length === 0) return; 
-
-    // DETECÇÃO DA LINHA DE PERGUNTAS (Para caso o Forms tenha jogado a pergunta pra linha 2)
+    // Procura onde está o texto real das perguntas. Se a primeira linha tiver textos grandes, ela é o cabeçalho.
     let isRow0Questions = false;
-    potentialHeaders.forEach(h => {
+    headers.forEach(h => {
       const val = abaRows[0][h];
-      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 5) {
+      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 20) {
         isRow0Questions = true;
       }
     });
 
     const startIndex = isRow0Questions ? 1 : 0;
+    
+    // Mapeia qual é a pergunta real de cada coluna
     const questionMap = {};
-    potentialHeaders.forEach(h => {
-      questionMap[h] = isRow0Questions ? String(abaRows[0][h]).trim() : String(h).trim();
+    headers.forEach(h => {
+      questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    const displayLabels = []; // Eixo Y Multilinha
-    const fullQuestions = []; // Para o Tooltip Completo
+    // Lista negra: Palavras que NUNCA são perguntas de satisfação
+    const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
+    
+    const validCols = headers.filter(h => {
+      const fullQuestion = questionMap[h].toLowerCase();
+      if (!fullQuestion || fullQuestion.length < 5) return false;
+      return !excludeKeywords.some(kw => fullQuestion.includes(kw));
+    });
+
+    if (validCols.length === 0) return; 
+
+    const displayLabels = []; // Eixo Y
+    const fullQuestions = []; // Tooltip
     const averages = [];
     const barColors = [];
 
-    // Vasculha as respostas (ignorando a linha de perguntas)
-    potentialHeaders.forEach(h => {
+    validCols.forEach(h => {
       let sumSatisfacao = 0;
       let totalRespostas = 0;
       let hasValidData = false;
 
       abaRows.slice(startIndex).forEach(r => {
-        const val = parseFloat(r[h]);
-        if (!isNaN(val) && val >= 1 && val <= 5) {
-          sumSatisfacao += val;
-          totalRespostas++;
-          hasValidData = true;
+        const rawVal = String(r[h]).trim();
+        // A TRAVA DE SEGURANÇA: Exige que seja estritamente NÚMERO DE 1 a 5. Ignora datas que parecem números!
+        if (/^[1-5]$/.test(rawVal) || /^[1-5]\.[0-9]+$/.test(rawVal) || /^[1-5],[0-9]+$/.test(rawVal)) {
+          const val = parseFloat(rawVal.replace(',', '.'));
+          if (val >= 1 && val <= 5) {
+              sumSatisfacao += val;
+              totalRespostas++;
+              hasValidData = true;
+          }
         }
       });
 
-      if (hasValidData) {
+      if (hasValidData && totalRespostas > 0) {
         const avg = parseFloat((sumSatisfacao / totalRespostas).toFixed(2));
         const fullQ = questionMap[h] || h;
         
         fullQuestions.push(fullQ);
-        // Chart.js transforma Array de Strings em Múltiplas Linhas no Eixo Y!
+        // Coloca a pergunta pura no Eixo Y (em múltiplas linhas pra não espremer o gráfico)
         displayLabels.push(wrapText(fullQ, 40)); 
         averages.push(avg);
         barColors.push(getColorForAverage(avg));
@@ -910,7 +916,7 @@ function renderGraficosAvaliacoes(rows) {
 
     if (displayLabels.length === 0) return;
 
-    // Altura dinâmica baseada na quantidade de perguntas
+    // Altura calculada automaticamente pelo número de perguntas
     const canvasHeight = Math.max(220, displayLabels.length * 80 + 60);
     const wrapper = document.createElement('div');
     wrapper.style.marginBottom = '32px';
@@ -941,7 +947,7 @@ function renderGraficosAvaliacoes(rows) {
           tooltip: { 
             callbacks: {
               title: function(tooltipItems) {
-                // Puxa a pergunta 100% completa e quebra em linhas para o Tooltip não vazar da tela
+                // Tooltip maravilhoso que mostra a pergunta completa
                 return wrapText(fullQuestions[tooltipItems[0].dataIndex], 60);
               },
               label: function(context) {
