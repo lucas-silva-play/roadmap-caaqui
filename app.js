@@ -212,7 +212,6 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -784,8 +783,31 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // NOVA LÓGICA DE RESPONDENTES (BADGES)
-  const totalRespondentes = rows.length;
+  // LÓGICA DE RESPONDENTES BLINDADA (Ignora cabeçalhos e linhas vazias)
+  let totalRespondentes = 0;
+  rows.forEach(row => {
+    let isRealResponse = false;
+    
+    // 1. Checa se tem alguma nota válida de NPS
+    const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
+    if (npsRaw !== undefined && npsRaw !== '') {
+      const score = parseInt(npsRaw, 10);
+      if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
+    }
+    
+    // 2. Checa se tem alguma nota válida de Satisfação nas outras colunas
+    if (!isRealResponse) {
+      Object.values(row).forEach(val => {
+        const s = String(val).trim();
+        if (/^[1-5]$/.test(s) || /^[1-5]\.[0-9]+$/.test(s) || /^[1-5],[0-9]+$/.test(s)) {
+          isRealResponse = true;
+        }
+      });
+    }
+    
+    if (isRealResponse) totalRespondentes++;
+  });
+
   const textoRespondentes = `${totalRespondentes} respondente${totalRespondentes !== 1 ? 's' : ''}`;
   
   const npsBadge = document.getElementById('nps-respondentes-badge');
@@ -794,7 +816,8 @@ function renderGraficosAvaliacoes(rows) {
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
 
-  // 1. CÁLCULO NPS (Média Exata em vez de fórmula tradicional)
+
+  // 1. CÁLCULO NPS (Média Exata)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
