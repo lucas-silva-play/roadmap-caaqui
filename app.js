@@ -13,22 +13,10 @@ let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 // --- VARIÁVEIS DE AVALIAÇÕES ---
 const LINKS_AVALIACOES = [
   {
-    nome: "Martech & CRM",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1217446178&single=true&output=csv" 
-  },
-  {
-    nome: "Martech & Growth",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=497373877&single=true&output=csv" 
-  },
-  {
-    nome: "CRM - Operação",
+    nome: "CRM - Ops",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
   },
   {
-    nome: "CRM - Implementação",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1290903938&single=true&output=csv" 
-  },
-{
     nome: "Growth - Ops",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" 
   }
@@ -56,18 +44,14 @@ const TODAYID = 'today';
 // ==========================================
 function switchPage(page) {
   currentPage = page;
-  
-  // Liga/desliga as páginas
   document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
   document.getElementById('page-detalhamento').style.display = page === 'detalhamento' ? 'block' : 'none';
   document.getElementById('page-avaliacoes').style.display = page === 'avaliacoes' ? 'block' : 'none';
 
-  // Atualiza cor dos botões
   document.getElementById('link-geral').classList.toggle('is-active', page === 'geral');
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  // --- NOVA LÓGICA DO TÍTULO DINÂMICO ---
   const mainTitle = document.getElementById('main-title');
   const mainSubtitle = document.getElementById('main-subtitle');
   
@@ -82,7 +66,6 @@ function switchPage(page) {
     if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
   }
 
-  // Redesenha as timelines
   setTimeout(() => {
     if (page === 'geral' && timelines.geral) { timelines.geral.redraw(); ensureTodayMarker('geral'); }
     if (page === 'detalhamento' && timelines.detalhamento) { timelines.detalhamento.redraw(); ensureTodayMarker('detalhamento'); }
@@ -728,7 +711,6 @@ function extractMonthYear(dateString) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-// Quebra textos longos para não empurrar o gráfico
 function wrapText(text, maxLineLength) {
   const words = text.split(' ');
   const lines = [];
@@ -741,13 +723,12 @@ function wrapText(text, maxLineLength) {
   return lines;
 }
 
-// Cores Degradê Refinadas
 function getColorForAverage(avg) {
-  if (avg >= 4.5) return '#22c55e'; // Verde
-  if (avg >= 3.5) return '#84cc16'; // Verde claro
-  if (avg >= 2.5) return '#d1d5db'; // Cinza suave e leve
-  if (avg >= 1.5) return '#f09694'; // Vermelho claro / salmão
-  return '#d9534f'; // Vermelho agradável (não estourado)
+  if (avg >= 4.5) return '#22c55e'; 
+  if (avg >= 3.5) return '#84cc16'; 
+  if (avg >= 2.5) return '#d1d5db'; 
+  if (avg >= 1.5) return '#f09694'; 
+  return '#d9534f'; 
 }
 
 function updateFiltersAvaliacoes() {
@@ -803,6 +784,16 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
+  // NOVA LÓGICA DE RESPONDENTES (BADGES)
+  const totalRespondentes = rows.length;
+  const textoRespondentes = `${totalRespondentes} respondente${totalRespondentes !== 1 ? 's' : ''}`;
+  
+  const npsBadge = document.getElementById('nps-respondentes-badge');
+  if (npsBadge) npsBadge.textContent = textoRespondentes;
+  
+  const satBadge = document.getElementById('sat-respondentes-badge');
+  if (satBadge) satBadge.textContent = textoRespondentes;
+
   // 1. CÁLCULO NPS (Média Exata em vez de fórmula tradicional)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
@@ -819,10 +810,8 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  document.getElementById('nps-total-text').textContent = `${totalNps} avaliações`;
   npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
   
-  // Cor do NPS de 0 a 10
   if (npsAverage !== '-') {
     if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
     else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
@@ -1020,7 +1009,6 @@ function renderGraficosAvaliacoes(rows) {
     });
   });
 
-  // Atualiza a Média Global Dinâmica com Cor
   const globalAvg = globalSatCount > 0 ? parseFloat((globalSatSum / globalSatCount).toFixed(2)) : null;
   const globalEl = document.getElementById('satisfacao-geral-text');
   if (globalEl) {
