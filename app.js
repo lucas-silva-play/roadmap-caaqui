@@ -1,6 +1,10 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+
+let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
 
 let timelines = { geral: null, detalhamento: null };
@@ -208,6 +212,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -460,8 +465,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Cada card ganha um id único (subgroup) forçando escadinha, 
-    // e o sgOrder garante a organização pelo Timestamp da data!
+    // SOLUÇÃO WATERFALL
+    const uniqueWaterfallSubgroup = '1111_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
+
     items.push({
       id: `child-${i}`,
       content: `
@@ -475,8 +481,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: `child_${i}`, 
-      sgOrder: renderStart.getTime(), // Matemática de Waterfall
+      subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -507,8 +513,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic', 
-      sgOrder: -1, // SOLUÇÃO EPIC NO TOPO: Prioridade Absoluta Máxima
+      subgroup: '0000_epic', 
+      sgOrder: -1, 
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -609,26 +615,30 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // NATIVA E À PROVA DE FALHAS: Lê a propriedade sgOrder que nós mapeamos milimetricamente
-    subgroupOrder: 'sgOrder',
+    // DELEGAÇÃO DE ORDEM GARANTIDA
+    subgroupOrder: function (a, b) {
+      const valA = (a && a.subgroup !== undefined) ? String(a.subgroup) : String(a);
+      const valB = (b && b.subgroup !== undefined) ? String(b.subgroup) : String(b);
+      return valA.localeCompare(valB);
+    },
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    // RESOLUÇÃO DO ZOOM E SCROLL NATIVO
+    // ZOOM NATIVO DO COMPONENTE
     verticalScroll: true, 
     horizontalScroll: false, 
     zoomable: true, 
-    zoomKey: 'ctrlKey', // Aciona o zoom no tempo apenas ao pressionar CTRL
-    zoomFriction: 8,    // Deixa a sensibilidade do mouse maravilhosamente suave
+    zoomKey: 'ctrlKey',
+    zoomFriction: 8, 
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options); 
+    timelines[pageKey].setOptions(options);
     timelines[pageKey].setGroups(data.groups);
     timelines[pageKey].setItems(data.items);
   } else {
@@ -662,7 +672,6 @@ function changeViewMode(pageKey) {
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
       break;
     case 'month': 
-      // RESOLUÇÃO DA TELA ESPREMIDA: Zoom inicial fixado do dia 1 ao dia 31 do Mês Atual (com margem limpa nas laterais)
       start = new Date(now.getFullYear(), now.getMonth(), -5); 
       end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
       break;
