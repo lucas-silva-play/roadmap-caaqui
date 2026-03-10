@@ -212,7 +212,6 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -272,6 +271,31 @@ function getCell(row, candidates) {
     }
   }
   return '';
+}
+
+function updateZoomCSS(pageKey, newZoom) {
+   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+   if (timelines[pageKey]) timelines[pageKey].redraw(); 
+}
+
+// O NOVO ZOOM VISUAL (Lupa sem pular a tela)
+function bindCtrlWheelZoom(container, pageKey) {
+  if (!container) return;
+  container.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return; 
+    
+    // A Trava Master: Impede que o navegador role a página para baixo/cima
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    
+    let currentZ = componentZoom[pageKey];
+    
+    // Zoom Step reduzido para 0.05: Transição suave e deliciosa
+    const zoomStep = 0.05; 
+    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+    updateZoomCSS(pageKey, currentZ);
+  }, { passive: false }); // O passive: false é obrigatório pro preventDefault() funcionar!
 }
 
 async function fetchCSV(url) {
@@ -373,7 +397,11 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const items = []; const allProjects = new Set();
+  // A SOLUÇÃO LOTE VIP: Separamos as listas para injetar o Epic primeiro de tudo!
+  const epicItems = []; 
+  const childItems = []; 
+  
+  const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
 
@@ -465,10 +493,10 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL
-    const uniqueWaterfallSubgroup = '1111_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
+    // SOLUÇÃO WATERFALL: Cada card ganha identificador "1_child..."
+    const uniqueWaterfallSubgroup = '1_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
 
-    items.push({
+    childItems.push({
       id: `child-${i}`,
       content: `
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
@@ -482,7 +510,6 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
-      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -511,15 +538,15 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    items.push({
+    epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0000_epic', 
-      sgOrder: -1, 
+      subgroup: '0_epic', // SOLUÇÃO EPIC NO TOPO: Identificador absoluto "0_epic"
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
-  return { items, groups };
+  // O "PULO DO GATO": Enviamos para o mapa a união exata: O Lote dos Epics PRIMEIRO, depois os filhos!
+  return { items: [...epicItems, ...childItems], groups };
 }
 
 
@@ -615,10 +642,12 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // DELEGAÇÃO DE ORDEM GARANTIDA
+    // ORDEM GARANTIDA PARA O EPIC: Lê o Subgroup ID que forçamos lá no Parser
     subgroupOrder: function (a, b) {
-      const valA = (a && a.subgroup !== undefined) ? String(a.subgroup) : String(a);
-      const valB = (b && b.subgroup !== undefined) ? String(b.subgroup) : String(b);
+      const valA = String(a && a.subgroup !== undefined ? a.subgroup : a);
+      const valB = String(b && b.subgroup !== undefined ? b.subgroup : b);
+      if (valA === '0_epic') return -1;
+      if (valB === '0_epic') return 1;
       return valA.localeCompare(valB);
     },
     
@@ -627,23 +656,23 @@ function createTimeline(data, pageKey) {
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    // ZOOM NATIVO DO COMPONENTE
+    // DELIGANDO O ZOOM NATIVO DO COMPONENTE PARA O CSS ZOOM VOLTAR
     verticalScroll: true, 
     horizontalScroll: false, 
-    zoomable: true, 
-    zoomKey: 'ctrlKey',
-    zoomFriction: 8, 
+    zoomable: false, 
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options);
+    timelines[pageKey].setOptions(options); 
     timelines[pageKey].setGroups(data.groups);
     timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
+
+  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -672,6 +701,7 @@ function changeViewMode(pageKey) {
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
       break;
     case 'month': 
+      // ZOOM PADRÃO MÊS ATUAL 
       start = new Date(now.getFullYear(), now.getMonth(), -5); 
       end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
       break;
@@ -1155,6 +1185,14 @@ document.getElementById('status-filter-detalhes').addEventListener('change', app
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
 document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+
+// Botões de Zoom do Eixo X (Lateral)
+document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
 document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
 document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
