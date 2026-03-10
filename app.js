@@ -4,9 +4,7 @@
 const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
 const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
 
-let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
-
 let timelines = { geral: null, detalhamento: null };
 let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 
@@ -212,6 +210,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -271,27 +270,6 @@ function getCell(row, candidates) {
     }
   }
   return '';
-}
-
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
-}
-
-function bindCtrlWheelZoom(container, pageKey) {
-  if (!container) return;
-  container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return; 
-    e.preventDefault(); 
-    e.stopPropagation(); 
-    let currentZ = componentZoom[pageKey];
-    
-    // Zoom super suave para o roadmap
-    const zoomStep = 0.03; 
-    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-    updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -485,7 +463,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Cada card ganha um id de grupo único baseado na data dele (garante que NENHUM card divida a linha horizontal)
+    // SOLUÇÃO WATERFALL: Cada card ganha um id de grupo único baseado na data dele. Isso força a biblioteca a criar uma linha exclusiva para cada um.
     const uniqueWaterfallSubgroup = '1111_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
 
     items.push({
@@ -531,7 +509,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0000_epic', // SOLUÇÃO TOPO ABSOLUTO: O "0000" obriga a biblioteca a ancorar o Epic antes de qualquer card.
+      subgroup: '0000_epic', // SOLUÇÃO TOPO ABSOLUTO: O "0000" obriga a biblioteca a ancorar o Epic antes de qualquer card filho.
       order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -632,10 +610,14 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // DELEGAÇÃO DE ORDEM GARANTIDA
+    // RESOLUÇÃO EPIC NO TOPO: Identifica de forma segura a nomenclatura que criamos e força o posicionamento
     subgroupOrder: function (a, b) {
-      const valA = (a && a.subgroup !== undefined) ? String(a.subgroup) : String(a);
-      const valB = (b && b.subgroup !== undefined) ? String(b.subgroup) : String(b);
+      // Vis-timeline passa objetos com 'id' para esta função. Nós capturamos o id exato gerado no parseSheet
+      const valA = String(a && a.id !== undefined ? a.id : a);
+      const valB = String(b && b.id !== undefined ? b.id : b);
+      
+      if (valA === '0000_epic' && valB !== '0000_epic') return -1;
+      if (valA !== '0000_epic' && valB === '0000_epic') return 1;
       return valA.localeCompare(valB);
     },
     
@@ -643,18 +625,24 @@ function createTimeline(data, pageKey) {
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
-    verticalScroll: true, horizontalScroll: false, zoomable: false,
+    verticalScroll: true, 
+    horizontalScroll: false, 
+    
+    // RESOLUÇÃO DO ZOOM E SCROLL: Zoom no tempo ligado, acionado só com CTRL. Friction suaviza e controla a sensibilidade!
+    zoomable: true, 
+    zoomKey: 'ctrlKey',
+    zoomFriction: 8, 
+    
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
   if (timelines[pageKey]) {
     timelines[pageKey].setItems(data.items);
     timelines[pageKey].setGroups(data.groups);
+    timelines[pageKey].setOptions(options); // Atualiza também as opções de zoom
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
-
-  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -683,7 +671,7 @@ function changeViewMode(pageKey) {
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
       break;
     case 'month': 
-      // ZOOM PADRÃO FOCADO: Mostra exatamente o mês atual + leve margem de 5 dias nas bordas
+      // ZOOM PADRÃO MÊS ATUAL: Tela não fica mais espremida ao carregar!
       start = new Date(now.getFullYear(), now.getMonth(), -5); 
       end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
       break;
@@ -1170,7 +1158,7 @@ const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
 document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
-// Botões de Zoom do Eixo X
+// Botões de Zoom do Eixo X (Lateral)
 document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
 document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
 document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
