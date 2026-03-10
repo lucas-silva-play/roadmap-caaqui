@@ -212,7 +212,6 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -288,7 +287,7 @@ function bindCtrlWheelZoom(container, pageKey) {
     e.stopPropagation(); 
     let currentZ = componentZoom[pageKey];
     
-    // CORREÇÃO DO ZOOM: Reduzido de 0.1 para 0.03 para ficar muito mais suave e controlável
+    // Zoom super suave para o roadmap
     const zoomStep = 0.03; 
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
@@ -486,8 +485,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // CORREÇÃO EFEITO WATERFALL: Cada card ganha um subgroup exclusivo baseado no seu timestamp para NUNCA dividir a mesma linha com outro card
-    const uniqueWaterfallSubgroup = 'child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
+    // SOLUÇÃO WATERFALL: Cada card ganha um id de grupo único baseado na data dele (garante que NENHUM card divida a linha horizontal)
+    const uniqueWaterfallSubgroup = '1111_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
 
     items.push({
       id: `child-${i}`,
@@ -532,7 +531,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic', // A trava do Epic
+      subgroup: '0000_epic', // SOLUÇÃO TOPO ABSOLUTO: O "0000" obriga a biblioteca a ancorar o Epic antes de qualquer card.
       order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -633,11 +632,11 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // CORREÇÃO DO EPIC E WATERFALL: Epic SEMPRE no topo absoluto (-1), os outros ordenados pela string da data
+    // DELEGAÇÃO DE ORDEM GARANTIDA
     subgroupOrder: function (a, b) {
-      if (a === 'epic') return -1;
-      if (b === 'epic') return 1;
-      return String(a).localeCompare(String(b));
+      const valA = (a && a.subgroup !== undefined) ? String(a.subgroup) : String(a);
+      const valB = (b && b.subgroup !== undefined) ? String(b.subgroup) : String(b);
+      return valA.localeCompare(valB);
     },
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
@@ -677,13 +676,28 @@ function changeViewMode(pageKey) {
   const viewMode = document.getElementById('view-mode' + suffix).value;
   const now = new Date();
   let start, end;
+  
   switch (viewMode) {
-    case 'week': start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14); end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14); break;
-    case 'month': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); end = new Date(now.getFullYear(), now.getMonth() + 2, 0); break;
-    case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth() + 4, 0); break;
-    case 'year': start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() + 1, 11, 31); break;
+    case 'week': 
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3); 
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
+      break;
+    case 'month': 
+      // ZOOM PADRÃO FOCADO: Mostra exatamente o mês atual + leve margem de 5 dias nas bordas
+      start = new Date(now.getFullYear(), now.getMonth(), -5); 
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
+      break;
+    case 'quarter': 
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1); 
+      end = new Date(now.getFullYear(), now.getMonth() + 3, 0); 
+      break;
+    case 'year': 
+      start = new Date(now.getFullYear(), now.getMonth() - 6, 1); 
+      end = new Date(now.getFullYear(), now.getMonth() + 6, 0); 
+      break;
     default: return;
   }
+  
   tl.setWindow(start, end, { animation: false });
   ensureTodayMarker(pageKey);
 }
@@ -1071,9 +1085,15 @@ async function handleLoadData(pageKey) {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
         updateStackFilterGeral();
+        
+        // IMPÕE O ZOOM DEFAULT: Mês Atual
+        changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
+        
+        // IMPÕE O ZOOM DEFAULT: Mês Atual
+        changeViewMode('detalhamento');
       }
       document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
