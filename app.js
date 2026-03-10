@@ -4,7 +4,6 @@
 const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
 const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
 
-let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
 
 let timelines = { geral: null, detalhamento: null };
@@ -40,7 +39,7 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. NAVEGAÇÃO E UI GERAL
+// 2. NAVEGAÇÃO E UI GERAL (SEM MUDAR TÍTULOS)
 // ==========================================
 function switchPage(page) {
   currentPage = page;
@@ -51,21 +50,6 @@ function switchPage(page) {
   document.getElementById('link-geral').classList.toggle('is-active', page === 'geral');
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
-
-  // RESOLUÇÃO DOS TÍTULOS: Seleção blindada para qualquer versão do HTML
-  const mainTitle = document.querySelector('h1');
-  const mainSubtitle = document.querySelector('.subtitle');
-  
-  if (page === 'geral') {
-    if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
-    if (mainSubtitle) mainSubtitle.textContent = 'Conecte sua planilha do Google Sheets e visualize seu roadmap interativo';
-  } else if (page === 'detalhamento') {
-    if (mainTitle) mainTitle.textContent = 'Roadmap - Detalhamento';
-    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os cards detalhados por projeto, responsável e status';
-  } else if (page === 'avaliacoes') {
-    if (mainTitle) mainTitle.textContent = 'Índices de satisfação - Caaqui';
-    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
-  }
 
   setTimeout(() => {
     if (page === 'geral' && timelines.geral) { timelines.geral.redraw(); ensureTodayMarker('geral'); }
@@ -274,30 +258,6 @@ function getCell(row, candidates) {
   return '';
 }
 
-// LUPA CSS BLINDADA: e.preventDefault() obriga o Scroll a não rolar a página enquanto usa Lupa
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
-}
-
-function bindCtrlWheelZoom(container, pageKey) {
-  if (!container) return;
-  if (container.dataset.wheelBound) return; 
-  container.dataset.wheelBound = "1";
-
-  container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return; 
-    e.preventDefault(); 
-    e.stopPropagation(); 
-    
-    let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.05; // Ajuste Fino e Macio
-    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-    updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
-}
-
 async function fetchCSV(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Erro ao acessar planilha (${res.status}).`);
@@ -397,9 +357,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const epicItems = []; 
-  const childItems = []; 
-  
+  const items = []; 
   const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
@@ -492,11 +450,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Zero Pad para garantir que a ordem alfabética da String respeite o tempo. ID = 1_child_...
-    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = '1_child_' + timestampStr + '_' + i;
-
-    childItems.push({
+    items.push({
       id: `child-${i}`,
       content: `
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
@@ -509,26 +463,14 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: uniqueWaterfallSubgroup, 
+      subgroup: `child_${i}`,
+      sgOrder: renderStart.getTime(), // ID Cronológico
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  
-  // SOLUÇÃO EPIC NO TOPO MÁXIMO DEFINITIVO
-  // Injetamos a Função de Ordernação dentro de cada Grupo. A biblioteca comparará os subgroup IDs.
-  const groups = projectsToShow.sort().map(p => ({ 
-    id: p, 
-    content: extractBracketText(p),
-    subgroupOrder: function (a, b) {
-      // Puxa o ID do Subgrupo. O Epic tem o id "0_epic" e os Filhos "1_child...".
-      // A comparação de Strings ('0' vs '1') forçará o Epic sempre para o Topo e o resto vira Waterfall.
-      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
-      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
-      return valA.localeCompare(valB);
-    }
-  }));
+  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -551,14 +493,15 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    epicItems.push({
+    items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', // ID do Subgrupo com "0" para garantir o Topo absoluto.
+      subgroup: 'epic', 
+      sgOrder: -1, // SOLUÇÃO EPIC ABSOLUTO -1
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
-  return { items: [...epicItems, ...childItems], groups };
+  return { items, groups };
 }
 
 
@@ -653,15 +596,21 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
+    
+    // A ORDEM NATIVA MATADORA: O Vis.js agora usa a propriedade 'sgOrder' que nós criamos dentro de cada card! 
+    // O Epic é -1, os outros são numeração crescente pela data. Sem erros!
+    subgroupOrder: 'sgOrder',
+    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    // Zoom Nativo de Eixo Tempo Desativado (Lupa CSS vai Reinar)
     verticalScroll: true, 
     horizontalScroll: false, 
-    zoomable: false, 
+    zoomable: true, 
+    zoomKey: 'ctrlKey', // Aciona Zoom e Scroll Nativo do Eixo do Tempo
+    zoomFriction: 8, 
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -672,10 +621,12 @@ function createTimeline(data, pageKey) {
     timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
+    
+    // TRAVA ANTI-PULO DO NAVEGADOR: Proíbe o Firefox/Chrome de rolar a página se o Ctrl estiver apertado em cima do gráfico!
+    container.addEventListener('wheel', function(e) {
+        if (e.ctrlKey) { e.preventDefault(); }
+    }, { passive: false });
   }
-
-  // ATIVA A LUPA CSS NOVO!
-  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -928,10 +879,11 @@ function renderGraficosAvaliacoes(rows) {
 
     const headers = Object.keys(abaRows[0]);
     
+    // RADAR DE SEGURANÇA REATIVADO: Bloqueia o sumiço das perguntas reais
     let isRow0Questions = false;
     headers.forEach(h => {
       const val = abaRows[0][h];
-      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 20) {
+      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 15) {
         isRow0Questions = true;
       }
     });
@@ -948,7 +900,7 @@ function renderGraficosAvaliacoes(rows) {
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
-      if (!fullQ || fullQ.length < 5) return;
+      if (!fullQ || fullQ.length < 3) return;
       if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
 
       let validCount = 0;
@@ -958,6 +910,7 @@ function renderGraficosAvaliacoes(rows) {
         const rawVal = String(abaRows[i][h]).trim();
         if (!rawVal) continue;
         
+        // REGRA DE OURO QUE VOCÊ HAVIA PERDIDO: Apenas notas entre 1 e 5 (bloqueia o "_4" fantasma e a coluna de datas soltas)
         if (/^[1-5]$/.test(rawVal) || /^[1-5]\.[0-9]+$/.test(rawVal) || /^[1-5],[0-9]+$/.test(rawVal)) {
             validCount++;
         } else {
@@ -1187,14 +1140,6 @@ document.getElementById('status-filter-detalhes').addEventListener('change', app
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
 document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
-
-// Botões de Zoom do Eixo X (Lateral)
-document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
-document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
 document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
 document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
