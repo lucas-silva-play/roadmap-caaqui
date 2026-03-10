@@ -1,10 +1,8 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
-const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
-const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
-
 let currentPage = 'geral';
+
 let timelines = { geral: null, detalhamento: null };
 let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 
@@ -210,7 +208,6 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
-// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -463,9 +460,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Cada card ganha um id de grupo único baseado na data dele. Isso força a biblioteca a criar uma linha exclusiva para cada um.
-    const uniqueWaterfallSubgroup = '1111_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
-
+    // SOLUÇÃO WATERFALL: Cada card ganha um id único (subgroup) forçando escadinha, 
+    // e o sgOrder garante a organização pelo Timestamp da data!
     items.push({
       id: `child-${i}`,
       content: `
@@ -478,7 +474,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
           ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
         </div>
       `,
-      start: renderStart, end: renderEnd, group: projetoRaw, subgroup: uniqueWaterfallSubgroup,
+      start: renderStart, end: renderEnd, group: projetoRaw, 
+      subgroup: `child_${i}`, 
+      sgOrder: renderStart.getTime(), // Matemática de Waterfall
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -509,8 +507,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0000_epic', // SOLUÇÃO TOPO ABSOLUTO: O "0000" obriga a biblioteca a ancorar o Epic antes de qualquer card filho.
-      order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
+      subgroup: 'epic', 
+      sgOrder: -1, // SOLUÇÃO EPIC NO TOPO: Prioridade Absoluta Máxima
+      className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
@@ -610,36 +609,28 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // RESOLUÇÃO EPIC NO TOPO: Identifica de forma segura a nomenclatura que criamos e força o posicionamento
-    subgroupOrder: function (a, b) {
-      // Vis-timeline passa objetos com 'id' para esta função. Nós capturamos o id exato gerado no parseSheet
-      const valA = String(a && a.id !== undefined ? a.id : a);
-      const valB = String(b && b.id !== undefined ? b.id : b);
-      
-      if (valA === '0000_epic' && valB !== '0000_epic') return -1;
-      if (valA !== '0000_epic' && valB === '0000_epic') return 1;
-      return valA.localeCompare(valB);
-    },
+    // NATIVA E À PROVA DE FALHAS: Lê a propriedade sgOrder que nós mapeamos milimetricamente
+    subgroupOrder: 'sgOrder',
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
+    
+    // RESOLUÇÃO DO ZOOM E SCROLL NATIVO
     verticalScroll: true, 
     horizontalScroll: false, 
-    
-    // RESOLUÇÃO DO ZOOM E SCROLL: Zoom no tempo ligado, acionado só com CTRL. Friction suaviza e controla a sensibilidade!
     zoomable: true, 
-    zoomKey: 'ctrlKey',
-    zoomFriction: 8, 
+    zoomKey: 'ctrlKey', // Aciona o zoom no tempo apenas ao pressionar CTRL
+    zoomFriction: 8,    // Deixa a sensibilidade do mouse maravilhosamente suave
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setItems(data.items);
+    timelines[pageKey].setOptions(options); 
     timelines[pageKey].setGroups(data.groups);
-    timelines[pageKey].setOptions(options); // Atualiza também as opções de zoom
+    timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
@@ -671,7 +662,7 @@ function changeViewMode(pageKey) {
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
       break;
     case 'month': 
-      // ZOOM PADRÃO MÊS ATUAL: Tela não fica mais espremida ao carregar!
+      // RESOLUÇÃO DA TELA ESPREMIDA: Zoom inicial fixado do dia 1 ao dia 31 do Mês Atual (com margem limpa nas laterais)
       start = new Date(now.getFullYear(), now.getMonth(), -5); 
       end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
       break;
@@ -1074,13 +1065,11 @@ async function handleLoadData(pageKey) {
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
         updateStackFilterGeral();
         
-        // IMPÕE O ZOOM DEFAULT: Mês Atual
         changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
         
-        // IMPÕE O ZOOM DEFAULT: Mês Atual
         changeViewMode('detalhamento');
       }
       document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
@@ -1157,14 +1146,6 @@ document.getElementById('status-filter-detalhes').addEventListener('change', app
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
 document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
-
-// Botões de Zoom do Eixo X (Lateral)
-document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
-document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
 document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
 document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
