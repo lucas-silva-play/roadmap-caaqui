@@ -52,9 +52,9 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  // Puxa pelos IDs ou diretamente pelas Tags caso o HTML antigo seja usado
-  const mainTitle = document.getElementById('main-title') || document.querySelector('header h1');
-  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('header p.subtitle');
+  // RESOLUÇÃO DOS TÍTULOS: Seleção blindada para qualquer versão do HTML
+  const mainTitle = document.querySelector('h1');
+  const mainSubtitle = document.querySelector('.subtitle');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -274,7 +274,7 @@ function getCell(row, candidates) {
   return '';
 }
 
-// VOLTAMOS COM O ZOOM DE CSS (ZOOM VISUAL/LUPA) BLINDADO
+// LUPA CSS BLINDADA: e.preventDefault() obriga o Scroll a não rolar a página enquanto usa Lupa
 function updateZoomCSS(pageKey, newZoom) {
    componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
    document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
@@ -283,21 +283,19 @@ function updateZoomCSS(pageKey, newZoom) {
 
 function bindCtrlWheelZoom(container, pageKey) {
   if (!container) return;
-  if (container.dataset.wheelBound) return; // Evita duplicar os eventos
+  if (container.dataset.wheelBound) return; 
   container.dataset.wheelBound = "1";
 
   container.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return; 
-    
-    // A MÁGICA: Impede que o scroll role a página para baixo/cima durante o zoom!
     e.preventDefault(); 
     e.stopPropagation(); 
     
     let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.05; // Ajuste fino e muito suave
+    const zoomStep = 0.05; // Ajuste Fino e Macio
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
-  }, { passive: false }); // Obrigatório ser false para o preventDefault funcionar
+  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -494,8 +492,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Cada card ganha identificador '1_child_' seguido da data.
-    const uniqueWaterfallSubgroup = '1_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
+    // SOLUÇÃO WATERFALL: Zero Pad para garantir que a ordem alfabética da String respeite o tempo. ID = 1_child_...
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = '1_child_' + timestampStr + '_' + i;
 
     childItems.push({
       id: `child-${i}`,
@@ -517,11 +516,18 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
   const projectsToShow = Array.from(includedProjects);
   
-  // SOLUÇÃO EPIC NO TOPO MÁXIMO: A biblioteca exige que o subgroupOrder seja injetado AQUI no Grupo!
+  // SOLUÇÃO EPIC NO TOPO MÁXIMO DEFINITIVO
+  // Injetamos a Função de Ordernação dentro de cada Grupo. A biblioteca comparará os subgroup IDs.
   const groups = projectsToShow.sort().map(p => ({ 
     id: p, 
     content: extractBracketText(p),
-    subgroupOrder: 'id' // O Vis.js vai ler o subgroup ID. Como o Epic é '0_epic', ele sempre ficará no topo absoluto acima de '1_child'!
+    subgroupOrder: function (a, b) {
+      // Puxa o ID do Subgrupo. O Epic tem o id "0_epic" e os Filhos "1_child...".
+      // A comparação de Strings ('0' vs '1') forçará o Epic sempre para o Topo e o resto vira Waterfall.
+      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
+      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
+      return valA.localeCompare(valB);
+    }
   }));
 
   projectsToShow.forEach(p => {
@@ -547,7 +553,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', // Forçamos o ID ser o 0 para a ordem 'id' do grupo funcionar maravilhosamente.
+      subgroup: '0_epic', // ID do Subgrupo com "0" para garantir o Topo absoluto.
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -652,7 +658,7 @@ function createTimeline(data, pageKey) {
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    // Zoom Nativo do Componente desligado para a nossa Lupa CSS reinar suprema
+    // Zoom Nativo de Eixo Tempo Desativado (Lupa CSS vai Reinar)
     verticalScroll: true, 
     horizontalScroll: false, 
     zoomable: false, 
@@ -668,6 +674,7 @@ function createTimeline(data, pageKey) {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
 
+  // ATIVA A LUPA CSS NOVO!
   bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
@@ -697,7 +704,6 @@ function changeViewMode(pageKey) {
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
       break;
     case 'month': 
-      // ZOOM PADRÃO MÊS ATUAL 
       start = new Date(now.getFullYear(), now.getMonth(), -5); 
       end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
       break;
