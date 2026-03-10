@@ -52,8 +52,9 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  const mainTitle = document.getElementById('main-title');
-  const mainSubtitle = document.getElementById('main-subtitle');
+  // Puxa pelos IDs ou diretamente pelas Tags caso o HTML antigo seja usado
+  const mainTitle = document.getElementById('main-title') || document.querySelector('header h1');
+  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('header p.subtitle');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -273,29 +274,30 @@ function getCell(row, candidates) {
   return '';
 }
 
+// VOLTAMOS COM O ZOOM DE CSS (ZOOM VISUAL/LUPA) BLINDADO
 function updateZoomCSS(pageKey, newZoom) {
    componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
    document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
    if (timelines[pageKey]) timelines[pageKey].redraw(); 
 }
 
-// O NOVO ZOOM VISUAL (Lupa sem pular a tela)
 function bindCtrlWheelZoom(container, pageKey) {
   if (!container) return;
+  if (container.dataset.wheelBound) return; // Evita duplicar os eventos
+  container.dataset.wheelBound = "1";
+
   container.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return; 
     
-    // A Trava Master: Impede que o navegador role a página para baixo/cima
+    // A MÁGICA: Impede que o scroll role a página para baixo/cima durante o zoom!
     e.preventDefault(); 
     e.stopPropagation(); 
     
     let currentZ = componentZoom[pageKey];
-    
-    // Zoom Step reduzido para 0.05: Transição suave e deliciosa
-    const zoomStep = 0.05; 
+    const zoomStep = 0.05; // Ajuste fino e muito suave
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
-  }, { passive: false }); // O passive: false é obrigatório pro preventDefault() funcionar!
+  }, { passive: false }); // Obrigatório ser false para o preventDefault funcionar
 }
 
 async function fetchCSV(url) {
@@ -397,7 +399,6 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  // A SOLUÇÃO LOTE VIP: Separamos as listas para injetar o Epic primeiro de tudo!
   const epicItems = []; 
   const childItems = []; 
   
@@ -493,7 +494,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Cada card ganha identificador "1_child..."
+    // SOLUÇÃO WATERFALL: Cada card ganha identificador '1_child_' seguido da data.
     const uniqueWaterfallSubgroup = '1_child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
 
     childItems.push({
@@ -515,7 +516,13 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
   }
 
   const projectsToShow = Array.from(includedProjects);
-  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+  
+  // SOLUÇÃO EPIC NO TOPO MÁXIMO: A biblioteca exige que o subgroupOrder seja injetado AQUI no Grupo!
+  const groups = projectsToShow.sort().map(p => ({ 
+    id: p, 
+    content: extractBracketText(p),
+    subgroupOrder: 'id' // O Vis.js vai ler o subgroup ID. Como o Epic é '0_epic', ele sempre ficará no topo absoluto acima de '1_child'!
+  }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -540,12 +547,11 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', // SOLUÇÃO EPIC NO TOPO: Identificador absoluto "0_epic"
+      subgroup: '0_epic', // Forçamos o ID ser o 0 para a ordem 'id' do grupo funcionar maravilhosamente.
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
-  // O "PULO DO GATO": Enviamos para o mapa a união exata: O Lote dos Epics PRIMEIRO, depois os filhos!
   return { items: [...epicItems, ...childItems], groups };
 }
 
@@ -641,22 +647,12 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
-    
-    // ORDEM GARANTIDA PARA O EPIC: Lê o Subgroup ID que forçamos lá no Parser
-    subgroupOrder: function (a, b) {
-      const valA = String(a && a.subgroup !== undefined ? a.subgroup : a);
-      const valB = String(b && b.subgroup !== undefined ? b.subgroup : b);
-      if (valA === '0_epic') return -1;
-      if (valB === '0_epic') return 1;
-      return valA.localeCompare(valB);
-    },
-    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    // DELIGANDO O ZOOM NATIVO DO COMPONENTE PARA O CSS ZOOM VOLTAR
+    // Zoom Nativo do Componente desligado para a nossa Lupa CSS reinar suprema
     verticalScroll: true, 
     horizontalScroll: false, 
     zoomable: false, 
