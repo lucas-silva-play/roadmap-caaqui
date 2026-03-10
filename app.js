@@ -212,6 +212,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// Tratador de Datas Melhorado e Blindado
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -286,7 +287,9 @@ function bindCtrlWheelZoom(container, pageKey) {
     e.preventDefault(); 
     e.stopPropagation(); 
     let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.1;
+    
+    // CORREÇÃO DO ZOOM: Reduzido de 0.1 para 0.03 para ficar muito mais suave e controlável
+    const zoomStep = 0.03; 
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
   }, { passive: false });
@@ -483,6 +486,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
+    // CORREÇÃO EFEITO WATERFALL: Cada card ganha um subgroup exclusivo baseado no seu timestamp para NUNCA dividir a mesma linha com outro card
+    const uniqueWaterfallSubgroup = 'child_' + renderStart.getTime().toString().padStart(15, '0') + '_' + i;
+
     items.push({
       id: `child-${i}`,
       content: `
@@ -495,7 +501,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
           ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
         </div>
       `,
-      start: renderStart, end: renderEnd, group: projetoRaw, subgroup: 'child',
+      start: renderStart, end: renderEnd, group: projetoRaw, subgroup: uniqueWaterfallSubgroup,
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -525,7 +531,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
     `;
 
     items.push({
-      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, subgroup: 'epic',
+      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
+      subgroup: 'epic', // A trava do Epic
       order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -625,10 +632,14 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
+    
+    // CORREÇÃO DO EPIC E WATERFALL: Epic SEMPRE no topo absoluto (-1), os outros ordenados pela string da data
     subgroupOrder: function (a, b) {
-      const orderMap = isDetalhes ? { child: 0, epic: 1, spacer: 2 } : { epic: 0, child: 1, spacer: 2 };
-      return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
+      if (a === 'epic') return -1;
+      if (b === 'epic') return 1;
+      return String(a).localeCompare(String(b));
     },
+    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
@@ -783,19 +794,14 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // LÓGICA DE RESPONDENTES BLINDADA (Ignora cabeçalhos e linhas vazias)
   let totalRespondentes = 0;
   rows.forEach(row => {
     let isRealResponse = false;
-    
-    // 1. Checa se tem alguma nota válida de NPS
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
     }
-    
-    // 2. Checa se tem alguma nota válida de Satisfação nas outras colunas
     if (!isRealResponse) {
       Object.values(row).forEach(val => {
         const s = String(val).trim();
@@ -804,20 +810,15 @@ function renderGraficosAvaliacoes(rows) {
         }
       });
     }
-    
     if (isRealResponse) totalRespondentes++;
   });
 
   const textoRespondentes = `${totalRespondentes} respondente${totalRespondentes !== 1 ? 's' : ''}`;
-  
   const npsBadge = document.getElementById('nps-respondentes-badge');
   if (npsBadge) npsBadge.textContent = textoRespondentes;
-  
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
 
-
-  // 1. CÁLCULO NPS (Média Exata)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -868,7 +869,6 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO COM TÍTULOS PRETOS E MÉDIA COM COR INTELIGENTE
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
