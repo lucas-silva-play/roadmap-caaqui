@@ -1,8 +1,8 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
-const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
-const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; 
 
 let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
@@ -32,7 +32,7 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. INJEÇÃO DE CSS (Filtros e Lupa)
+// 2. INJEÇÃO DE CSS (Filtros Seguros)
 // ==========================================
 if (!document.getElementById('dynamic-multi-select-styles')) {
   const style = document.createElement('style');
@@ -52,32 +52,37 @@ if (!document.getElementById('dynamic-multi-select-styles')) {
 
 
 // ==========================================
-// 3. ZOOM VISUAL DA LUPA E NAVEGAÇÃO
+// 3. ZOOM VISUAL GLOBAL (Bloqueio de Scroll)
 // ==========================================
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
+let zoomHandlerBound = false;
+function setupGlobalZoom() {
+  if (zoomHandlerBound) return;
+  zoomHandlerBound = true;
+  
+  document.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault(); // Impede o navegador de pular a tela
+      e.stopPropagation();
+
+      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
+
+      let currentZ = componentZoom[currentPage];
+      const zoomStep = 0.05; 
+      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+      
+      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
+      componentZoom[currentPage] = currentZ;
+      
+      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
+      if (timelines[currentPage]) timelines[currentPage].redraw();
+    }
+  }, { passive: false, capture: true });
 }
 
-function bindCtrlWheelZoom(container, pageKey) {
-  if (!container) return;
-  if (container.dataset.wheelBound) return; 
-  container.dataset.wheelBound = "1";
 
-  container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return; 
-    
-    e.preventDefault(); // Impede o navegador de rolar a página!
-    e.stopPropagation(); 
-    
-    let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.05; // Ajuste Suave
-    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-    updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
-}
-
+// ==========================================
+// 4. NAVEGAÇÃO E UI GERAL (Títulos Corrigidos)
+// ==========================================
 function switchPage(page) {
   currentPage = page;
   document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
@@ -88,8 +93,9 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  const mainTitle = document.getElementById('main-title') || document.querySelector('header h1');
-  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('header p.subtitle') || document.querySelector('header p');
+  // RESOLUÇÃO: Busca cega para não conflitar com HTML antigo
+  const mainTitle = document.getElementById('main-title') || document.querySelector('h1');
+  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle') || document.querySelector('p');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -169,7 +175,7 @@ function startTodayMarkerClock(pageKey) {
 
 
 // ==========================================
-// 4. UTILITÁRIOS E PARSERS
+// 5. UTILITÁRIOS E PARSERS DE DADOS
 // ==========================================
 function extractBracketText(text) {
   const m = String(text || '').trim().match(/\[(.*?)\]/);
@@ -285,16 +291,9 @@ async function fetchCSV(url) {
   return parseCSV(csvText);
 }
 
-// A REGRA DE ORDENAÇÃO SUPREMA (Garante Waterfall e Epic no Topo)
-const waterfallOrderFn = function (a, b) {
-  const valA = String(a && a.subgroup !== undefined ? a.subgroup : (a.id || a));
-  const valB = String(b && b.subgroup !== undefined ? b.subgroup : (b.id || b));
-  return valA.localeCompare(valB);
-};
-
 
 // ==========================================
-// 5. LÓGICAS DO ROADMAP (GERAL E DETALHES)
+// 6. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
@@ -302,7 +301,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 
   const statusFilters = normalizeList(filterStatus);
 
-  if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral', subgroupOrder: waterfallOrderFn }); groupSet.add('Geral'); }
+  if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -366,9 +365,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // Matemática Exata com PadStart (Garante a Ordem)
-    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
-    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
+    // SOLUÇÃO NATIVA DE WATERFALL: Subgrupo exclusivo dita a linha
+    const uniqueSubgroup = `geral_child_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -383,6 +381,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
       subgroup: uniqueSubgroup, 
+      sgOrder: dataInicio.getTime(), // Ordenação matemática pelo início
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -393,7 +392,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 
     const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
     stacksToShow.forEach((stack, stackIdx) => {
-      if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack, subgroupOrder: waterfallOrderFn }); }
+      if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
     });
   }
@@ -503,9 +502,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // MÁGICA DO WATERFALL: A data garante que os cards mais novos fiquem embaixo dos mais velhos
-    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = `sg_${timestampStr}_${i}`;
+    const uniqueWaterfallSubgroup = `child_${i}`;
 
     childItems.push({
       id: `child-${i}`,
@@ -521,18 +518,13 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), // Matemática do Waterfall para os Filhos
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  
-  // INJETA A ORDEM NO GRUPO TAMBÉM
-  const groups = projectsToShow.sort().map(p => ({ 
-    id: p, 
-    content: extractBracketText(p),
-    subgroupOrder: waterfallOrderFn
-  }));
+  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -557,7 +549,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'sg_000000000000000_epic', // EPIC NO TOPO: Zero absoluto ganha sempre
+      subgroup: 'epic_top', 
+      sgOrder: 1, // EPIC NO TOPO: Número fixo imbatível
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -567,7 +560,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
 
 // ==========================================
-// 6. CRIAÇÃO DOS ROADMAPS E FILTROS
+// 7. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
 function updateGeralFilters() {
   const selectStack = document.getElementById('stack-filter');
@@ -668,8 +661,8 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // ORDENAÇÃO NATIVA E DEFINITIVA
-    subgroupOrder: waterfallOrderFn,
+    // A LEI DE ORDENAÇÃO NATIVA (Sem funções que quebram o código)
+    subgroupOrder: 'sgOrder', 
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -677,7 +670,7 @@ function createTimeline(data, pageKey) {
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
     verticalScroll: true, horizontalScroll: false, 
-    zoomable: false, // Zoom Nativo DELETADO! Nossa Lupa Controlada reina.
+    zoomable: false, 
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -689,9 +682,6 @@ function createTimeline(data, pageKey) {
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
-
-  // ATIVA A LUPA VISUAL SEGURA
-  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -767,7 +757,7 @@ function applyFilterDetalhamento() {
 
 
 // ==========================================
-// 7. DASHBOARD DE AVALIAÇÕES (Anti-Fantasmas)
+// 8. DASHBOARD DE AVALIAÇÕES (Sem Fantasmas)
 // ==========================================
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
@@ -886,6 +876,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
+  // O NPS PRECISO DE 0 A 10
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
   if (npsTextEl) {
@@ -968,7 +959,7 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    // O RADAR DE SEGURANÇA: Limpa colunas indesejadas
+    // O RADAR DE SEGURANÇA: Exterminador de "Datas", "_4" e Colunas Inválidas
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
     const validCols = [];
@@ -1104,7 +1095,7 @@ function renderGraficosAvaliacoes(rows) {
 
 
 // ==========================================
-// 8. GERENCIADOR DE DADOS (FETCH/LOAD)
+// 9. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
 async function handleLoadData(pageKey) {
   const suffix = pageKey === 'geral' ? '' : '-detalhes';
@@ -1171,7 +1162,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 9. BINDINGS GERAIS
+// 10. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1204,6 +1195,7 @@ if (showExampleBtn) {
   });
 }
 
+// INICIA O BLOQUEIO DE SCROLL PARA LUPA
 setupGlobalZoom();
 
 // Eventos Avaliações
@@ -1216,19 +1208,16 @@ if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avalia
 const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
-// Eventos Roadmap Geral
+// Eventos Roadmap Geral e Detalhamento
 const stackFilterGeral = document.getElementById('stack-filter');
 if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
-
 const statusFilterGeral = document.getElementById('status-filter-geral');
 if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
-
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
 const viewModeGeral = document.getElementById('view-mode');
 if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
-// Eventos Roadmap Detalhamento
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
 const respFilterDet = document.getElementById('responsavel-filter-detalhes');
