@@ -4,6 +4,7 @@
 const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
 const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
 
+let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
 
 let timelines = { geral: null, detalhamento: null };
@@ -28,8 +29,8 @@ let chartInstancesSat = {};
 
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
+let availableStatuses = { geral: new Set(), detalhamento: new Set() }; // Geral agora tem Status!
 let availableResponsaveis = { detalhamento: new Set() };
-let availableStatuses = { detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -39,7 +40,7 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. NAVEGAÇÃO E UI GERAL (SEM MUDAR TÍTULOS)
+// 2. NAVEGAÇÃO E UI GERAL
 // ==========================================
 function switchPage(page) {
   currentPage = page;
@@ -50,6 +51,20 @@ function switchPage(page) {
   document.getElementById('link-geral').classList.toggle('is-active', page === 'geral');
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
+
+  const mainTitle = document.getElementById('main-title') || document.querySelector('h1');
+  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle');
+  
+  if (page === 'geral') {
+    if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
+    if (mainSubtitle) mainSubtitle.textContent = 'Conecte sua planilha do Google Sheets e visualize seu roadmap interativo';
+  } else if (page === 'detalhamento') {
+    if (mainTitle) mainTitle.textContent = 'Roadmap - Detalhamento';
+    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os cards detalhados por projeto, responsável e status';
+  } else if (page === 'avaliacoes') {
+    if (mainTitle) mainTitle.textContent = 'Índices de satisfação - Caaqui';
+    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
+  }
 
   setTimeout(() => {
     if (page === 'geral' && timelines.geral) { timelines.geral.redraw(); ensureTodayMarker('geral'); }
@@ -203,11 +218,11 @@ function parseBRDate(dateValue) {
     const d = new Date((dateValue - 25569) * 86400 * 1000);
     return isNaN(d) ? null : d;
   }
-  const raw = String(dateValue).trim();
+  let raw = String(dateValue).trim();
   if (!raw) return null;
-  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
+  let s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
 
-  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (shortDate) {
     let p1 = parseInt(shortDate[1], 10);
     let p2 = parseInt(shortDate[2], 10);
@@ -220,6 +235,7 @@ function parseBRDate(dateValue) {
   const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?.*$/);
   if (br) {
     let dd = parseInt(br[1], 10); let mm = parseInt(br[2], 10); let yyyy = parseInt(br[3], 10);
+    if (mm > 12) { let temp = dd; dd = mm; mm = temp; }
     if (yyyy < 100) yyyy = (yyyy >= 70) ? (1900 + yyyy) : (2000 + yyyy);
     const d = new Date(yyyy, mm - 1, dd);
     return isNaN(d) ? null : d;
@@ -258,6 +274,31 @@ function getCell(row, candidates) {
   return '';
 }
 
+let zoomHandlerBound = false;
+function setupGlobalZoom() {
+  if (zoomHandlerBound) return;
+  zoomHandlerBound = true;
+  
+  document.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault(); 
+      e.stopPropagation();
+
+      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
+
+      let currentZ = componentZoom[currentPage];
+      const zoomStep = 0.05; 
+      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+      
+      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
+      componentZoom[currentPage] = currentZ;
+      
+      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
+      if (timelines[currentPage]) timelines[currentPage].redraw();
+    }
+  }, { passive: false, capture: true });
+}
+
 async function fetchCSV(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Erro ao acessar planilha (${res.status}).`);
@@ -272,9 +313,14 @@ async function fetchCSV(url) {
 // ==========================================
 // 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
+
+// GERAL: AGORA COM WATERFALL E FILTRO DE STATUS
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
   availableStacks.geral.clear();
+  availableStatuses.geral.clear(); // Limpa status p/ popular dinamicamente
+
+  const statusFilters = normalizeList(filterStatus);
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -282,8 +328,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
     const row = rows[i];
     const resumo = String(getCell(row, ['Resumo']) || '').trim();
     let dataInicio = parseBRDate(getCell(row, ['Start date']));
-    const dataTarget = parseBRDate(getCell(row, ['Target end']));
-    const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+    let dataTarget = parseBRDate(getCell(row, ['Target end']));
+    let dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
     const status = String(getCell(row, ['Status']) || 'planejado').trim();
     const chave = String(getCell(row, ['Chave','Key','Link']) || '').trim();
 
@@ -293,12 +339,27 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
+    
+    // Adiciona o status disponível (mesmo que sem data, pra constar no filtro)
+    if (status) availableStatuses.geral.add(status);
 
-    if (!dataTarget && !dataFinishReal) continue;
+    // Aplica o Filtro de Status
+    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+    if (!passStatus) continue;
 
-    if (!dataInicio) dataInicio = new Date(); 
+    if (!dataInicio && !dataTarget && !dataFinishReal) continue;
+    
+    if (!dataInicio) dataInicio = dataTarget || dataFinishReal || new Date();
+    if (!dataTarget && !dataFinishReal) {
+      dataTarget = new Date(dataInicio);
+      dataTarget.setDate(dataTarget.getDate() + 30);
+    }
+
     let dataFinalDoCard = dataFinishReal || dataTarget;
-    if (dataInicio > dataFinalDoCard) { dataInicio = new Date(dataFinalDoCard); dataInicio.setDate(dataInicio.getDate() - 15); }
+    if (dataInicio > dataFinalDoCard) { 
+      dataInicio = new Date(dataFinalDoCard); 
+      dataInicio.setDate(dataInicio.getDate() - 15); 
+    }
 
     let customStyle;
     if (dataTarget && dataFinalDoCard.getTime() > dataTarget.getTime()) {
@@ -327,6 +388,10 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
       </div>
     `;
 
+    // WATERFALL NO GERAL: Cada card recebe Subgroup exclusivo com Timestamp para ordem
+    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
+    const uniqueSubgroup = `geral_${timestampStr}_${i}`;
+
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
       content: `
@@ -339,6 +404,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
+      subgroup: uniqueSubgroup, 
+      sgOrder: dataInicio.getTime(), // Ordem cronológica forçada
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -357,7 +424,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const items = []; 
+  const epicItems = []; 
+  const childItems = []; 
+  
   const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
@@ -383,23 +452,30 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     if (!epicByProject.has(projetoRaw)) {
       let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-      if (epicStart) {
-        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
-        let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-        if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+      let epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+      let epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
 
-        const totalDuration = epicEnd - epicStart;
-        const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-        const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
-        let epicStyle = (epicTarget && epicTarget < epicEnd) 
-          ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
-          : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
-        
-        epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
+      if (!epicStart && !epicTarget && !epicFinish) {
+         epicStart = parseBRDate(getCell(row, ['Start date'])) || new Date();
+         epicTarget = new Date(epicStart);
+         epicTarget.setDate(epicTarget.getDate() + 30);
+      } else if (!epicStart) {
+         epicStart = epicTarget || epicFinish || new Date();
       }
+
+      let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+      if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const totalDuration = epicEnd - epicStart;
+      const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+      const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+      const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
+      let epicStyle = (epicTarget && epicTarget < epicEnd) 
+        ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
+        : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
+      
+      epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
     }
   }
 
@@ -450,7 +526,10 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    items.push({
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = 'child_' + timestampStr + '_' + i;
+
+    childItems.push({
       id: `child-${i}`,
       content: `
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
@@ -463,14 +542,18 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: `child_${i}`,
-      sgOrder: renderStart.getTime(), // ID Cronológico
+      subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+  
+  const groups = projectsToShow.sort().map(p => ({ 
+    id: p, 
+    content: extractBracketText(p)
+  }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -493,29 +576,41 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    items.push({
+    epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic', 
-      sgOrder: -1, // SOLUÇÃO EPIC ABSOLUTO -1
+      subgroup: 'epic_top', 
+      sgOrder: -1, 
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
-  return { items, groups };
+  return { items: [...epicItems, ...childItems], groups };
 }
 
 
 // ==========================================
 // 5. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
-function updateStackFilterGeral() {
-  const select = document.getElementById('stack-filter');
-  const current = select.value;
-  select.innerHTML = '<option value="all">Todos</option>';
+
+// FILTROS GERAIS ATUALIZADOS (Inclui novo filtro de Status Múltiplo)
+function updateGeralFilters() {
+  const selectStack = document.getElementById('stack-filter');
+  const currentStack = selectStack.value;
+  selectStack.innerHTML = '<option value="all">Todos</option>';
   Array.from(availableStacks.geral).sort().forEach(v => {
-    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectStack.appendChild(opt);
   });
-  if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
+  if (currentStack !== 'all' && availableStacks.geral.has(currentStack)) selectStack.value = currentStack;
+
+  const stSelect = document.getElementById('status-filter-geral');
+  if (stSelect) {
+    const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+    stSelect.innerHTML = '<option value="all">Todos</option>';
+    Array.from(availableStatuses.geral).sort().forEach(v => {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
+    });
+    rebuildMultiSelect('status-filter-geral');
+  }
 }
 
 function updateDetalhamentoFilters() {
@@ -597,9 +692,7 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // A ORDEM NATIVA MATADORA: O Vis.js agora usa a propriedade 'sgOrder' que nós criamos dentro de cada card! 
-    // O Epic é -1, os outros são numeração crescente pela data. Sem erros!
-    subgroupOrder: 'sgOrder',
+    subgroupOrder: 'sgOrder', // Ordem infalível pelo número exato gerado no Parser
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -608,9 +701,7 @@ function createTimeline(data, pageKey) {
     
     verticalScroll: true, 
     horizontalScroll: false, 
-    zoomable: true, 
-    zoomKey: 'ctrlKey', // Aciona Zoom e Scroll Nativo do Eixo do Tempo
-    zoomFriction: 8, 
+    zoomable: false, // Zoom nativo DESLIGADO, usamos nossa lupa por CSS pra tela não pular
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -621,11 +712,6 @@ function createTimeline(data, pageKey) {
     timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
-    
-    // TRAVA ANTI-PULO DO NAVEGADOR: Proíbe o Firefox/Chrome de rolar a página se o Ctrl estiver apertado em cima do gráfico!
-    container.addEventListener('wheel', function(e) {
-        if (e.ctrlKey) { e.preventDefault(); }
-    }, { passive: false });
   }
 
   if (!clickHandlerBound[pageKey]) {
@@ -677,9 +763,13 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
+  
+  const stEl = document.getElementById('status-filter-geral');
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).map(o => o.value) : ['all'];
+
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
-  updateStackFilterGeral();
+  updateGeralFilters();
   updateGroupingModeLabel();
 }
 
@@ -819,13 +909,14 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-  
-  if (npsAverage !== '-') {
-    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-    else npsTextEl.style.color = '#d9534f';
+  if (npsTextEl) {
+    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+    if (npsAverage !== '-') {
+      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+      else npsTextEl.style.color = '#d9534f';
+    }
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -834,27 +925,32 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  chartInstances.nps = new Chart(document.getElementById('npsChart'), {
-    type: 'bar',
-    data: {
-      labels: npsLabels,
-      datasets: [
-        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
-        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
-        { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
-      ]
-    },
-    options: {
-      maintainAspectRatio: false, 
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { stacked: true, title: { display: true, text: 'Nota' } },
-        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+  const npsChartEl = document.getElementById('npsChart');
+  if (npsChartEl) {
+    chartInstances.nps = new Chart(npsChartEl, {
+      type: 'bar',
+      data: {
+        labels: npsLabels,
+        datasets: [
+          { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
+          { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
+          { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false, 
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          x: { stacked: true, title: { display: true, text: 'Nota' } },
+          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+        }
       }
-    }
-  });
+    });
+  }
 
   const satContainer = document.getElementById('sat-charts-container');
+  if (!satContainer) return;
+  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -879,11 +975,10 @@ function renderGraficosAvaliacoes(rows) {
 
     const headers = Object.keys(abaRows[0]);
     
-    // RADAR DE SEGURANÇA REATIVADO: Bloqueia o sumiço das perguntas reais
     let isRow0Questions = false;
     headers.forEach(h => {
       const val = abaRows[0][h];
-      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 15) {
+      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 20) {
         isRow0Questions = true;
       }
     });
@@ -900,7 +995,7 @@ function renderGraficosAvaliacoes(rows) {
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
-      if (!fullQ || fullQ.length < 3) return;
+      if (!fullQ || fullQ.length < 5) return;
       if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
 
       let validCount = 0;
@@ -910,7 +1005,6 @@ function renderGraficosAvaliacoes(rows) {
         const rawVal = String(abaRows[i][h]).trim();
         if (!rawVal) continue;
         
-        // REGRA DE OURO QUE VOCÊ HAVIA PERDIDO: Apenas notas entre 1 e 5 (bloqueia o "_4" fantasma e a coluna de datas soltas)
         if (/^[1-5]$/.test(rawVal) || /^[1-5]\.[0-9]+$/.test(rawVal) || /^[1-5],[0-9]+$/.test(rawVal)) {
             validCount++;
         } else {
@@ -1047,7 +1141,9 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
+      
+      const btnRefresh = document.getElementById('refresh-data-avaliacoes');
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1057,7 +1153,7 @@ async function handleLoadData(pageKey) {
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
-        updateStackFilterGeral();
+        updateGeralFilters(); // Agora o Status Filter aparece no Geral
         
         changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
@@ -1066,7 +1162,8 @@ async function handleLoadData(pageKey) {
         
         changeViewMode('detalhamento');
       }
-      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
+      const btnRefresh = document.getElementById('refresh-data' + suffix);
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
@@ -1108,43 +1205,76 @@ function openModal() {
 }
 
 function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
-closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
-saveBtn.addEventListener('click', () => {
+if(closeBtn) closeBtn.addEventListener('click', closeModal); 
+if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) closeModal(); });
+if(saveBtn) saveBtn.addEventListener('click', () => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
   closeModal(); handleLoadData(currentPage);
 });
-sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-document.getElementById('show-example').addEventListener('click', (e) => {
-  e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
-  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
-});
+if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+
+const showExampleBtn = document.getElementById('show-example');
+if (showExampleBtn) {
+  showExampleBtn.addEventListener('click', (e) => {
+    e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+    document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
+  });
+}
+
+setupGlobalZoom();
 
 // Eventos Avaliações
-document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
-document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
-document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
-document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
+const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
+if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
+const mesFilterAv = document.getElementById('mes-filter-avaliacoes');
+if(mesFilterAv) mesFilterAv.addEventListener('change', applyFilterAvaliacoes); 
+const loadDataAv = document.getElementById('load-data-avaliacoes');
+if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avaliacoes'));
+const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
+if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+const stackFilterGeral = document.getElementById('stack-filter');
+if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
+
+const statusFilterGeral = document.getElementById('status-filter-geral');
+if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
+
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
+const viewModeGeral = document.getElementById('view-mode');
+if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
-document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+const stackFilterDet = document.getElementById('stack-filter-detalhes');
+if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
+const respFilterDet = document.getElementById('responsavel-filter-detalhes');
+if(respFilterDet) respFilterDet.addEventListener('change', applyFilterDetalhamento);
+const statusFilterDet = document.getElementById('status-filter-detalhes');
+if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
-document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+const viewModeDet = document.getElementById('view-mode-detalhes');
+if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
 
-document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
-document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
-document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
-document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+// Botões de Zoom do Eixo X
+document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+
+const loadDataGeral = document.getElementById('load-data');
+if(loadDataGeral) loadDataGeral.addEventListener('click', () => handleLoadData('geral'));
+const refreshDataGeral = document.getElementById('refresh-data');
+if(refreshDataGeral) refreshDataGeral.addEventListener('click', () => handleRefreshData('geral'));
+const loadDataDet = document.getElementById('load-data-detalhes');
+if(loadDataDet) loadDataDet.addEventListener('click', () => handleLoadData('detalhamento'));
+const refreshDataDet = document.getElementById('refresh-data-detalhes');
+if(refreshDataDet) refreshDataDet.addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
