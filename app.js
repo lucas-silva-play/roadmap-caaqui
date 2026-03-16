@@ -29,7 +29,7 @@ let chartInstancesSat = {};
 
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
-let availableStatuses = { geral: new Set(), detalhamento: new Set() }; // Geral agora tem Status!
+let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
 let availableResponsaveis = { detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
@@ -274,6 +274,30 @@ function getCell(row, candidates) {
   return '';
 }
 
+function updateZoomCSS(pageKey, newZoom) {
+   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+   if (timelines[pageKey]) timelines[pageKey].redraw(); 
+}
+
+// INJEÇÃO DE CSS DE EMERGÊNCIA: Garante que os Dropdowns e Filtros funcionem perfeitamente sem o CSS externo!
+if (!document.getElementById('dynamic-multi-select-styles')) {
+  const style = document.createElement('style');
+  style.id = 'dynamic-multi-select-styles';
+  style.innerHTML = `
+      .multi-select { position: relative; width: 100%; min-width: 200px; }
+      .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
+      .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
+      .multi-select.is-open .multi-select-dropdown { display: block; }
+      .multi-select-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; background: #fff; }
+      .multi-select-option:hover { background: #f9fafb; }
+      .multi-select-option input { cursor: pointer; margin: 0; }
+      .multi-select-option div { font-size: 0.9rem; color: #374151; user-select: none; }
+      .vis-item.vis-background.spacer-ghost { border: none !important; opacity: 0 !important; height: 1px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; pointer-events: none !important; }
+  `;
+  document.head.appendChild(style);
+}
+
 let zoomHandlerBound = false;
 function setupGlobalZoom() {
   if (zoomHandlerBound) return;
@@ -313,14 +337,13 @@ async function fetchCSV(url) {
 // ==========================================
 // 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-
-// GERAL: AGORA COM WATERFALL E FILTRO DE STATUS
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
   availableStacks.geral.clear();
-  availableStatuses.geral.clear(); // Limpa status p/ popular dinamicamente
+  availableStatuses.geral.clear();
 
   const statusFilters = normalizeList(filterStatus);
+  const spacerStyle = 'opacity:0; border:none; height:0px; padding:0; margin:0; pointer-events:none; background:transparent; overflow:hidden; box-shadow:none;';
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -340,10 +363,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
     
-    // Adiciona o status disponível (mesmo que sem data, pra constar no filtro)
     if (status) availableStatuses.geral.add(status);
 
-    // Aplica o Filtro de Status
     const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
     if (!passStatus) continue;
 
@@ -388,7 +409,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // WATERFALL NO GERAL: Cada card recebe Subgroup exclusivo com Timestamp para ordem
+    // SOLUÇÃO WATERFALL: Timestamp define a ordem de Subgroup
     const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
     const uniqueSubgroup = `geral_${timestampStr}_${i}`;
 
@@ -405,19 +426,34 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
       subgroup: uniqueSubgroup, 
-      sgOrder: dataInicio.getTime(), // Ordem cronológica forçada
+      sgOrder: dataInicio.getTime(), 
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
     if (groupingMode === 'geral') {
       items.push(createItemObj(`geral-${i}`, 'Geral'));
+      
+      // ESPAÇADOR FANTASMA: Impede a linha de ser dividida com outro projeto!
+      items.push({
+        id: `spacer-geral-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
+        group: 'Geral', subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime(),
+        style: spacerStyle, className: 'spacer-ghost'
+      });
       continue;
     }
 
     const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
     stacksToShow.forEach((stack, stackIdx) => {
       if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
+      
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
+      
+      // ESPAÇADOR FANTASMA: Impede a linha de ser dividida com outro projeto!
+      items.push({
+        id: `spacer-geral-${i}-${stackIdx}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
+        group: stack, subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime(),
+        style: spacerStyle, className: 'spacer-ghost'
+      });
     });
   }
   return { items, groups };
@@ -426,6 +462,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
   const epicItems = []; 
   const childItems = []; 
+  
+  const spacerStyle = 'opacity:0; border:none; height:0px; padding:0; margin:0; pointer-events:none; background:transparent; overflow:hidden; box-shadow:none;';
   
   const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
@@ -527,7 +565,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
     `;
 
     const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = 'child_' + timestampStr + '_' + i;
+    const uniqueWaterfallSubgroup = '1_child_' + timestampStr + '_' + i;
 
     childItems.push({
       id: `child-${i}`,
@@ -546,13 +584,25 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
+    
+    // ESPAÇADOR FANTASMA
+    childItems.push({
+      id: `spacer-child-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
+      group: projetoRaw, subgroup: uniqueWaterfallSubgroup, sgOrder: renderStart.getTime(),
+      style: spacerStyle, className: 'spacer-ghost'
+    });
   }
 
   const projectsToShow = Array.from(includedProjects);
   
   const groups = projectsToShow.sort().map(p => ({ 
     id: p, 
-    content: extractBracketText(p)
+    content: extractBracketText(p),
+    subgroupOrder: function (a, b) {
+      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
+      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
+      return valA.localeCompare(valB);
+    }
   }));
 
   projectsToShow.forEach(p => {
@@ -578,8 +628,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic_top', 
-      sgOrder: -1, 
+      subgroup: '0_epic', 
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -591,8 +640,6 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 // ==========================================
 // 5. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
-
-// FILTROS GERAIS ATUALIZADOS (Inclui novo filtro de Status Múltiplo)
 function updateGeralFilters() {
   const selectStack = document.getElementById('stack-filter');
   const currentStack = selectStack.value;
@@ -692,7 +739,12 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    subgroupOrder: 'sgOrder', // Ordem infalível pelo número exato gerado no Parser
+    // ORDENAÇÃO NATIVA (Usa o Timestamp ou o 0_epic para definir o Topo e o Waterfall)
+    subgroupOrder: function (a, b) {
+      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
+      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
+      return valA.localeCompare(valB);
+    },
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -701,7 +753,7 @@ function createTimeline(data, pageKey) {
     
     verticalScroll: true, 
     horizontalScroll: false, 
-    zoomable: false, // Zoom nativo DESLIGADO, usamos nossa lupa por CSS pra tela não pular
+    zoomable: false, 
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -713,6 +765,8 @@ function createTimeline(data, pageKey) {
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
+
+  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -765,7 +819,7 @@ function applyFilterGeral() {
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
   
   const stEl = document.getElementById('status-filter-geral');
-  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).map(o => o.value) : ['all'];
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).filter(o=>o.selected).map(o => o.value) : ['all'];
 
   const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
@@ -996,7 +1050,7 @@ function renderGraficosAvaliacoes(rows) {
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
       if (!fullQ || fullQ.length < 5) return;
-      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
+      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -1012,7 +1066,7 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      if (validCount > 0 && invalidCount === 0) {
+      if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
     });
@@ -1152,14 +1206,12 @@ async function handleLoadData(pageKey) {
 
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
-        createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
-        updateGeralFilters(); // Agora o Status Filter aparece no Geral
-        
+        updateGeralFilters();
+        applyFilterGeral();
         changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
-        createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
-        
+        applyFilterDetalhamento();
         changeViewMode('detalhamento');
       }
       const btnRefresh = document.getElementById('refresh-data' + suffix);
@@ -1235,7 +1287,7 @@ if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avalia
 const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
-// Eventos Roadmap Geral e Detalhamento
+// Eventos Roadmap Geral
 const stackFilterGeral = document.getElementById('stack-filter');
 if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 
@@ -1247,6 +1299,7 @@ if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGrou
 const viewModeGeral = document.getElementById('view-mode');
 if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
+// Eventos Roadmap Detalhamento
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
 const respFilterDet = document.getElementById('responsavel-filter-detalhes');
