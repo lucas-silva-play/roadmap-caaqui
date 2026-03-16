@@ -1,8 +1,8 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
-const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       
-const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; 
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
 
 let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
@@ -32,7 +32,7 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. INJEÇÃO DE CSS DE EMERGÊNCIA (Filtros Seguros)
+// 2. INJEÇÃO DE CSS (Filtros e Lupa)
 // ==========================================
 if (!document.getElementById('dynamic-multi-select-styles')) {
   const style = document.createElement('style');
@@ -42,8 +42,6 @@ if (!document.getElementById('dynamic-multi-select-styles')) {
       .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
       .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
       .multi-select.is-open .multi-select-dropdown { display: block; }
-      
-      /* REGRA BLINDADA PARA OS ITENS DO FILTRO (Evita a quebra do Checkbox) */
       .multi-select-option { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 8px !important; padding: 8px 12px !important; cursor: pointer; border-bottom: 1px solid #f3f4f6; background: #fff; }
       .multi-select-option:hover { background: #f9fafb; }
       .multi-select-option input[type="checkbox"] { margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }
@@ -54,38 +52,32 @@ if (!document.getElementById('dynamic-multi-select-styles')) {
 
 
 // ==========================================
-// 3. ZOOM VISUAL GLOBAL (Com Bloqueio de Scroll Nativo)
+// 3. ZOOM VISUAL DA LUPA E NAVEGAÇÃO
 // ==========================================
-let zoomHandlerBound = false;
-function setupGlobalZoom() {
-  if (zoomHandlerBound) return;
-  zoomHandlerBound = true;
-  
-  // Capture=true força o navegador a nos escutar primeiro.
-  document.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) {
-      e.preventDefault(); // MATA o Scroll do Windows/Mac (A tela NÃO PULA)
-      e.stopPropagation();
-
-      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
-
-      let currentZ = componentZoom[currentPage];
-      const zoomStep = 0.05; // Ajuste fino e muito suave
-      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-      
-      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
-      componentZoom[currentPage] = currentZ;
-      
-      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
-      if (timelines[currentPage]) timelines[currentPage].redraw();
-    }
-  }, { passive: false, capture: true });
+function updateZoomCSS(pageKey, newZoom) {
+   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+   if (timelines[pageKey]) timelines[pageKey].redraw(); 
 }
 
+function bindCtrlWheelZoom(container, pageKey) {
+  if (!container) return;
+  if (container.dataset.wheelBound) return; 
+  container.dataset.wheelBound = "1";
 
-// ==========================================
-// 4. NAVEGAÇÃO E UI GERAL
-// ==========================================
+  container.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return; 
+    
+    e.preventDefault(); // Impede o navegador de rolar a página!
+    e.stopPropagation(); 
+    
+    let currentZ = componentZoom[pageKey];
+    const zoomStep = 0.05; // Ajuste Suave
+    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+    updateZoomCSS(pageKey, currentZ);
+  }, { passive: false });
+}
+
 function switchPage(page) {
   currentPage = page;
   document.getElementById('page-geral').style.display = page === 'geral' ? 'block' : 'none';
@@ -96,9 +88,8 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  // RESOLUÇÃO DE TÍTULO À PROVA DE FALHAS
-  const mainTitle = document.getElementById('main-title') || document.querySelector('h1') || document.querySelector('.title');
-  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle') || document.querySelector('p');
+  const mainTitle = document.getElementById('main-title') || document.querySelector('header h1');
+  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('header p.subtitle') || document.querySelector('header p');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -178,7 +169,7 @@ function startTodayMarkerClock(pageKey) {
 
 
 // ==========================================
-// 5. UTILITÁRIOS E PARSERS DE DADOS
+// 4. UTILITÁRIOS E PARSERS
 // ==========================================
 function extractBracketText(text) {
   const m = String(text || '').trim().match(/\[(.*?)\]/);
@@ -228,7 +219,6 @@ function updateGroupingModeLabel() {
 
 function parseCSV(csvText) { return Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true }).data || []; }
 
-// Tratador de Datas Melhorado (Adeus Erro do Ano 2001)
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -295,9 +285,16 @@ async function fetchCSV(url) {
   return parseCSV(csvText);
 }
 
+// A REGRA DE ORDENAÇÃO SUPREMA (Garante Waterfall e Epic no Topo)
+const waterfallOrderFn = function (a, b) {
+  const valA = String(a && a.subgroup !== undefined ? a.subgroup : (a.id || a));
+  const valB = String(b && b.subgroup !== undefined ? b.subgroup : (b.id || b));
+  return valA.localeCompare(valB);
+};
+
 
 // ==========================================
-// 6. LÓGICAS DO ROADMAP (GERAL E DETALHES)
+// 5. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
@@ -305,7 +302,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 
   const statusFilters = normalizeList(filterStatus);
 
-  if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
+  if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral', subgroupOrder: waterfallOrderFn }); groupSet.add('Geral'); }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -369,9 +366,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL DEFINITIVA: 
-    // Subgrupo único e ORDEM matemática (sgOrder). Sem espaçadores falsos!
-    const uniqueSubgroup = `geral_${dataInicio.getTime()}_${i}`;
+    // Matemática Exata com PadStart (Garante a Ordem)
+    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
+    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -386,7 +383,6 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
       subgroup: uniqueSubgroup, 
-      sgOrder: dataInicio.getTime(), // Matemática do tempo para escadinha
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -397,7 +393,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 
     const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
     stacksToShow.forEach((stack, stackIdx) => {
-      if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
+      if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack, subgroupOrder: waterfallOrderFn }); }
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
     });
   }
@@ -507,8 +503,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Ordem exata com sgOrder
-    const uniqueWaterfallSubgroup = `1_child_${renderStart.getTime()}_${i}`;
+    // MÁGICA DO WATERFALL: A data garante que os cards mais novos fiquem embaixo dos mais velhos
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = `sg_${timestampStr}_${i}`;
 
     childItems.push({
       id: `child-${i}`,
@@ -524,13 +521,18 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
-      sgOrder: renderStart.getTime(), // Ordem cronológica garantida
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+  
+  // INJETA A ORDEM NO GRUPO TAMBÉM
+  const groups = projectsToShow.sort().map(p => ({ 
+    id: p, 
+    content: extractBracketText(p),
+    subgroupOrder: waterfallOrderFn
+  }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -555,8 +557,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', 
-      sgOrder: -1, // SOLUÇÃO EPIC NO TOPO: Prioridade Absoluta -1 
+      subgroup: 'sg_000000000000000_epic', // EPIC NO TOPO: Zero absoluto ganha sempre
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -566,7 +567,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
 
 // ==========================================
-// 7. CRIAÇÃO DOS ROADMAPS E FILTROS
+// 6. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
 function updateGeralFilters() {
   const selectStack = document.getElementById('stack-filter');
@@ -667,8 +668,8 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // A LEI DE ORDENAÇÃO E CASCATA: Vis.js obedece a propriedade sgOrder que injetamos milimetricamente
-    subgroupOrder: 'sgOrder', 
+    // ORDENAÇÃO NATIVA E DEFINITIVA
+    subgroupOrder: waterfallOrderFn,
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -676,7 +677,7 @@ function createTimeline(data, pageKey) {
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
     verticalScroll: true, horizontalScroll: false, 
-    zoomable: false, // Zoom nativo bloqueado em prol do Zoom Visual Controlado
+    zoomable: false, // Zoom Nativo DELETADO! Nossa Lupa Controlada reina.
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -688,6 +689,9 @@ function createTimeline(data, pageKey) {
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
+
+  // ATIVA A LUPA VISUAL SEGURA
+  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -763,7 +767,7 @@ function applyFilterDetalhamento() {
 
 
 // ==========================================
-// 8. DASHBOARD DE AVALIAÇÕES (Anti-Fantasmas)
+// 7. DASHBOARD DE AVALIAÇÕES (Anti-Fantasmas)
 // ==========================================
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
@@ -882,7 +886,6 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // A CORREÇÃO DO NPS: Cálculo de Média exata (0 a 10)
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
   if (npsTextEl) {
@@ -965,7 +968,7 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    // O RADAR DE SEGURANÇA: Exterminador de "Datas", "_4" e Colunas Inválidas
+    // O RADAR DE SEGURANÇA: Limpa colunas indesejadas
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
     const validCols = [];
@@ -1101,7 +1104,7 @@ function renderGraficosAvaliacoes(rows) {
 
 
 // ==========================================
-// 9. GERENCIADOR DE DADOS (FETCH/LOAD)
+// 8. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
 async function handleLoadData(pageKey) {
   const suffix = pageKey === 'geral' ? '' : '-detalhes';
@@ -1168,7 +1171,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 10. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// 9. BINDINGS GERAIS
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
