@@ -212,6 +212,7 @@ function parseCSV(csvText) {
   return result.data || [];
 }
 
+// CORREÇÃO: Mata o ano de 2001
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -274,13 +275,7 @@ function getCell(row, candidates) {
   return '';
 }
 
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
-}
-
-// INJEÇÃO DE CSS DE EMERGÊNCIA: Garante que os Dropdowns e Filtros funcionem perfeitamente sem o CSS externo!
+// INJEÇÃO DE CSS (Garante as caixas de Filtro bonitas)
 if (!document.getElementById('dynamic-multi-select-styles')) {
   const style = document.createElement('style');
   style.id = 'dynamic-multi-select-styles';
@@ -298,29 +293,28 @@ if (!document.getElementById('dynamic-multi-select-styles')) {
   document.head.appendChild(style);
 }
 
-let zoomHandlerBound = false;
-function setupGlobalZoom() {
-  if (zoomHandlerBound) return;
-  zoomHandlerBound = true;
-  
-  document.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) {
-      e.preventDefault(); 
-      e.stopPropagation();
+// CORREÇÃO: Função de Zoom restaurada e protegida contra pulos!
+function updateZoomCSS(pageKey, newZoom) {
+   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+   if (timelines[pageKey]) timelines[pageKey].redraw(); 
+}
 
-      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
+function bindCtrlWheelZoom(container, pageKey) {
+  if (!container) return;
+  if (container.dataset.wheelBound) return; 
+  container.dataset.wheelBound = "1";
 
-      let currentZ = componentZoom[currentPage];
-      const zoomStep = 0.05; 
-      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-      
-      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
-      componentZoom[currentPage] = currentZ;
-      
-      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
-      if (timelines[currentPage]) timelines[currentPage].redraw();
-    }
-  }, { passive: false, capture: true });
+  container.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return; 
+    e.preventDefault();  // Impede que a tela role
+    e.stopPropagation(); 
+    
+    let currentZ = componentZoom[pageKey];
+    const zoomStep = 0.05; 
+    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+    updateZoomCSS(pageKey, currentZ);
+  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -409,7 +403,6 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // SOLUÇÃO WATERFALL: Timestamp define a ordem de Subgroup
     const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
     const uniqueSubgroup = `geral_${timestampStr}_${i}`;
 
@@ -426,17 +419,14 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
       subgroup: uniqueSubgroup, 
-      sgOrder: dataInicio.getTime(), 
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
     if (groupingMode === 'geral') {
       items.push(createItemObj(`geral-${i}`, 'Geral'));
-      
-      // ESPAÇADOR FANTASMA: Impede a linha de ser dividida com outro projeto!
       items.push({
         id: `spacer-geral-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-        group: 'Geral', subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime(),
+        group: 'Geral', subgroup: uniqueSubgroup,
         style: spacerStyle, className: 'spacer-ghost'
       });
       continue;
@@ -445,13 +435,10 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
     stacksToShow.forEach((stack, stackIdx) => {
       if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
-      
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
-      
-      // ESPAÇADOR FANTASMA: Impede a linha de ser dividida com outro projeto!
       items.push({
         id: `spacer-geral-${i}-${stackIdx}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-        group: stack, subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime(),
+        group: stack, subgroup: uniqueSubgroup,
         style: spacerStyle, className: 'spacer-ghost'
       });
     });
@@ -564,6 +551,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
+    // A MÁGICA DO EPIC x FILHOS NA ORDENAÇÃO
     const timestampStr = renderStart.getTime().toString().padStart(15, '0');
     const uniqueWaterfallSubgroup = '1_child_' + timestampStr + '_' + i;
 
@@ -581,14 +569,12 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
-      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
     
-    // ESPAÇADOR FANTASMA
     childItems.push({
       id: `spacer-child-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-      group: projetoRaw, subgroup: uniqueWaterfallSubgroup, sgOrder: renderStart.getTime(),
+      group: projetoRaw, subgroup: uniqueWaterfallSubgroup,
       style: spacerStyle, className: 'spacer-ghost'
     });
   }
@@ -599,6 +585,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
     id: p, 
     content: extractBracketText(p),
     subgroupOrder: function (a, b) {
+      // Como o Epic é 0_epic e os Filhos são 1_child, o Epic ganha 100% das vezes e fica no topo.
       const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
       const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
       return valA.localeCompare(valB);
@@ -628,7 +615,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', 
+      subgroup: '0_epic', // 0 garante o Topo Absoluto
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -739,7 +726,7 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // ORDENAÇÃO NATIVA (Usa o Timestamp ou o 0_epic para definir o Topo e o Waterfall)
+    // LÓGICA DE ORDENAÇÃO REPLICADA PARA O GERAL
     subgroupOrder: function (a, b) {
       const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
       const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
@@ -753,7 +740,7 @@ function createTimeline(data, pageKey) {
     
     verticalScroll: true, 
     horizontalScroll: false, 
-    zoomable: false, 
+    zoomable: false, // Zoom nativo Desligado. A Lupa CSS voltou para impedir o pulo de tela.
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -766,6 +753,7 @@ function createTimeline(data, pageKey) {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
 
+  // ATIVANDO LUPA E TRAVA DE SCROLL NO NAVEGADOR
   bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
@@ -961,6 +949,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
+  // FÓRMULA DE MÉDIA EXATA DO NPS (Sem calcular porcentagem 100)
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
   if (npsTextEl) {
@@ -1043,14 +1032,16 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
+    // RADAR DE SEGURANÇA: Expurga "_4", "Data", "Carimbo" e vazios
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
     const validCols = [];
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
-      if (!fullQ || fullQ.length < 5) return;
-      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
+      if (!fullQ || fullQ.length < 5) return; // Se a pergunta for minúscula
+      if (/^_\d+$/.test(fullQ)) return; // Mata os _4, _5, _6 
+      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return; // Mata Datas e Nomes
 
       let validCount = 0;
       let invalidCount = 0;
@@ -1066,6 +1057,7 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
+      // Só aceita a coluna se ela tiver apenas notas numéricas
       if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
@@ -1206,12 +1198,14 @@ async function handleLoadData(pageKey) {
 
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
+        createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
         updateGeralFilters();
-        applyFilterGeral();
+        
         changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
+        createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
-        applyFilterDetalhamento();
+        
         changeViewMode('detalhamento');
       }
       const btnRefresh = document.getElementById('refresh-data' + suffix);
@@ -1275,8 +1269,6 @@ if (showExampleBtn) {
   });
 }
 
-setupGlobalZoom();
-
 // Eventos Avaliações
 const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
 if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
@@ -1287,7 +1279,7 @@ if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avalia
 const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
-// Eventos Roadmap Geral
+// Eventos Roadmap Geral e Detalhamento
 const stackFilterGeral = document.getElementById('stack-filter');
 if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 
@@ -1299,7 +1291,6 @@ if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGrou
 const viewModeGeral = document.getElementById('view-mode');
 if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
-// Eventos Roadmap Detalhamento
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
 const respFilterDet = document.getElementById('responsavel-filter-detalhes');
