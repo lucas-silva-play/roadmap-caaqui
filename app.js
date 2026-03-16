@@ -1,8 +1,8 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
-const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
-const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; 
 
 let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
@@ -10,16 +10,9 @@ let currentPage = 'geral';
 let timelines = { geral: null, detalhamento: null };
 let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 
-// --- VARIÁVEIS DE AVALIAÇÕES ---
 const LINKS_AVALIACOES = [
-  {
-    nome: "CRM - Ops",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
-  },
-  {
-    nome: "Growth - Ops",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" 
-  }
+  { nome: "CRM - Ops", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" },
+  { nome: "Growth - Ops", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" }
 ];
 
 let availableAbas = new Set();
@@ -27,7 +20,6 @@ let availableMeses = new Set();
 let chartInstances = { nps: null };
 let chartInstancesSat = {}; 
 
-// --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
 let availableResponsaveis = { detalhamento: new Set() };
@@ -40,7 +32,59 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. NAVEGAÇÃO E UI GERAL
+// 2. INJEÇÃO DE CSS DE EMERGÊNCIA (Filtros Seguros)
+// ==========================================
+if (!document.getElementById('dynamic-multi-select-styles')) {
+  const style = document.createElement('style');
+  style.id = 'dynamic-multi-select-styles';
+  style.innerHTML = `
+      .multi-select { position: relative; width: 100%; min-width: 200px; }
+      .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
+      .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
+      .multi-select.is-open .multi-select-dropdown { display: block; }
+      
+      /* REGRA BLINDADA PARA OS ITENS DO FILTRO (Evita a quebra do Checkbox) */
+      .multi-select-option { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 8px !important; padding: 8px 12px !important; cursor: pointer; border-bottom: 1px solid #f3f4f6; background: #fff; }
+      .multi-select-option:hover { background: #f9fafb; }
+      .multi-select-option input[type="checkbox"] { margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }
+      .multi-select-option div { font-size: 0.9rem !important; line-height: 1 !important; color: #374151 !important; margin: 0 !important; padding: 0 !important; user-select: none; }
+  `;
+  document.head.appendChild(style);
+}
+
+
+// ==========================================
+// 3. ZOOM VISUAL GLOBAL (Com Bloqueio de Scroll Nativo)
+// ==========================================
+let zoomHandlerBound = false;
+function setupGlobalZoom() {
+  if (zoomHandlerBound) return;
+  zoomHandlerBound = true;
+  
+  // Capture=true força o navegador a nos escutar primeiro.
+  document.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault(); // MATA o Scroll do Windows/Mac (A tela NÃO PULA)
+      e.stopPropagation();
+
+      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
+
+      let currentZ = componentZoom[currentPage];
+      const zoomStep = 0.05; // Ajuste fino e muito suave
+      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+      
+      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
+      componentZoom[currentPage] = currentZ;
+      
+      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
+      if (timelines[currentPage]) timelines[currentPage].redraw();
+    }
+  }, { passive: false, capture: true });
+}
+
+
+// ==========================================
+// 4. NAVEGAÇÃO E UI GERAL
 // ==========================================
 function switchPage(page) {
   currentPage = page;
@@ -52,8 +96,9 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  const mainTitle = document.getElementById('main-title') || document.querySelector('h1');
-  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle');
+  // RESOLUÇÃO DE TÍTULO À PROVA DE FALHAS
+  const mainTitle = document.getElementById('main-title') || document.querySelector('h1') || document.querySelector('.title');
+  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle') || document.querySelector('p');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -93,22 +138,17 @@ function openItemLink(url) {
   window.open(u, '_blank', 'noopener,noreferrer');
 }
 
-function formatTodayTitle(now) {
-  const d = now.toLocaleDateString('pt-BR');
-  return `Hoje (${d})`;
-}
+function formatTodayTitle(now) { return `Hoje (${now.toLocaleDateString('pt-BR')})`; }
 
 function applyTodayStylingAndTooltip(titleText, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-
   let el = container.querySelector('.vis-custom-time[data-id="' + TODAYID + '"]') || container.querySelector('.vis-custom-time[data-custom-time="' + TODAYID + '"]');
   if (!el) {
     const all = container.querySelectorAll('.vis-custom-time');
     if (all && all.length > 0) el = all[all.length - 1];
   }
   if (el) { el.classList.add('today'); el.setAttribute('title', titleText); }
-
   const marker = container.querySelector('.vis-custom-time.today .vis-custom-time-marker');
   if (marker) marker.setAttribute('title', titleText);
 }
@@ -117,7 +157,6 @@ function ensureTodayMarker(pageKey) {
   if (!timelines[pageKey]) return;
   const now = new Date();
   const titleText = formatTodayTitle(now);
-
   try {
     timelines[pageKey].getCustomTime(TODAYID);
     timelines[pageKey].setCustomTime(now, TODAYID);
@@ -128,8 +167,7 @@ function ensureTodayMarker(pageKey) {
     timelines[pageKey].setCustomTimeMarker('HOJE', TODAYID, false);
     timelines[pageKey].setCustomTimeTitle(titleText, TODAYID);
   }
-  const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
-  setTimeout(() => applyTodayStylingAndTooltip(titleText, containerId), 0);
+  setTimeout(() => applyTodayStylingAndTooltip(titleText, pageKey === 'geral' ? 'visualization' : 'visualization-detalhes'), 0);
 }
 
 function startTodayMarkerClock(pageKey) {
@@ -140,12 +178,11 @@ function startTodayMarkerClock(pageKey) {
 
 
 // ==========================================
-// 3. UTILITÁRIOS E PARSERS
+// 5. UTILITÁRIOS E PARSERS DE DADOS
 // ==========================================
 function extractBracketText(text) {
-  const s = String(text || '').trim();
-  const m = s.match(/\[(.*?)\]/);
-  return m ? m[1].trim() : s;
+  const m = String(text || '').trim().match(/\[(.*?)\]/);
+  return m ? m[1].trim() : String(text || '').trim();
 }
 
 function getCardsModeDetalhamento() {
@@ -156,15 +193,11 @@ function getCardsModeDetalhamento() {
 function updateCardsModeLabel() {
   const el = document.getElementById('cards-mode-toggle-detalhes');
   const label = document.getElementById('cards-mode-text');
-  const wrap = document.getElementById('cards-mode-toggle-wrap');
   if (!el || !label) return;
   label.textContent = el.checked ? 'Cards atualizados' : 'Cards desatualizados';
-  if (wrap) wrap.querySelector('.cards-switch')?.setAttribute('title', el.checked ? 'Alternar para cards desatualizados' : 'Alternar para cards atualizados');
 }
 
-function getSelectedValues(selectEl) {
-  return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value);
-}
+function getSelectedValues(selectEl) { return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value); }
 
 function formatSelectedLabel(selectEl) {
   const values = getSelectedValues(selectEl).filter(v => v !== 'all');
@@ -173,19 +206,9 @@ function formatSelectedLabel(selectEl) {
   return values.slice(0, 2).join(', ') + ` +${values.length - 2}`;
 }
 
-function splitPeople(text) {
-  const s = String(text || '').trim();
-  if (!s) return [];
-  return s.replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean);
-}
-
-function sameCI(a, b) {
-  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-}
-
-function normalizeList(list) {
-  return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all');
-}
+function splitPeople(text) { return String(text || '').trim().replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean); }
+function sameCI(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+function normalizeList(list) { return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all'); }
 
 function getGroupingModeGeral() {
   const el = document.getElementById('grouping-toggle-geral');
@@ -197,22 +220,15 @@ function updateGroupingModeLabel() {
   const label = document.getElementById('grouping-mode-text');
   const groupForm = document.getElementById('stack-filter-group-geral');
   if (!el || !label) return;
-
   const mode = el.checked ? 'stack' : 'geral';
   label.textContent = (mode === 'stack') ? 'Por stack' : 'Geral';
   if (groupForm) groupForm.style.display = (mode === 'stack') ? '' : 'none';
-  if (mode !== 'stack') {
-    const sel = document.getElementById('stack-filter');
-    if (sel) sel.value = 'all';
-  }
+  if (mode !== 'stack') { const sel = document.getElementById('stack-filter'); if (sel) sel.value = 'all'; }
 }
 
-function parseCSV(csvText) {
-  const result = Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true });
-  return result.data || [];
-}
+function parseCSV(csvText) { return Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true }).data || []; }
 
-// CORREÇÃO: Mata o ano de 2001
+// Tratador de Datas Melhorado (Adeus Erro do Ano 2001)
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
   if (typeof dateValue === 'number') {
@@ -225,8 +241,7 @@ function parseBRDate(dateValue) {
 
   const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (shortDate) {
-    let p1 = parseInt(shortDate[1], 10);
-    let p2 = parseInt(shortDate[2], 10);
+    let p1 = parseInt(shortDate[1], 10); let p2 = parseInt(shortDate[2], 10);
     let year = new Date().getFullYear(); 
     let m = p1, d = p2;
     if (p1 > 12) { d = p1; m = p2; }
@@ -255,66 +270,19 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
-function normalizeKeyName(name) {
-  return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '');
-}
+function normalizeKeyName(name) { return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, ''); }
 
 function getCell(row, candidates) {
   if (!row) return '';
   const keys = Object.keys(row);
   const normKeys = new Map(keys.map(k => [normalizeKeyName(k), k]));
-
   for (const c of candidates) {
     if (row[c] !== undefined) return row[c];
     const nk = normalizeKeyName(c);
     if (normKeys.has(nk)) return row[normKeys.get(nk)];
-    for (const [n, orig] of normKeys.entries()) {
-      if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig];
-    }
+    for (const [n, orig] of normKeys.entries()) { if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig]; }
   }
   return '';
-}
-
-// INJEÇÃO DE CSS (Garante as caixas de Filtro bonitas)
-if (!document.getElementById('dynamic-multi-select-styles')) {
-  const style = document.createElement('style');
-  style.id = 'dynamic-multi-select-styles';
-  style.innerHTML = `
-      .multi-select { position: relative; width: 100%; min-width: 200px; }
-      .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
-      .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
-      .multi-select.is-open .multi-select-dropdown { display: block; }
-      .multi-select-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; background: #fff; }
-      .multi-select-option:hover { background: #f9fafb; }
-      .multi-select-option input { cursor: pointer; margin: 0; }
-      .multi-select-option div { font-size: 0.9rem; color: #374151; user-select: none; }
-      .vis-item.vis-background.spacer-ghost { border: none !important; opacity: 0 !important; height: 1px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; pointer-events: none !important; }
-  `;
-  document.head.appendChild(style);
-}
-
-// CORREÇÃO: Função de Zoom restaurada e protegida contra pulos!
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
-}
-
-function bindCtrlWheelZoom(container, pageKey) {
-  if (!container) return;
-  if (container.dataset.wheelBound) return; 
-  container.dataset.wheelBound = "1";
-
-  container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return; 
-    e.preventDefault();  // Impede que a tela role
-    e.stopPropagation(); 
-    
-    let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.05; 
-    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-    updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -329,15 +297,13 @@ async function fetchCSV(url) {
 
 
 // ==========================================
-// 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
+// 6. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
-  availableStacks.geral.clear();
-  availableStatuses.geral.clear();
+  availableStacks.geral.clear(); availableStatuses.geral.clear();
 
   const statusFilters = normalizeList(filterStatus);
-  const spacerStyle = 'opacity:0; border:none; height:0px; padding:0; margin:0; pointer-events:none; background:transparent; overflow:hidden; box-shadow:none;';
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -403,8 +369,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
-    const uniqueSubgroup = `geral_${timestampStr}_${i}`;
+    // SOLUÇÃO WATERFALL DEFINITIVA: 
+    // Subgrupo único e ORDEM matemática (sgOrder). Sem espaçadores falsos!
+    const uniqueSubgroup = `geral_${dataInicio.getTime()}_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -419,16 +386,12 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
       subgroup: uniqueSubgroup, 
+      sgOrder: dataInicio.getTime(), // Matemática do tempo para escadinha
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
     if (groupingMode === 'geral') {
       items.push(createItemObj(`geral-${i}`, 'Geral'));
-      items.push({
-        id: `spacer-geral-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-        group: 'Geral', subgroup: uniqueSubgroup,
-        style: spacerStyle, className: 'spacer-ghost'
-      });
       continue;
     }
 
@@ -436,11 +399,6 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     stacksToShow.forEach((stack, stackIdx) => {
       if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
-      items.push({
-        id: `spacer-geral-${i}-${stackIdx}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-        group: stack, subgroup: uniqueSubgroup,
-        style: spacerStyle, className: 'spacer-ghost'
-      });
     });
   }
   return { items, groups };
@@ -449,8 +407,6 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
   const epicItems = []; 
   const childItems = []; 
-  
-  const spacerStyle = 'opacity:0; border:none; height:0px; padding:0; margin:0; pointer-events:none; background:transparent; overflow:hidden; box-shadow:none;';
   
   const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
@@ -551,9 +507,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // A MÁGICA DO EPIC x FILHOS NA ORDENAÇÃO
-    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = '1_child_' + timestampStr + '_' + i;
+    // SOLUÇÃO WATERFALL: Ordem exata com sgOrder
+    const uniqueWaterfallSubgroup = `1_child_${renderStart.getTime()}_${i}`;
 
     childItems.push({
       id: `child-${i}`,
@@ -569,28 +524,13 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), // Ordem cronológica garantida
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
-    });
-    
-    childItems.push({
-      id: `spacer-child-${i}`, content: '', start: new Date(2023, 0, 1), end: new Date(2028, 0, 1),
-      group: projetoRaw, subgroup: uniqueWaterfallSubgroup,
-      style: spacerStyle, className: 'spacer-ghost'
     });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  
-  const groups = projectsToShow.sort().map(p => ({ 
-    id: p, 
-    content: extractBracketText(p),
-    subgroupOrder: function (a, b) {
-      // Como o Epic é 0_epic e os Filhos são 1_child, o Epic ganha 100% das vezes e fica no topo.
-      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
-      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
-      return valA.localeCompare(valB);
-    }
-  }));
+  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -615,7 +555,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     epicItems.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', // 0 garante o Topo Absoluto
+      subgroup: '0_epic', 
+      sgOrder: -1, // SOLUÇÃO EPIC NO TOPO: Prioridade Absoluta -1 
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -625,7 +566,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
 
 // ==========================================
-// 5. CRIAÇÃO DOS ROADMAPS E FILTROS
+// 7. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
 function updateGeralFilters() {
   const selectStack = document.getElementById('stack-filter');
@@ -726,21 +667,16 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // LÓGICA DE ORDENAÇÃO REPLICADA PARA O GERAL
-    subgroupOrder: function (a, b) {
-      const valA = String(a && a.subgroup ? a.subgroup : (a.id || a));
-      const valB = String(b && b.subgroup ? b.subgroup : (b.id || b));
-      return valA.localeCompare(valB);
-    },
+    // A LEI DE ORDENAÇÃO E CASCATA: Vis.js obedece a propriedade sgOrder que injetamos milimetricamente
+    subgroupOrder: 'sgOrder', 
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     
-    verticalScroll: true, 
-    horizontalScroll: false, 
-    zoomable: false, // Zoom nativo Desligado. A Lupa CSS voltou para impedir o pulo de tela.
+    verticalScroll: true, horizontalScroll: false, 
+    zoomable: false, // Zoom nativo bloqueado em prol do Zoom Visual Controlado
     
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
@@ -752,9 +688,6 @@ function createTimeline(data, pageKey) {
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
-
-  // ATIVANDO LUPA E TRAVA DE SCROLL NO NAVEGADOR
-  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -830,7 +763,7 @@ function applyFilterDetalhamento() {
 
 
 // ==========================================
-// 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
+// 8. DASHBOARD DE AVALIAÇÕES (Anti-Fantasmas)
 // ==========================================
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
@@ -949,7 +882,7 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // FÓRMULA DE MÉDIA EXATA DO NPS (Sem calcular porcentagem 100)
+  // A CORREÇÃO DO NPS: Cálculo de Média exata (0 a 10)
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
   if (npsTextEl) {
@@ -1032,16 +965,16 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    // RADAR DE SEGURANÇA: Expurga "_4", "Data", "Carimbo" e vazios
+    // O RADAR DE SEGURANÇA: Exterminador de "Datas", "_4" e Colunas Inválidas
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
     const validCols = [];
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
-      if (!fullQ || fullQ.length < 5) return; // Se a pergunta for minúscula
-      if (/^_\d+$/.test(fullQ)) return; // Mata os _4, _5, _6 
-      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return; // Mata Datas e Nomes
+      if (!fullQ || fullQ.length < 5) return; 
+      if (/^_\d+$/.test(fullQ)) return; 
+      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -1057,7 +990,6 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      // Só aceita a coluna se ela tiver apenas notas numéricas
       if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
@@ -1169,7 +1101,7 @@ function renderGraficosAvaliacoes(rows) {
 
 
 // ==========================================
-// 7. GERENCIADOR DE DADOS (FETCH/LOAD)
+// 9. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
 async function handleLoadData(pageKey) {
   const suffix = pageKey === 'geral' ? '' : '-detalhes';
@@ -1236,7 +1168,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// 10. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1269,6 +1201,8 @@ if (showExampleBtn) {
   });
 }
 
+setupGlobalZoom();
+
 // Eventos Avaliações
 const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
 if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
@@ -1279,7 +1213,7 @@ if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avalia
 const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
-// Eventos Roadmap Geral e Detalhamento
+// Eventos Roadmap Geral
 const stackFilterGeral = document.getElementById('stack-filter');
 if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 
@@ -1291,6 +1225,7 @@ if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGrou
 const viewModeGeral = document.getElementById('view-mode');
 if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
+// Eventos Roadmap Detalhamento
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
 const respFilterDet = document.getElementById('responsavel-filter-detalhes');
