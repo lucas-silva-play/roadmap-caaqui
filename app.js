@@ -30,7 +30,8 @@ let chartInstancesSat = {};
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableResponsaveis = { detalhamento: new Set() };
-let availableStatuses = { detalhamento: new Set() };
+// CORREÇÃO 1: Adicionado Set para o filtro de Status do Geral
+let availableStatuses = { geral: new Set(), detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -306,9 +307,12 @@ async function fetchCSV(url) {
 // ==========================================
 // 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
   availableStacks.geral.clear();
+  availableStatuses.geral.clear();
+  
+  const statusFilters = normalizeList(filterStatus);
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -327,6 +331,13 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
+    
+    // Alimenta o filtro de status do Geral
+    if (status) availableStatuses.geral.add(status);
+
+    // Aplica o filtro de status no Geral
+    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+    if (!passStatus) continue;
 
     if (!dataTarget && !dataFinishReal) continue;
 
@@ -361,7 +372,10 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
       </div>
     `;
 
-    // AQUI: Força Waterfall garantindo linha única e leitura cronológica no Geral
+    // CORREÇÃO 2: Cria Subgrupo único para forçar a cascata no Geral!
+    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
+    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
+
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
       content: `
@@ -374,8 +388,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: idPrefix, // Subgrupo Exclusivo = Linha Exclusiva
-      sgOrder: dataInicio.getTime(), // Matemática de Ordem para empilhar do mais antigo pro mais novo
+      subgroup: uniqueSubgroup, // Impede Vissimo na mesma linha
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -486,6 +499,10 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
+    // CORREÇÃO 3: Filhos ganham ID com "1_" para ficarem ABAIXO do Epic
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = `1_child_${timestampStr}_${i}`;
+
     items.push({
       id: `child-${i}`,
       content: `
@@ -499,8 +516,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: `child_${i}`, // AQUI: Cada filho tem sua própria linha (Waterfall)
-      sgOrder: renderStart.getTime(), // AQUI: A ordem cronológica deles
+      subgroup: uniqueWaterfallSubgroup, 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -531,9 +547,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic', 
-      sgOrder: -1, // AQUI: O valor -1 força o Epic a vencer todos os Timestamps e ficar no Topo absoluto
-      order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
+      subgroup: `0_epic_${p}`, // CORREÇÃO 4: Epic com '0_' para travar no TOPO absoluto
+      className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
@@ -544,6 +559,27 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 // ==========================================
 // 5. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
+// Microfunção para envelopar o dropdown do HTML (Garante Layout)
+function ensureMultiSelectWrapper(selectId) {
+  const selectEl = document.getElementById(selectId);
+  if (!selectEl || selectEl.style.display === 'none') return; 
+  
+  const wrapper = document.createElement('div');
+  wrapper.className = 'multi-select';
+  wrapper.setAttribute('data-select', selectId);
+  
+  wrapper.innerHTML = `
+      <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="multi-select-value">Todos</span>
+          <span class="multi-select-arrow">▾</span>
+      </button>
+      <div class="multi-select-dropdown" role="listbox"></div>
+  `;
+  
+  selectEl.parentNode.insertBefore(wrapper, selectEl);
+  selectEl.style.display = 'none';
+}
+
 function updateStackFilterGeral() {
   const select = document.getElementById('stack-filter');
   const current = select.value;
@@ -552,6 +588,18 @@ function updateStackFilterGeral() {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
   });
   if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
+
+  // CORREÇÃO 5: Status Filter Wrapper garantido
+  const stSelect = document.getElementById('status-filter-geral');
+  if (stSelect) {
+    ensureMultiSelectWrapper('status-filter-geral');
+    const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+    stSelect.innerHTML = '<option value="all">Todos</option>';
+    Array.from(availableStatuses.geral).sort().forEach(v => {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
+    });
+    rebuildMultiSelect('status-filter-geral');
+  }
 }
 
 function updateDetalhamentoFilters() {
@@ -633,8 +681,12 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // AQUI: A ordem mestre nativa da biblioteca (Vis.js lê o campo sgOrder de cada card e aplica a ordem hierárquica sem bugar)
-    subgroupOrder: 'sgOrder',
+    // CORREÇÃO 6: Ordem Alfabética Nativa Inquebrável (Lê o '0_epic' e '1_child')
+    subgroupOrder: function (a, b) {
+      const valA = String(a && a.subgroup !== undefined ? a.subgroup : (a.id || a));
+      const valB = String(b && b.subgroup !== undefined ? b.subgroup : (b.id || b));
+      return valA.localeCompare(valB);
+    },
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -645,9 +697,9 @@ function createTimeline(data, pageKey) {
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options); // Importante: força a atualização das options
-    timelines[pageKey].setItems(data.items);
+    timelines[pageKey].setOptions(options);
     timelines[pageKey].setGroups(data.groups);
+    timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
@@ -689,7 +741,11 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
+  
+  const stEl = document.getElementById('status-filter-geral');
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).map(o => o.value) : ['all'];
+
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
   updateStackFilterGeral();
   updateGroupingModeLabel();
@@ -794,13 +850,11 @@ function renderGraficosAvaliacoes(rows) {
   let totalRespondentes = 0;
   rows.forEach(row => {
     let isRealResponse = false;
-    
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
     }
-    
     if (!isRealResponse) {
       Object.values(row).forEach(val => {
         const s = String(val).trim();
@@ -809,18 +863,14 @@ function renderGraficosAvaliacoes(rows) {
         }
       });
     }
-    
     if (isRealResponse) totalRespondentes++;
   });
 
   const textoRespondentes = `${totalRespondentes} respondente${totalRespondentes !== 1 ? 's' : ''}`;
-  
   const npsBadge = document.getElementById('nps-respondentes-badge');
   if (npsBadge) npsBadge.textContent = textoRespondentes;
-  
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
-
 
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
@@ -837,14 +887,13 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  if (npsTextEl) {
-    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-    if (npsAverage !== '-') {
-      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-      else npsTextEl.style.color = '#d9534f';
-    }
+  if (npsTextEl) npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+  
+  if (npsAverage !== '-' && npsTextEl) {
+    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+    else npsTextEl.style.color = '#d9534f';
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -853,9 +902,9 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  const npsChartEl = document.getElementById('npsChart');
-  if (npsChartEl) {
-    chartInstances.nps = new Chart(npsChartEl, {
+  const npsEl = document.getElementById('npsChart');
+  if (npsEl) {
+    chartInstances.nps = new Chart(npsEl, {
       type: 'bar',
       data: {
         labels: npsLabels,
@@ -878,7 +927,6 @@ function renderGraficosAvaliacoes(rows) {
 
   const satContainer = document.getElementById('sat-charts-container');
   if (!satContainer) return;
-  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -924,7 +972,7 @@ function renderGraficosAvaliacoes(rows) {
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
       if (!fullQ || fullQ.length < 5) return;
-      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
+      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -940,7 +988,7 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      if (validCount > 0 && validCount >= invalidCount) {
+      if (validCount > 0 && invalidCount === 0) {
           validCols.push(h);
       }
     });
@@ -1069,9 +1117,8 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      
-      const btnRefresh = document.getElementById('refresh-data-avaliacoes');
-      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
+      const btn = document.getElementById('refresh-data-avaliacoes');
+      if (btn) btn.style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1086,8 +1133,8 @@ async function handleLoadData(pageKey) {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
       }
-      const btnRefresh = document.getElementById('refresh-data' + suffix);
-      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
+      const btn = document.getElementById('refresh-data' + suffix);
+      if (btn) btn.style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
@@ -1140,12 +1187,10 @@ if(saveBtn) saveBtn.addEventListener('click', () => {
 if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
 
 const showExampleBtn = document.getElementById('show-example');
-if (showExampleBtn) {
-  showExampleBtn.addEventListener('click', (e) => {
-    e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
-    document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
-  });
-}
+if(showExampleBtn) showExampleBtn.addEventListener('click', (e) => {
+  e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
+});
 
 // Eventos Avaliações
 const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
@@ -1158,12 +1203,15 @@ const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-const stackFilterGeral = document.getElementById('stack-filter');
-if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
+const stackFilter = document.getElementById('stack-filter');
+if(stackFilter) stackFilter.addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-const viewModeGeral = document.getElementById('view-mode');
-if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
+const viewMode = document.getElementById('view-mode');
+if(viewMode) viewMode.addEventListener('change', () => changeViewMode('geral'));
+
+const statusFilterGeral = document.getElementById('status-filter-geral');
+if(statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
 
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
@@ -1173,17 +1221,24 @@ const statusFilterDet = document.getElementById('status-filter-detalhes');
 if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
-if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
+if(cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
 const viewModeDet = document.getElementById('view-mode-detalhes');
 if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
 
 // Botões de Zoom do Eixo X
-document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
-document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+const zoomInBtn = document.getElementById('zoom-in');
+if(zoomInBtn) zoomInBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomOutBtn = document.getElementById('zoom-out');
+if(zoomOutBtn) zoomOutBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomFitBtn = document.getElementById('zoom-fit');
+if(zoomFitBtn) zoomFitBtn.addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+
+const zoomInDetBtn = document.getElementById('zoom-in-detalhes');
+if(zoomInDetBtn) zoomInDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomOutDetBtn = document.getElementById('zoom-out-detalhes');
+if(zoomOutDetBtn) zoomOutDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomFitDetBtn = document.getElementById('zoom-fit-detalhes');
+if(zoomFitDetBtn) zoomFitDetBtn.addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
 const loadDataGeral = document.getElementById('load-data');
 if(loadDataGeral) loadDataGeral.addEventListener('click', () => handleLoadData('geral'));
