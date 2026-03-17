@@ -279,21 +279,17 @@ function updateZoomCSS(pageKey, newZoom) {
    if (timelines[pageKey]) timelines[pageKey].redraw(); 
 }
 
-// CORREÇÃO: Adicionado 'capture: true' para interceptar o scroll antes do Vis.js e impedir a tela de pular
 function bindCtrlWheelZoom(container, pageKey) {
   if (!container) return;
-  if (container.dataset.wheelBound) return;
-  container.dataset.wheelBound = '1';
-
   container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return; 
+    if (!e.ctrlKey) return; 
     e.preventDefault(); 
     e.stopPropagation(); 
     let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.05; // Ajuste para zoom super macio
+    const zoomStep = 0.1;
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
-  }, { passive: false, capture: true });
+  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -365,10 +361,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
       </div>
     `;
 
-    // CORREÇÃO: Waterfall no Geral. Vis.js ordena Subgrupos alfabeticamente. A data entra como texto pra garantir a escadinha correta!
-    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
-    const uniqueSubgroup = `card_${timestampStr}_${i}`;
-
+    // AQUI: Força Waterfall garantindo linha única e leitura cronológica no Geral
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
       content: `
@@ -381,7 +374,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: uniqueSubgroup, // Impõe a linha única por card
+      subgroup: idPrefix, // Subgrupo Exclusivo = Linha Exclusiva
+      sgOrder: dataInicio.getTime(), // Matemática de Ordem para empilhar do mais antigo pro mais novo
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -492,10 +486,6 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // CORREÇÃO: Usar string alfabeticamente posterior para os filhos ficarem SEMPRE DEPOIS do Epic
-    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = `b_child_${timestampStr}_${i}`;
-
     items.push({
       id: `child-${i}`,
       content: `
@@ -509,7 +499,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: uniqueWaterfallSubgroup, // Filhos começam com "b_child"
+      subgroup: `child_${i}`, // AQUI: Cada filho tem sua própria linha (Waterfall)
+      sgOrder: renderStart.getTime(), // AQUI: A ordem cronológica deles
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -540,7 +531,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'a_epic', // CORREÇÃO: A letra 'a' garante que ele leia alfabeticamente ANTES do 'b_child' (Epic SEMPRE no topo)
+      subgroup: 'epic', 
+      sgOrder: -1, // AQUI: O valor -1 força o Epic a vencer todos os Timestamps e ficar no Topo absoluto
       order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -640,17 +632,20 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
+    
+    // AQUI: A ordem mestre nativa da biblioteca (Vis.js lê o campo sgOrder de cada card e aplica a ordem hierárquica sem bugar)
+    subgroupOrder: 'sgOrder',
+    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
-    verticalScroll: true, horizontalScroll: false, zoomable: false, // Zoomable falso no componente nativo
+    verticalScroll: true, horizontalScroll: false, zoomable: false,
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
-  // Sem subgroupOrder nas opções! A biblioteca ordena alfabeticamente pelos Subgrupos que nós padronizamos!
-  
   if (timelines[pageKey]) {
+    timelines[pageKey].setOptions(options); // Importante: força a atualização das options
     timelines[pageKey].setItems(data.items);
     timelines[pageKey].setGroups(data.groups);
   } else {
@@ -842,13 +837,14 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-  
-  if (npsAverage !== '-') {
-    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-    else npsTextEl.style.color = '#d9534f';
+  if (npsTextEl) {
+    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+    if (npsAverage !== '-') {
+      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+      else npsTextEl.style.color = '#d9534f';
+    }
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -857,27 +853,32 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  chartInstances.nps = new Chart(document.getElementById('npsChart'), {
-    type: 'bar',
-    data: {
-      labels: npsLabels,
-      datasets: [
-        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
-        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
-        { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
-      ]
-    },
-    options: {
-      maintainAspectRatio: false, 
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { stacked: true, title: { display: true, text: 'Nota' } },
-        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+  const npsChartEl = document.getElementById('npsChart');
+  if (npsChartEl) {
+    chartInstances.nps = new Chart(npsChartEl, {
+      type: 'bar',
+      data: {
+        labels: npsLabels,
+        datasets: [
+          { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
+          { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
+          { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false, 
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          x: { stacked: true, title: { display: true, text: 'Nota' } },
+          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+        }
       }
-    }
-  });
+    });
+  }
 
   const satContainer = document.getElementById('sat-charts-container');
+  if (!satContainer) return;
+  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -923,7 +924,7 @@ function renderGraficosAvaliacoes(rows) {
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
       if (!fullQ || fullQ.length < 5) return;
-      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
+      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -939,7 +940,7 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      if (validCount > 0 && invalidCount === 0) {
+      if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
     });
@@ -1068,7 +1069,9 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
+      
+      const btnRefresh = document.getElementById('refresh-data-avaliacoes');
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1083,7 +1086,8 @@ async function handleLoadData(pageKey) {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
       }
-      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
+      const btnRefresh = document.getElementById('refresh-data' + suffix);
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
@@ -1125,38 +1129,53 @@ function openModal() {
 }
 
 function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
-closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
-saveBtn.addEventListener('click', () => {
+if(closeBtn) closeBtn.addEventListener('click', closeModal); 
+if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) closeModal(); });
+if(saveBtn) saveBtn.addEventListener('click', () => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
   closeModal(); handleLoadData(currentPage);
 });
-sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-document.getElementById('show-example').addEventListener('click', (e) => {
-  e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
-  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
-});
+if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+
+const showExampleBtn = document.getElementById('show-example');
+if (showExampleBtn) {
+  showExampleBtn.addEventListener('click', (e) => {
+    e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+    document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
+  });
+}
 
 // Eventos Avaliações
-document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
-document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
-document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
-document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
+const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
+if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
+const mesFilterAv = document.getElementById('mes-filter-avaliacoes');
+if(mesFilterAv) mesFilterAv.addEventListener('change', applyFilterAvaliacoes); 
+const loadDataAv = document.getElementById('load-data-avaliacoes');
+if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avaliacoes'));
+const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
+if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+const stackFilterGeral = document.getElementById('stack-filter');
+if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
+const viewModeGeral = document.getElementById('view-mode');
+if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
-document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+const stackFilterDet = document.getElementById('stack-filter-detalhes');
+if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
+const respFilterDet = document.getElementById('responsavel-filter-detalhes');
+if(respFilterDet) respFilterDet.addEventListener('change', applyFilterDetalhamento);
+const statusFilterDet = document.getElementById('status-filter-detalhes');
+if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
-document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+const viewModeDet = document.getElementById('view-mode-detalhes');
+if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
 
 // Botões de Zoom do Eixo X
 document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
@@ -1166,10 +1185,14 @@ document.getElementById('zoom-in-detalhes').addEventListener('click', () => { co
 document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
 document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
-document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
-document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
-document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
-document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+const loadDataGeral = document.getElementById('load-data');
+if(loadDataGeral) loadDataGeral.addEventListener('click', () => handleLoadData('geral'));
+const refreshDataGeral = document.getElementById('refresh-data');
+if(refreshDataGeral) refreshDataGeral.addEventListener('click', () => handleRefreshData('geral'));
+const loadDataDet = document.getElementById('load-data-detalhes');
+if(loadDataDet) loadDataDet.addEventListener('click', () => handleLoadData('detalhamento'));
+const refreshDataDet = document.getElementById('refresh-data-detalhes');
+if(refreshDataDet) refreshDataDet.addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
