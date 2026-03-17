@@ -30,8 +30,8 @@ let chartInstancesSat = {};
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableResponsaveis = { detalhamento: new Set() };
-// CORREÇÃO 1: Adicionado Set para o filtro de Status do Geral
-let availableStatuses = { geral: new Set(), detalhamento: new Set() };
+// Ajustado: Geral também controla seus status para o novo filtro
+let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -309,9 +309,8 @@ async function fetchCSV(url) {
 // ==========================================
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
-  availableStacks.geral.clear();
-  availableStatuses.geral.clear();
-  
+  availableStacks.geral.clear(); availableStatuses.geral.clear();
+
   const statusFilters = normalizeList(filterStatus);
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
@@ -331,11 +330,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
-    
-    // Alimenta o filtro de status do Geral
+
     if (status) availableStatuses.geral.add(status);
 
-    // Aplica o filtro de status no Geral
     const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
     if (!passStatus) continue;
 
@@ -372,7 +369,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // CORREÇÃO 2: Cria Subgrupo único para forçar a cascata no Geral!
+    // SOLUÇÃO: Cada card no geral ganha um subgrupo único com o timestamp, obrigando o Vis.js a fazer a escadinha (waterfall)
     const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
     const uniqueSubgroup = `sg_${timestampStr}_${i}`;
 
@@ -388,7 +385,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: uniqueSubgroup, // Impede Vissimo na mesma linha
+      subgroup: uniqueSubgroup, 
+      sgOrder: dataInicio.getTime(), // Ordem lida pela Timeline
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -407,7 +405,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const items = []; const allProjects = new Set();
+  const items = []; 
+  const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
 
@@ -499,9 +498,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // CORREÇÃO 3: Filhos ganham ID com "1_" para ficarem ABAIXO do Epic
+    // SOLUÇÃO: Filhos ganham ID de subgroup e descem em escada
     const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = `1_child_${timestampStr}_${i}`;
+    const uniqueWaterfallSubgroup = `child_${timestampStr}_${i}`;
 
     items.push({
       id: `child-${i}`,
@@ -517,6 +516,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
       subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -547,7 +547,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: `0_epic_${p}`, // CORREÇÃO 4: Epic com '0_' para travar no TOPO absoluto
+      subgroup: `epic_${p}`, 
+      sgOrder: -1, // SOLUÇÃO: O número -1 é sempre o menor. Epic travado no TOPO.
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -559,27 +560,6 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 // ==========================================
 // 5. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
-// Microfunção para envelopar o dropdown do HTML (Garante Layout)
-function ensureMultiSelectWrapper(selectId) {
-  const selectEl = document.getElementById(selectId);
-  if (!selectEl || selectEl.style.display === 'none') return; 
-  
-  const wrapper = document.createElement('div');
-  wrapper.className = 'multi-select';
-  wrapper.setAttribute('data-select', selectId);
-  
-  wrapper.innerHTML = `
-      <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-          <span class="multi-select-value">Todos</span>
-          <span class="multi-select-arrow">▾</span>
-      </button>
-      <div class="multi-select-dropdown" role="listbox"></div>
-  `;
-  
-  selectEl.parentNode.insertBefore(wrapper, selectEl);
-  selectEl.style.display = 'none';
-}
-
 function updateStackFilterGeral() {
   const select = document.getElementById('stack-filter');
   const current = select.value;
@@ -588,18 +568,6 @@ function updateStackFilterGeral() {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
   });
   if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
-
-  // CORREÇÃO 5: Status Filter Wrapper garantido
-  const stSelect = document.getElementById('status-filter-geral');
-  if (stSelect) {
-    ensureMultiSelectWrapper('status-filter-geral');
-    const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
-    stSelect.innerHTML = '<option value="all">Todos</option>';
-    Array.from(availableStatuses.geral).sort().forEach(v => {
-      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
-    });
-    rebuildMultiSelect('status-filter-geral');
-  }
 }
 
 function updateDetalhamentoFilters() {
@@ -681,12 +649,8 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // CORREÇÃO 6: Ordem Alfabética Nativa Inquebrável (Lê o '0_epic' e '1_child')
-    subgroupOrder: function (a, b) {
-      const valA = String(a && a.subgroup !== undefined ? a.subgroup : (a.id || a));
-      const valB = String(b && b.subgroup !== undefined ? b.subgroup : (b.id || b));
-      return valA.localeCompare(valB);
-    },
+    // SOLUÇÃO DE ORDENAÇÃO NATIVA DA TIMELINE:
+    subgroupOrder: 'sgOrder', 
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
@@ -697,7 +661,7 @@ function createTimeline(data, pageKey) {
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options);
+    timelines[pageKey].setOptions(options); 
     timelines[pageKey].setGroups(data.groups);
     timelines[pageKey].setItems(data.items);
   } else {
@@ -743,11 +707,23 @@ function applyFilterGeral() {
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
   
   const stEl = document.getElementById('status-filter-geral');
-  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).map(o => o.value) : ['all'];
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).filter(o=>o.selected).map(o => o.value) : ['all'];
 
   const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
+  
   updateStackFilterGeral();
+  
+  // SOLUÇÃO: Recria o status filter de forma natural pro seu HTML pré-existente
+  if (stEl) {
+    const currentSt = new Set(Array.from(stEl.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+    stEl.innerHTML = '<option value="all">Todos</option>';
+    Array.from(availableStatuses.geral).sort().forEach(v => {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stEl.appendChild(opt);
+    });
+    rebuildMultiSelect('status-filter-geral');
+  }
+
   updateGroupingModeLabel();
 }
 
@@ -768,6 +744,7 @@ function applyFilterDetalhamento() {
 // ==========================================
 // 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
 // ==========================================
+/* TODO O RESTANTE DA PÁGINA (GRÁFICOS E MODAIS) MANTIDO INTACTO DO SEU CÓDIGO BASE! */
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
   if (!d) return null;
@@ -887,13 +864,14 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  if (npsTextEl) npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-  
-  if (npsAverage !== '-' && npsTextEl) {
-    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-    else npsTextEl.style.color = '#d9534f';
+  if (npsTextEl) {
+    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+    if (npsAverage !== '-') {
+      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+      else npsTextEl.style.color = '#d9534f';
+    }
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -902,9 +880,9 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  const npsEl = document.getElementById('npsChart');
-  if (npsEl) {
-    chartInstances.nps = new Chart(npsEl, {
+  const npsChartEl = document.getElementById('npsChart');
+  if (npsChartEl) {
+    chartInstances.nps = new Chart(npsChartEl, {
       type: 'bar',
       data: {
         labels: npsLabels,
@@ -1097,7 +1075,6 @@ function renderGraficosAvaliacoes(rows) {
   }
 }
 
-
 // ==========================================
 // 7. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
@@ -1128,14 +1105,28 @@ async function handleLoadData(pageKey) {
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
+        
+        // Mantém filtro no estilo da sua base
         updateStackFilterGeral();
+        const stEl = document.getElementById('status-filter-geral');
+        if (stEl) {
+          stEl.innerHTML = '<option value="all">Todos</option>';
+          Array.from(availableStatuses.geral).sort().forEach(v => {
+            const opt = document.createElement('option'); opt.value = v; opt.textContent = v; stEl.appendChild(opt);
+          });
+          rebuildMultiSelect('status-filter-geral');
+        }
+
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
       }
-      const btn = document.getElementById('refresh-data' + suffix);
-      if (btn) btn.style.display = 'inline-flex';
+      
+      const btnRefresh = document.getElementById('refresh-data' + suffix);
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
+      
+      changeViewMode(pageKey);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
     setTimeout(() => clearStatus(pageKey), 2500);
@@ -1161,7 +1152,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// 8. MODAL E BINDINGS
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1203,15 +1194,16 @@ const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
 if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-const stackFilter = document.getElementById('stack-filter');
-if(stackFilter) stackFilter.addEventListener('change', applyFilterGeral);
-const groupingToggle = document.getElementById('grouping-toggle-geral');
-if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-const viewMode = document.getElementById('view-mode');
-if(viewMode) viewMode.addEventListener('change', () => changeViewMode('geral'));
+const stackFilterGeral = document.getElementById('stack-filter');
+if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 
 const statusFilterGeral = document.getElementById('status-filter-geral');
-if(statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
+if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
+
+const groupingToggle = document.getElementById('grouping-toggle-geral');
+if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
+const viewModeGeral = document.getElementById('view-mode');
+if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
 const stackFilterDet = document.getElementById('stack-filter-detalhes');
 if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
@@ -1240,14 +1232,14 @@ if(zoomOutDetBtn) zoomOutDetBtn.addEventListener('click', () => { const tl = tim
 const zoomFitDetBtn = document.getElementById('zoom-fit-detalhes');
 if(zoomFitDetBtn) zoomFitDetBtn.addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
-const loadDataGeral = document.getElementById('load-data');
-if(loadDataGeral) loadDataGeral.addEventListener('click', () => handleLoadData('geral'));
-const refreshDataGeral = document.getElementById('refresh-data');
-if(refreshDataGeral) refreshDataGeral.addEventListener('click', () => handleRefreshData('geral'));
-const loadDataDet = document.getElementById('load-data-detalhes');
-if(loadDataDet) loadDataDet.addEventListener('click', () => handleLoadData('detalhamento'));
-const refreshDataDet = document.getElementById('refresh-data-detalhes');
-if(refreshDataDet) refreshDataDet.addEventListener('click', () => handleRefreshData('detalhamento'));
+const loadDataGeralBtn = document.getElementById('load-data');
+if(loadDataGeralBtn) loadDataGeralBtn.addEventListener('click', () => handleLoadData('geral'));
+const refreshDataGeralBtn = document.getElementById('refresh-data');
+if(refreshDataGeralBtn) refreshDataGeralBtn.addEventListener('click', () => handleRefreshData('geral'));
+const loadDataDetBtn = document.getElementById('load-data-detalhes');
+if(loadDataDetBtn) loadDataDetBtn.addEventListener('click', () => handleLoadData('detalhamento'));
+const refreshDataDetBtn = document.getElementById('refresh-data-detalhes');
+if(refreshDataDetBtn) refreshDataDetBtn.addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
