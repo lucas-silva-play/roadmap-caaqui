@@ -1,8 +1,8 @@
 // ==========================================
 // 1. CONFIGURAÇÕES GERAIS E VARIÁVEIS 
 // ==========================================
-const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       
-const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; 
+const ZOOM_MIN_RANGE = 1000 * 60 * 60 * 24 * 7;       // 1 semana
+const ZOOM_MAX_RANGE = 1000 * 60 * 60 * 24 * 365 * 2; // 2 anos
 
 let componentZoom = { geral: 1, detalhamento: 1 };
 let currentPage = 'geral';
@@ -10,9 +10,16 @@ let currentPage = 'geral';
 let timelines = { geral: null, detalhamento: null };
 let allParsedData = { geral: null, detalhamento: null, avaliacoes: null };
 
+// --- VARIÁVEIS DE AVALIAÇÕES ---
 const LINKS_AVALIACOES = [
-  { nome: "CRM - Ops", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" },
-  { nome: "Growth - Ops", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" }
+  {
+    nome: "CRM - Ops",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1591400573&single=true&output=csv" 
+  },
+  {
+    nome: "Growth - Ops",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1524287528&single=true&output=csv" 
+  }
 ];
 
 let availableAbas = new Set();
@@ -20,9 +27,10 @@ let availableMeses = new Set();
 let chartInstances = { nps: null };
 let chartInstancesSat = {}; 
 
+// --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
-let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
 let availableResponsaveis = { detalhamento: new Set() };
+let availableStatuses = { detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -32,56 +40,7 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. INJEÇÃO DE CSS (Filtros Seguros)
-// ==========================================
-if (!document.getElementById('dynamic-multi-select-styles')) {
-  const style = document.createElement('style');
-  style.id = 'dynamic-multi-select-styles';
-  style.innerHTML = `
-      .multi-select { position: relative; width: 100%; min-width: 200px; }
-      .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
-      .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
-      .multi-select.is-open .multi-select-dropdown { display: block; }
-      .multi-select-option { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 8px !important; padding: 8px 12px !important; cursor: pointer; border-bottom: 1px solid #f3f4f6; background: #fff; }
-      .multi-select-option:hover { background: #f9fafb; }
-      .multi-select-option input[type="checkbox"] { margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }
-      .multi-select-option div { font-size: 0.9rem !important; line-height: 1 !important; color: #374151 !important; margin: 0 !important; padding: 0 !important; user-select: none; }
-  `;
-  document.head.appendChild(style);
-}
-
-
-// ==========================================
-// 3. ZOOM VISUAL GLOBAL (Bloqueio de Scroll)
-// ==========================================
-let zoomHandlerBound = false;
-function setupGlobalZoom() {
-  if (zoomHandlerBound) return;
-  zoomHandlerBound = true;
-  
-  document.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) {
-      e.preventDefault(); // Impede o navegador de pular a tela
-      e.stopPropagation();
-
-      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
-
-      let currentZ = componentZoom[currentPage];
-      const zoomStep = 0.05; 
-      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-      
-      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
-      componentZoom[currentPage] = currentZ;
-      
-      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
-      if (timelines[currentPage]) timelines[currentPage].redraw();
-    }
-  }, { passive: false, capture: true });
-}
-
-
-// ==========================================
-// 4. NAVEGAÇÃO E UI GERAL (Títulos Corrigidos)
+// 2. NAVEGAÇÃO E UI GERAL
 // ==========================================
 function switchPage(page) {
   currentPage = page;
@@ -93,9 +52,8 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  // RESOLUÇÃO: Busca cega para não conflitar com HTML antigo
-  const mainTitle = document.getElementById('main-title') || document.querySelector('h1');
-  const mainSubtitle = document.getElementById('main-subtitle') || document.querySelector('.subtitle') || document.querySelector('p');
+  const mainTitle = document.getElementById('main-title');
+  const mainSubtitle = document.getElementById('main-subtitle');
   
   if (page === 'geral') {
     if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
@@ -135,17 +93,22 @@ function openItemLink(url) {
   window.open(u, '_blank', 'noopener,noreferrer');
 }
 
-function formatTodayTitle(now) { return `Hoje (${now.toLocaleDateString('pt-BR')})`; }
+function formatTodayTitle(now) {
+  const d = now.toLocaleDateString('pt-BR');
+  return `Hoje (${d})`;
+}
 
 function applyTodayStylingAndTooltip(titleText, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
   let el = container.querySelector('.vis-custom-time[data-id="' + TODAYID + '"]') || container.querySelector('.vis-custom-time[data-custom-time="' + TODAYID + '"]');
   if (!el) {
     const all = container.querySelectorAll('.vis-custom-time');
     if (all && all.length > 0) el = all[all.length - 1];
   }
   if (el) { el.classList.add('today'); el.setAttribute('title', titleText); }
+
   const marker = container.querySelector('.vis-custom-time.today .vis-custom-time-marker');
   if (marker) marker.setAttribute('title', titleText);
 }
@@ -154,6 +117,7 @@ function ensureTodayMarker(pageKey) {
   if (!timelines[pageKey]) return;
   const now = new Date();
   const titleText = formatTodayTitle(now);
+
   try {
     timelines[pageKey].getCustomTime(TODAYID);
     timelines[pageKey].setCustomTime(now, TODAYID);
@@ -164,7 +128,8 @@ function ensureTodayMarker(pageKey) {
     timelines[pageKey].setCustomTimeMarker('HOJE', TODAYID, false);
     timelines[pageKey].setCustomTimeTitle(titleText, TODAYID);
   }
-  setTimeout(() => applyTodayStylingAndTooltip(titleText, pageKey === 'geral' ? 'visualization' : 'visualization-detalhes'), 0);
+  const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
+  setTimeout(() => applyTodayStylingAndTooltip(titleText, containerId), 0);
 }
 
 function startTodayMarkerClock(pageKey) {
@@ -175,11 +140,12 @@ function startTodayMarkerClock(pageKey) {
 
 
 // ==========================================
-// 5. UTILITÁRIOS E PARSERS DE DADOS
+// 3. UTILITÁRIOS E PARSERS
 // ==========================================
 function extractBracketText(text) {
-  const m = String(text || '').trim().match(/\[(.*?)\]/);
-  return m ? m[1].trim() : String(text || '').trim();
+  const s = String(text || '').trim();
+  const m = s.match(/\[(.*?)\]/);
+  return m ? m[1].trim() : s;
 }
 
 function getCardsModeDetalhamento() {
@@ -190,11 +156,15 @@ function getCardsModeDetalhamento() {
 function updateCardsModeLabel() {
   const el = document.getElementById('cards-mode-toggle-detalhes');
   const label = document.getElementById('cards-mode-text');
+  const wrap = document.getElementById('cards-mode-toggle-wrap');
   if (!el || !label) return;
   label.textContent = el.checked ? 'Cards atualizados' : 'Cards desatualizados';
+  if (wrap) wrap.querySelector('.cards-switch')?.setAttribute('title', el.checked ? 'Alternar para cards desatualizados' : 'Alternar para cards atualizados');
 }
 
-function getSelectedValues(selectEl) { return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value); }
+function getSelectedValues(selectEl) {
+  return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value);
+}
 
 function formatSelectedLabel(selectEl) {
   const values = getSelectedValues(selectEl).filter(v => v !== 'all');
@@ -203,9 +173,19 @@ function formatSelectedLabel(selectEl) {
   return values.slice(0, 2).join(', ') + ` +${values.length - 2}`;
 }
 
-function splitPeople(text) { return String(text || '').trim().replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean); }
-function sameCI(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
-function normalizeList(list) { return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all'); }
+function splitPeople(text) {
+  const s = String(text || '').trim();
+  if (!s) return [];
+  return s.replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function sameCI(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+function normalizeList(list) {
+  return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all');
+}
 
 function getGroupingModeGeral() {
   const el = document.getElementById('grouping-toggle-geral');
@@ -217,13 +197,20 @@ function updateGroupingModeLabel() {
   const label = document.getElementById('grouping-mode-text');
   const groupForm = document.getElementById('stack-filter-group-geral');
   if (!el || !label) return;
+
   const mode = el.checked ? 'stack' : 'geral';
   label.textContent = (mode === 'stack') ? 'Por stack' : 'Geral';
   if (groupForm) groupForm.style.display = (mode === 'stack') ? '' : 'none';
-  if (mode !== 'stack') { const sel = document.getElementById('stack-filter'); if (sel) sel.value = 'all'; }
+  if (mode !== 'stack') {
+    const sel = document.getElementById('stack-filter');
+    if (sel) sel.value = 'all';
+  }
 }
 
-function parseCSV(csvText) { return Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true }).data || []; }
+function parseCSV(csvText) {
+  const result = Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true });
+  return result.data || [];
+}
 
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
@@ -231,13 +218,14 @@ function parseBRDate(dateValue) {
     const d = new Date((dateValue - 25569) * 86400 * 1000);
     return isNaN(d) ? null : d;
   }
-  let raw = String(dateValue).trim();
+  const raw = String(dateValue).trim();
   if (!raw) return null;
-  let s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
+  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
 
-  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
   if (shortDate) {
-    let p1 = parseInt(shortDate[1], 10); let p2 = parseInt(shortDate[2], 10);
+    let p1 = parseInt(shortDate[1], 10);
+    let p2 = parseInt(shortDate[2], 10);
     let year = new Date().getFullYear(); 
     let m = p1, d = p2;
     if (p1 > 12) { d = p1; m = p2; }
@@ -247,7 +235,6 @@ function parseBRDate(dateValue) {
   const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?.*$/);
   if (br) {
     let dd = parseInt(br[1], 10); let mm = parseInt(br[2], 10); let yyyy = parseInt(br[3], 10);
-    if (mm > 12) { let temp = dd; dd = mm; mm = temp; }
     if (yyyy < 100) yyyy = (yyyy >= 70) ? (1900 + yyyy) : (2000 + yyyy);
     const d = new Date(yyyy, mm - 1, dd);
     return isNaN(d) ? null : d;
@@ -266,19 +253,43 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
-function normalizeKeyName(name) { return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, ''); }
+function normalizeKeyName(name) {
+  return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '');
+}
 
 function getCell(row, candidates) {
   if (!row) return '';
   const keys = Object.keys(row);
   const normKeys = new Map(keys.map(k => [normalizeKeyName(k), k]));
+
   for (const c of candidates) {
     if (row[c] !== undefined) return row[c];
     const nk = normalizeKeyName(c);
     if (normKeys.has(nk)) return row[normKeys.get(nk)];
-    for (const [n, orig] of normKeys.entries()) { if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig]; }
+    for (const [n, orig] of normKeys.entries()) {
+      if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig];
+    }
   }
   return '';
+}
+
+function updateZoomCSS(pageKey, newZoom) {
+   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
+   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
+   if (timelines[pageKey]) timelines[pageKey].redraw(); 
+}
+
+function bindCtrlWheelZoom(container, pageKey) {
+  if (!container) return;
+  container.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return; 
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    let currentZ = componentZoom[pageKey];
+    const zoomStep = 0.1;
+    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+    updateZoomCSS(pageKey, currentZ);
+  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -293,13 +304,11 @@ async function fetchCSV(url) {
 
 
 // ==========================================
-// 6. LÓGICAS DO ROADMAP (GERAL E DETALHES)
+// 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
   const items = []; const groups = []; const groupSet = new Set();
-  availableStacks.geral.clear(); availableStatuses.geral.clear();
-
-  const statusFilters = normalizeList(filterStatus);
+  availableStacks.geral.clear();
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -307,8 +316,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const row = rows[i];
     const resumo = String(getCell(row, ['Resumo']) || '').trim();
     let dataInicio = parseBRDate(getCell(row, ['Start date']));
-    let dataTarget = parseBRDate(getCell(row, ['Target end']));
-    let dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+    const dataTarget = parseBRDate(getCell(row, ['Target end']));
+    const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
     const status = String(getCell(row, ['Status']) || 'planejado').trim();
     const chave = String(getCell(row, ['Chave','Key','Link']) || '').trim();
 
@@ -318,25 +327,12 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
-    
-    if (status) availableStatuses.geral.add(status);
 
-    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
-    if (!passStatus) continue;
+    if (!dataTarget && !dataFinishReal) continue;
 
-    if (!dataInicio && !dataTarget && !dataFinishReal) continue;
-    
-    if (!dataInicio) dataInicio = dataTarget || dataFinishReal || new Date();
-    if (!dataTarget && !dataFinishReal) {
-      dataTarget = new Date(dataInicio);
-      dataTarget.setDate(dataTarget.getDate() + 30);
-    }
-
+    if (!dataInicio) dataInicio = new Date(); 
     let dataFinalDoCard = dataFinishReal || dataTarget;
-    if (dataInicio > dataFinalDoCard) { 
-      dataInicio = new Date(dataFinalDoCard); 
-      dataInicio.setDate(dataInicio.getDate() - 15); 
-    }
+    if (dataInicio > dataFinalDoCard) { dataInicio = new Date(dataFinalDoCard); dataInicio.setDate(dataInicio.getDate() - 15); }
 
     let customStyle;
     if (dataTarget && dataFinalDoCard.getTime() > dataTarget.getTime()) {
@@ -365,8 +361,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // SOLUÇÃO NATIVA DE WATERFALL: Subgrupo exclusivo dita a linha
-    const uniqueSubgroup = `geral_child_${i}`;
+    // --- CORREÇÃO APLICADA: Criando subgrupos baseados no tempo para forçar o Waterfall na aba Geral ---
+    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
+    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -380,8 +377,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: uniqueSubgroup, 
-      sgOrder: dataInicio.getTime(), // Ordenação matemática pelo início
+      subgroup: uniqueSubgroup, // Adicionado aqui
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -400,10 +396,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const epicItems = []; 
-  const childItems = []; 
-  
-  const allProjects = new Set();
+  const items = []; const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
 
@@ -428,30 +421,23 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     if (!epicByProject.has(projetoRaw)) {
       let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-      let epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-      let epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
+      if (epicStart) {
+        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
+        let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+        if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
 
-      if (!epicStart && !epicTarget && !epicFinish) {
-         epicStart = parseBRDate(getCell(row, ['Start date'])) || new Date();
-         epicTarget = new Date(epicStart);
-         epicTarget.setDate(epicTarget.getDate() + 30);
-      } else if (!epicStart) {
-         epicStart = epicTarget || epicFinish || new Date();
+        const totalDuration = epicEnd - epicStart;
+        const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+        const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
+        let epicStyle = (epicTarget && epicTarget < epicEnd) 
+          ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
+          : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
+        
+        epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
       }
-
-      let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-      if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-      const totalDuration = epicEnd - epicStart;
-      const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-      const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-      const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
-      let epicStyle = (epicTarget && epicTarget < epicEnd) 
-        ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
-        : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
-      
-      epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
     }
   }
 
@@ -502,9 +488,11 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    const uniqueWaterfallSubgroup = `child_${i}`;
+    // --- CORREÇÃO APLICADA: Criando subgrupos numéricos "1_child..." para garantir que fiquem embaixo do Epic ---
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = `1_child_${timestampStr}_${i}`;
 
-    childItems.push({
+    items.push({
       id: `child-${i}`,
       content: `
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
@@ -517,8 +505,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: uniqueWaterfallSubgroup, 
-      sgOrder: renderStart.getTime(), // Matemática do Waterfall para os Filhos
+      subgroup: uniqueWaterfallSubgroup, // Modificado aqui
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -547,39 +534,28 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    epicItems.push({
+    items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: 'epic_top', 
-      sgOrder: 1, // EPIC NO TOPO: Número fixo imbatível
-      className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
+      subgroup: '0_epic', // --- CORREÇÃO APLICADA: Epic com '0' para travar no Topo absoluto ---
+      order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
 
-  return { items: [...epicItems, ...childItems], groups };
+  return { items, groups };
 }
 
 
 // ==========================================
-// 7. CRIAÇÃO DOS ROADMAPS E FILTROS
+// 5. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
-function updateGeralFilters() {
-  const selectStack = document.getElementById('stack-filter');
-  const currentStack = selectStack.value;
-  selectStack.innerHTML = '<option value="all">Todos</option>';
+function updateStackFilterGeral() {
+  const select = document.getElementById('stack-filter');
+  const current = select.value;
+  select.innerHTML = '<option value="all">Todos</option>';
   Array.from(availableStacks.geral).sort().forEach(v => {
-    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectStack.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
   });
-  if (currentStack !== 'all' && availableStacks.geral.has(currentStack)) selectStack.value = currentStack;
-
-  const stSelect = document.getElementById('status-filter-geral');
-  if (stSelect) {
-    const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
-    stSelect.innerHTML = '<option value="all">Todos</option>';
-    Array.from(availableStatuses.geral).sort().forEach(v => {
-      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
-    });
-    rebuildMultiSelect('status-filter-geral');
-  }
+  if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
 }
 
 function updateDetalhamentoFilters() {
@@ -661,27 +637,29 @@ function createTimeline(data, pageKey) {
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     
-    // A LEI DE ORDENAÇÃO NATIVA (Sem funções que quebram o código)
-    subgroupOrder: 'sgOrder', 
+    // --- CORREÇÃO APLICADA: Substituição da Função para ler as Strings Corretamente ---
+    subgroupOrder: function (a, b) {
+      const valA = String(a && a.subgroup !== undefined ? a.subgroup : a);
+      const valB = String(b && b.subgroup !== undefined ? b.subgroup : b);
+      return valA.localeCompare(valB);
+    },
     
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
-    
-    verticalScroll: true, horizontalScroll: false, 
-    zoomable: false, 
-    
+    verticalScroll: true, horizontalScroll: false, zoomable: false,
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options); 
-    timelines[pageKey].setGroups(data.groups);
     timelines[pageKey].setItems(data.items);
+    timelines[pageKey].setGroups(data.groups);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
+
+  bindCtrlWheelZoom(container, pageKey);
 
   if (!clickHandlerBound[pageKey]) {
     timelines[pageKey].on('click', function (props) {
@@ -703,27 +681,13 @@ function changeViewMode(pageKey) {
   const viewMode = document.getElementById('view-mode' + suffix).value;
   const now = new Date();
   let start, end;
-  
   switch (viewMode) {
-    case 'week': 
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3); 
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11); 
-      break;
-    case 'month': 
-      start = new Date(now.getFullYear(), now.getMonth(), -5); 
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 5); 
-      break;
-    case 'quarter': 
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1); 
-      end = new Date(now.getFullYear(), now.getMonth() + 3, 0); 
-      break;
-    case 'year': 
-      start = new Date(now.getFullYear(), now.getMonth() - 6, 1); 
-      end = new Date(now.getFullYear(), now.getMonth() + 6, 0); 
-      break;
+    case 'week': start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14); end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14); break;
+    case 'month': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); end = new Date(now.getFullYear(), now.getMonth() + 2, 0); break;
+    case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth() + 4, 0); break;
+    case 'year': start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() + 1, 11, 31); break;
     default: return;
   }
-  
   tl.setWindow(start, end, { animation: false });
   ensureTodayMarker(pageKey);
 }
@@ -732,13 +696,9 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  
-  const stEl = document.getElementById('status-filter-geral');
-  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).filter(o=>o.selected).map(o => o.value) : ['all'];
-
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
   createTimeline(data, 'geral');
-  updateGeralFilters();
+  updateStackFilterGeral();
   updateGroupingModeLabel();
 }
 
@@ -757,7 +717,7 @@ function applyFilterDetalhamento() {
 
 
 // ==========================================
-// 8. DASHBOARD DE AVALIAÇÕES (Sem Fantasmas)
+// 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
 // ==========================================
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
@@ -838,14 +798,19 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
+  // LÓGICA DE RESPONDENTES BLINDADA (Ignora cabeçalhos e linhas vazias)
   let totalRespondentes = 0;
   rows.forEach(row => {
     let isRealResponse = false;
+    
+    // 1. Checa se tem alguma nota válida de NPS
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
     }
+    
+    // 2. Checa se tem alguma nota válida de Satisfação nas outras colunas
     if (!isRealResponse) {
       Object.values(row).forEach(val => {
         const s = String(val).trim();
@@ -854,15 +819,20 @@ function renderGraficosAvaliacoes(rows) {
         }
       });
     }
+    
     if (isRealResponse) totalRespondentes++;
   });
 
   const textoRespondentes = `${totalRespondentes} respondente${totalRespondentes !== 1 ? 's' : ''}`;
+  
   const npsBadge = document.getElementById('nps-respondentes-badge');
   if (npsBadge) npsBadge.textContent = textoRespondentes;
+  
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
 
+
+  // 1. CÁLCULO NPS (Média Exata)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -876,17 +846,15 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // O NPS PRECISO DE 0 A 10
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  if (npsTextEl) {
-    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-    if (npsAverage !== '-') {
-      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-      else npsTextEl.style.color = '#d9534f';
-    }
+  npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+  
+  if (npsAverage !== '-') {
+    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+    else npsTextEl.style.color = '#d9534f';
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -895,32 +863,28 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  const npsChartEl = document.getElementById('npsChart');
-  if (npsChartEl) {
-    chartInstances.nps = new Chart(npsChartEl, {
-      type: 'bar',
-      data: {
-        labels: npsLabels,
-        datasets: [
-          { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
-          { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
-          { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
-        ]
-      },
-      options: {
-        maintainAspectRatio: false, 
-        plugins: { legend: { position: 'bottom' } },
-        scales: {
-          x: { stacked: true, title: { display: true, text: 'Nota' } },
-          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
-        }
+  chartInstances.nps = new Chart(document.getElementById('npsChart'), {
+    type: 'bar',
+    data: {
+      labels: npsLabels,
+      datasets: [
+        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
+        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
+        { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false, 
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { stacked: true, title: { display: true, text: 'Nota' } },
+        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
       }
-    });
-  }
+    }
+  });
 
+  // 2. GRÁFICOS DE SATISFAÇÃO COM TÍTULOS PRETOS E MÉDIA COM COR INTELIGENTE
   const satContainer = document.getElementById('sat-charts-container');
-  if (!satContainer) return;
-  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -959,16 +923,14 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    // O RADAR DE SEGURANÇA: Exterminador de "Datas", "_4" e Colunas Inválidas
     const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
     
     const validCols = [];
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
-      if (!fullQ || fullQ.length < 5) return; 
-      if (/^_\d+$/.test(fullQ)) return; 
-      if (excludeKeywords.some(kw => fullQ === kw || fullQ.includes(kw))) return;
+      if (!fullQ || fullQ.length < 5) return;
+      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -984,7 +946,7 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      if (validCount > 0 && validCount >= invalidCount) {
+      if (validCount > 0 && invalidCount === 0) {
           validCols.push(h);
       }
     });
@@ -1095,7 +1057,7 @@ function renderGraficosAvaliacoes(rows) {
 
 
 // ==========================================
-// 9. GERENCIADOR DE DADOS (FETCH/LOAD)
+// 7. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
 async function handleLoadData(pageKey) {
   const suffix = pageKey === 'geral' ? '' : '-detalhes';
@@ -1113,9 +1075,7 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      
-      const btnRefresh = document.getElementById('refresh-data-avaliacoes');
-      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
+      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1125,17 +1085,12 @@ async function handleLoadData(pageKey) {
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
-        updateGeralFilters();
-        
-        changeViewMode('geral');
+        updateStackFilterGeral();
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
-        
-        changeViewMode('detalhamento');
       }
-      const btnRefresh = document.getElementById('refresh-data' + suffix);
-      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
+      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
@@ -1162,7 +1117,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 10. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1177,58 +1132,38 @@ function openModal() {
 }
 
 function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
-if(closeBtn) closeBtn.addEventListener('click', closeModal); 
-if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) closeModal(); });
-if(saveBtn) saveBtn.addEventListener('click', () => {
+closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
+saveBtn.addEventListener('click', () => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
   closeModal(); handleLoadData(currentPage);
 });
-if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-
-const showExampleBtn = document.getElementById('show-example');
-if (showExampleBtn) {
-  showExampleBtn.addEventListener('click', (e) => {
-    e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
-    document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
-  });
-}
-
-// INICIA O BLOQUEIO DE SCROLL PARA LUPA
-setupGlobalZoom();
+sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+document.getElementById('show-example').addEventListener('click', (e) => {
+  e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
+  document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
+});
 
 // Eventos Avaliações
-const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
-if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
-const mesFilterAv = document.getElementById('mes-filter-avaliacoes');
-if(mesFilterAv) mesFilterAv.addEventListener('change', applyFilterAvaliacoes); 
-const loadDataAv = document.getElementById('load-data-avaliacoes');
-if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avaliacoes'));
-const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
-if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
+document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
+document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-const stackFilterGeral = document.getElementById('stack-filter');
-if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
-const statusFilterGeral = document.getElementById('status-filter-geral');
-if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
+document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-const viewModeGeral = document.getElementById('view-mode');
-if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
+document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
 
-const stackFilterDet = document.getElementById('stack-filter-detalhes');
-if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
-const respFilterDet = document.getElementById('responsavel-filter-detalhes');
-if(respFilterDet) respFilterDet.addEventListener('change', applyFilterDetalhamento);
-const statusFilterDet = document.getElementById('status-filter-detalhes');
-if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
+document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
 if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
-const viewModeDet = document.getElementById('view-mode-detalhes');
-if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
+document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
 // Botões de Zoom do Eixo X
 document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
@@ -1238,14 +1173,10 @@ document.getElementById('zoom-in-detalhes').addEventListener('click', () => { co
 document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
 document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
-const loadDataGeral = document.getElementById('load-data');
-if(loadDataGeral) loadDataGeral.addEventListener('click', () => handleLoadData('geral'));
-const refreshDataGeral = document.getElementById('refresh-data');
-if(refreshDataGeral) refreshDataGeral.addEventListener('click', () => handleRefreshData('geral'));
-const loadDataDet = document.getElementById('load-data-detalhes');
-if(loadDataDet) loadDataDet.addEventListener('click', () => handleLoadData('detalhamento'));
-const refreshDataDet = document.getElementById('refresh-data-detalhes');
-if(refreshDataDet) refreshDataDet.addEventListener('click', () => handleRefreshData('detalhamento'));
+document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
+document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
+document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
+document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
