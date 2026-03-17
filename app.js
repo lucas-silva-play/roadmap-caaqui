@@ -279,17 +279,21 @@ function updateZoomCSS(pageKey, newZoom) {
    if (timelines[pageKey]) timelines[pageKey].redraw(); 
 }
 
+// CORREÇÃO: Adicionado 'capture: true' para interceptar o scroll antes do Vis.js e impedir a tela de pular
 function bindCtrlWheelZoom(container, pageKey) {
   if (!container) return;
+  if (container.dataset.wheelBound) return;
+  container.dataset.wheelBound = '1';
+
   container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return; 
+    if (!e.ctrlKey && !e.metaKey) return; 
     e.preventDefault(); 
     e.stopPropagation(); 
     let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.1;
+    const zoomStep = 0.05; // Ajuste para zoom super macio
     if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
     updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
+  }, { passive: false, capture: true });
 }
 
 async function fetchCSV(url) {
@@ -361,9 +365,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
       </div>
     `;
 
-    // --- CORREÇÃO APLICADA: Criando subgrupos baseados no tempo para forçar o Waterfall na aba Geral ---
+    // CORREÇÃO: Waterfall no Geral. Vis.js ordena Subgrupos alfabeticamente. A data entra como texto pra garantir a escadinha correta!
     const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
-    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
+    const uniqueSubgroup = `card_${timestampStr}_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -377,7 +381,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: uniqueSubgroup, // Adicionado aqui
+      subgroup: uniqueSubgroup, // Impõe a linha única por card
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -488,9 +492,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // --- CORREÇÃO APLICADA: Criando subgrupos numéricos "1_child..." para garantir que fiquem embaixo do Epic ---
+    // CORREÇÃO: Usar string alfabeticamente posterior para os filhos ficarem SEMPRE DEPOIS do Epic
     const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = `1_child_${timestampStr}_${i}`;
+    const uniqueWaterfallSubgroup = `b_child_${timestampStr}_${i}`;
 
     items.push({
       id: `child-${i}`,
@@ -505,7 +509,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
         </div>
       `,
       start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: uniqueWaterfallSubgroup, // Modificado aqui
+      subgroup: uniqueWaterfallSubgroup, // Filhos começam com "b_child"
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -536,7 +540,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     items.push({
       id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: '0_epic', // --- CORREÇÃO APLICADA: Epic com '0' para travar no Topo absoluto ---
+      subgroup: 'a_epic', // CORREÇÃO: A letra 'a' garante que ele leia alfabeticamente ANTES do 'b_child' (Epic SEMPRE no topo)
       order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -636,22 +640,16 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
-    
-    // --- CORREÇÃO APLICADA: Substituição da Função para ler as Strings Corretamente ---
-    subgroupOrder: function (a, b) {
-      const valA = String(a && a.subgroup !== undefined ? a.subgroup : a);
-      const valB = String(b && b.subgroup !== undefined ? b.subgroup : b);
-      return valA.localeCompare(valB);
-    },
-    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
-    verticalScroll: true, horizontalScroll: false, zoomable: false,
+    verticalScroll: true, horizontalScroll: false, zoomable: false, // Zoomable falso no componente nativo
     tooltip: { followMouse: true, overflowMethod: 'cap' }
   };
 
+  // Sem subgroupOrder nas opções! A biblioteca ordena alfabeticamente pelos Subgrupos que nós padronizamos!
+  
   if (timelines[pageKey]) {
     timelines[pageKey].setItems(data.items);
     timelines[pageKey].setGroups(data.groups);
@@ -798,19 +796,16 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // LÓGICA DE RESPONDENTES BLINDADA (Ignora cabeçalhos e linhas vazias)
   let totalRespondentes = 0;
   rows.forEach(row => {
     let isRealResponse = false;
     
-    // 1. Checa se tem alguma nota válida de NPS
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
     }
     
-    // 2. Checa se tem alguma nota válida de Satisfação nas outras colunas
     if (!isRealResponse) {
       Object.values(row).forEach(val => {
         const s = String(val).trim();
@@ -832,7 +827,6 @@ function renderGraficosAvaliacoes(rows) {
   if (satBadge) satBadge.textContent = textoRespondentes;
 
 
-  // 1. CÁLCULO NPS (Média Exata)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -883,7 +877,6 @@ function renderGraficosAvaliacoes(rows) {
     }
   });
 
-  // 2. GRÁFICOS DE SATISFAÇÃO COM TÍTULOS PRETOS E MÉDIA COM COR INTELIGENTE
   const satContainer = document.getElementById('sat-charts-container');
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
