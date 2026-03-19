@@ -30,8 +30,7 @@ let chartInstancesSat = {};
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableResponsaveis = { detalhamento: new Set() };
-// Ajustado: Geral também controla seus status para o novo filtro
-let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
+let availableStatuses = { geral: new Set(), detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -309,7 +308,8 @@ async function fetchCSV(url) {
 // ==========================================
 function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
-  availableStacks.geral.clear(); availableStatuses.geral.clear();
+  availableStacks.geral.clear();
+  availableStatuses.geral.clear();
 
   const statusFilters = normalizeList(filterStatus);
 
@@ -331,8 +331,10 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
 
+    // Coleta todos os status disponíveis antes de filtrar
     if (status) availableStatuses.geral.add(status);
 
+    // Aplica filtro de status
     const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
     if (!passStatus) continue;
 
@@ -369,9 +371,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       </div>
     `;
 
-    // SOLUÇÃO: Cada card no geral ganha um subgrupo único com o timestamp, obrigando o Vis.js a fazer a escadinha (waterfall)
-    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
-    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
+    // Subgroup único por item com sgOrder = timestamp de início → efeito cascata
+    const uniqueSubgroup = `sg_${dataInicio.getTime()}_${i}`;
 
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
@@ -385,8 +386,8 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
-      subgroup: uniqueSubgroup, 
-      sgOrder: dataInicio.getTime(), // Ordem lida pela Timeline
+      subgroup: uniqueSubgroup,
+      sgOrder: dataInicio.getTime(),
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
@@ -401,12 +402,26 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
     });
   }
+
+  // Ordena grupos por data de início mais antiga dos seus itens (visual cascata)
+  const groupStartMap = new Map();
+  items.forEach(item => {
+    const g = item.group;
+    if (!groupStartMap.has(g) || item.start < groupStartMap.get(g)) {
+      groupStartMap.set(g, item.start);
+    }
+  });
+  groups.sort((a, b) => {
+    const sa = groupStartMap.get(a.id) || new Date(0);
+    const sb = groupStartMap.get(b.id) || new Date(0);
+    return sa - sb;
+  });
+
   return { items, groups };
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const items = []; 
-  const allProjects = new Set();
+  const items = []; const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
 
@@ -498,9 +513,8 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    // SOLUÇÃO: Filhos ganham ID de subgroup e descem em escada
-    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
-    const uniqueWaterfallSubgroup = `child_${timestampStr}_${i}`;
+    // Subgroup único por filho com sgOrder = timestamp → efeito cascata
+    const uniqueChildSubgroup = `child_${renderStart.getTime()}_${i}`;
 
     items.push({
       id: `child-${i}`,
@@ -514,9 +528,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
           ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
         </div>
       `,
-      start: renderStart, end: renderEnd, group: projetoRaw, 
-      subgroup: uniqueWaterfallSubgroup, 
-      sgOrder: renderStart.getTime(), 
+      start: renderStart, end: renderEnd, group: projetoRaw,
+      subgroup: uniqueChildSubgroup,
+      sgOrder: renderStart.getTime(),
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
   }
@@ -546,9 +560,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
     `;
 
     items.push({
-      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
-      subgroup: `epic_${p}`, 
-      sgOrder: -1, // SOLUÇÃO: O número -1 é sempre o menor. Epic travado no TOPO.
+      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p,
+      subgroup: `epic_${p}`,
+      sgOrder: -1,  // sempre negativo → sempre no topo
       className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
     });
   });
@@ -648,10 +662,7 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
-    
-    // SOLUÇÃO DE ORDENAÇÃO NATIVA DA TIMELINE:
-    subgroupOrder: 'sgOrder', 
-    
+    subgroupOrder: 'sgOrder',
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
@@ -661,7 +672,7 @@ function createTimeline(data, pageKey) {
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setOptions(options); 
+    timelines[pageKey].setOptions(options);
     timelines[pageKey].setGroups(data.groups);
     timelines[pageKey].setItems(data.items);
   } else {
@@ -705,21 +716,22 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  
   const stEl = document.getElementById('status-filter-geral');
-  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).filter(o=>o.selected).map(o => o.value) : ['all'];
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0)
+    ? Array.from(stEl.selectedOptions).map(o => o.value)
+    : ['all'];
 
   const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
-  
   updateStackFilterGeral();
-  
-  // SOLUÇÃO: Recria o status filter de forma natural pro seu HTML pré-existente
+
   if (stEl) {
     const currentSt = new Set(Array.from(stEl.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
     stEl.innerHTML = '<option value="all">Todos</option>';
     Array.from(availableStatuses.geral).sort().forEach(v => {
-      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stEl.appendChild(opt);
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+      if (currentSt.has(v)) opt.selected = true;
+      stEl.appendChild(opt);
     });
     rebuildMultiSelect('status-filter-geral');
   }
@@ -744,7 +756,6 @@ function applyFilterDetalhamento() {
 // ==========================================
 // 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
 // ==========================================
-/* TODO O RESTANTE DA PÁGINA (GRÁFICOS E MODAIS) MANTIDO INTACTO DO SEU CÓDIGO BASE! */
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
   if (!d) return null;
@@ -958,7 +969,6 @@ function renderGraficosAvaliacoes(rows) {
       for (let i = startIndex; i < abaRows.length; i++) {
         const rawVal = String(abaRows[i][h]).trim();
         if (!rawVal) continue;
-        
         if (/^[1-5]$/.test(rawVal) || /^[1-5]\.[0-9]+$/.test(rawVal) || /^[1-5],[0-9]+$/.test(rawVal)) {
             validCount++;
         } else {
@@ -992,7 +1002,6 @@ function renderGraficosAvaliacoes(rows) {
             if (val >= 1 && val <= 5) {
                 qSum += val;
                 qCount++;
-                
                 abaSatSum += val;
                 abaSatCount++;
                 globalSatSum += val;
@@ -1004,7 +1013,6 @@ function renderGraficosAvaliacoes(rows) {
       if (qCount > 0) {
         const avg = parseFloat((qSum / qCount).toFixed(2));
         const fullQ = questionMap[h] || h;
-        
         fullQuestions.push(fullQ);
         displayLabels.push(wrapText(fullQ, 55)); 
         averages.push(avg);
@@ -1075,6 +1083,7 @@ function renderGraficosAvaliacoes(rows) {
   }
 }
 
+
 // ==========================================
 // 7. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
@@ -1094,8 +1103,7 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      const btn = document.getElementById('refresh-data-avaliacoes');
-      if (btn) btn.style.display = 'inline-flex';
+      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1105,8 +1113,6 @@ async function handleLoadData(pageKey) {
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
-        
-        // Mantém filtro no estilo da sua base
         updateStackFilterGeral();
         const stEl = document.getElementById('status-filter-geral');
         if (stEl) {
@@ -1116,17 +1122,12 @@ async function handleLoadData(pageKey) {
           });
           rebuildMultiSelect('status-filter-geral');
         }
-
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
       }
-      
-      const btnRefresh = document.getElementById('refresh-data' + suffix);
-      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
+      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
-      
-      changeViewMode(pageKey);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
     setTimeout(() => clearStatus(pageKey), 2500);
@@ -1152,7 +1153,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 8. MODAL E BINDINGS
+// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1167,79 +1168,53 @@ function openModal() {
 }
 
 function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
-if(closeBtn) closeBtn.addEventListener('click', closeModal); 
-if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) closeModal(); });
-if(saveBtn) saveBtn.addEventListener('click', () => {
+closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
+saveBtn.addEventListener('click', () => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
   closeModal(); handleLoadData(currentPage);
 });
-if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-
-const showExampleBtn = document.getElementById('show-example');
-if(showExampleBtn) showExampleBtn.addEventListener('click', (e) => {
+sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+document.getElementById('show-example').addEventListener('click', (e) => {
   e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
 });
 
 // Eventos Avaliações
-const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
-if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
-const mesFilterAv = document.getElementById('mes-filter-avaliacoes');
-if(mesFilterAv) mesFilterAv.addEventListener('change', applyFilterAvaliacoes); 
-const loadDataAv = document.getElementById('load-data-avaliacoes');
-if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avaliacoes'));
-const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
-if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
+document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
+document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
+document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
+document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-const stackFilterGeral = document.getElementById('stack-filter');
-if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
-
-const statusFilterGeral = document.getElementById('status-filter-geral');
-if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
-
+document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+const statusFilterGeralEl = document.getElementById('status-filter-geral');
+if (statusFilterGeralEl) statusFilterGeralEl.addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-const viewModeGeral = document.getElementById('view-mode');
-if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
+document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
 
-const stackFilterDet = document.getElementById('stack-filter-detalhes');
-if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
-const respFilterDet = document.getElementById('responsavel-filter-detalhes');
-if(respFilterDet) respFilterDet.addEventListener('change', applyFilterDetalhamento);
-const statusFilterDet = document.getElementById('status-filter-detalhes');
-if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
+document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
-if(cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
-const viewModeDet = document.getElementById('view-mode-detalhes');
-if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
+if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
+document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
 
-// Botões de Zoom do Eixo X
-const zoomInBtn = document.getElementById('zoom-in');
-if(zoomInBtn) zoomInBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-const zoomOutBtn = document.getElementById('zoom-out');
-if(zoomOutBtn) zoomOutBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-const zoomFitBtn = document.getElementById('zoom-fit');
-if(zoomFitBtn) zoomFitBtn.addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+// Botões de Zoom
+document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
+document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
 
-const zoomInDetBtn = document.getElementById('zoom-in-detalhes');
-if(zoomInDetBtn) zoomInDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-const zoomOutDetBtn = document.getElementById('zoom-out-detalhes');
-if(zoomOutDetBtn) zoomOutDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-const zoomFitDetBtn = document.getElementById('zoom-fit-detalhes');
-if(zoomFitDetBtn) zoomFitDetBtn.addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
-
-const loadDataGeralBtn = document.getElementById('load-data');
-if(loadDataGeralBtn) loadDataGeralBtn.addEventListener('click', () => handleLoadData('geral'));
-const refreshDataGeralBtn = document.getElementById('refresh-data');
-if(refreshDataGeralBtn) refreshDataGeralBtn.addEventListener('click', () => handleRefreshData('geral'));
-const loadDataDetBtn = document.getElementById('load-data-detalhes');
-if(loadDataDetBtn) loadDataDetBtn.addEventListener('click', () => handleLoadData('detalhamento'));
-const refreshDataDetBtn = document.getElementById('refresh-data-detalhes');
-if(refreshDataDetBtn) refreshDataDetBtn.addEventListener('click', () => handleRefreshData('detalhamento'));
+document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
+document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
+document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
+document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
