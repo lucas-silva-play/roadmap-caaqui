@@ -42,6 +42,20 @@
             <p class="hint">Filtre os itens por stack: App, Web, Data, etc.</p>
           </div>
           <div class="form-group">
+            <label for="status-filter-geral">Filtrar por Status</label>
+            <div class="multi-select" data-select="status-filter-geral">
+              <button type="button" class="multi-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="multi-select-value">Todos</span>
+                <span class="multi-select-arrow">▾</span>
+              </button>
+              <div class="multi-select-dropdown" role="listbox"></div>
+            </div>
+            <select id="status-filter-geral" multiple style="display:none;">
+              <option value="all" selected>Todos</option>
+            </select>
+            <p class="hint">Baseado na coluna Status.</p>
+          </div>
+          <div class="form-group">
             <label for="view-mode">Modo de Visualização</label>
             <select id="view-mode">
               <option value="week">Semana</option>
@@ -49,7 +63,7 @@
               <option value="quarter">Trimestre</option>
               <option value="year">Ano</option>
             </select>
-            <p class="hint">Ajuste a escala de tempo do roadmap</p>
+            <p class="hint">Ajuste a escala de tempo do roadmap.</p>
           </div>
         </div>
       </div>
