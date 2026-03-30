@@ -509,14 +509,17 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
   }
 
   const projectsToShow = Array.from(includedProjects);
+  
+  // BLOQUEIO 1: Ordenação segura dentro do grupo 
   const groups = projectsToShow.sort().map(p => ({ 
     id: p, 
     content: extractBracketText(p),
     subgroupOrder: function (a, b) {
-      const valA = typeof a === 'object' ? (a?.subgroup || a?.id || a?.value) : a;
-      const valB = typeof b === 'object' ? (b?.subgroup || b?.id || b?.value) : b;
-      const orderMap = { 'epic': 0, 'child': 1, 'spacer': 2 };
-      return (orderMap[valA] ?? 99) - (orderMap[valB] ?? 99);
+      const valA = String(typeof a === 'object' ? (a.subgroup || a.id || '') : (a || ''));
+      const valB = String(typeof b === 'object' ? (b.subgroup || b.id || '') : (b || ''));
+      if (valA === 'epic' && valB !== 'epic') return -1;
+      if (valA !== 'epic' && valB === 'epic') return 1;
+      return 0;
     }
   }));
 
@@ -652,12 +655,23 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
+    
+    // BLOQUEIO 2: Força o grupo 'epic' a renderizar no topo das camadas do Subgroup
     subgroupOrder: function (a, b) {
-      const valA = typeof a === 'object' ? (a?.subgroup || a?.id || a?.value) : a;
-      const valB = typeof b === 'object' ? (b?.subgroup || b?.id || b?.value) : b;
-      const orderMap = { 'epic': 0, 'child': 1, 'spacer': 2 };
-      return (orderMap[valA] ?? 99) - (orderMap[valB] ?? 99);
+      const valA = String(typeof a === 'object' ? (a.subgroup || a.id || '') : (a || ''));
+      const valB = String(typeof b === 'object' ? (b.subgroup || b.id || '') : (b || ''));
+      if (valA === 'epic' && valB !== 'epic') return -1;
+      if (valA !== 'epic' && valB === 'epic') return 1;
+      return 0;
     },
+    
+    // BLOQUEIO 3: Força a ordem absoluta de montagem visual (Epic no teto e tarefas descendo)
+    order: function (a, b) {
+      if (a.subgroup === 'epic' && b.subgroup !== 'epic') return -1;
+      if (a.subgroup !== 'epic' && b.subgroup === 'epic') return 1;
+      return new Date(a.start || 0).valueOf() - new Date(b.start || 0).valueOf();
+    },
+
     groupHeightMode: pageKey === 'detalhamento' ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: pageKey === 'detalhamento' ? 52 : 40, item: { horizontal: 10, vertical: pageKey === 'detalhamento' ? 26 : 18 } },
