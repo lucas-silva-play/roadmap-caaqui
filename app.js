@@ -30,7 +30,7 @@ let chartInstancesSat = {};
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableResponsaveis = { detalhamento: new Set() };
-let availableStatuses = { detalhamento: new Set() };
+let availableStatuses = { geral: new Set(), detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -306,9 +306,12 @@ async function fetchCSV(url) {
 // ==========================================
 // 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
+  const statusFilters = normalizeList(filterStatus);
+
   availableStacks.geral.clear();
+  availableStatuses.geral.clear();
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
@@ -323,10 +326,15 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
 
     if (!resumo) continue; 
 
+    if (status) availableStatuses.geral.add(status);
+
     const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
+
+    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+    if (!passStatus) continue;
 
     if (!dataTarget && !dataFinishReal) continue;
 
@@ -545,6 +553,17 @@ function updateStackFilterGeral() {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
   });
   if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
+
+  const stSelect = document.getElementById('status-filter-geral');
+  const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+  stSelect.innerHTML = '<option value="all">Todos</option>';
+  Array.from(availableStatuses.geral).sort().forEach(v => {
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; 
+    if (currentSt.has(v)) opt.selected = true; 
+    stSelect.appendChild(opt);
+  });
+
+  rebuildMultiSelect('status-filter-geral');
 }
 
 function updateDetalhamentoFilters() {
@@ -681,7 +700,11 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
+
+  const stEl = document.getElementById('status-filter-geral');
+  const stFilters = Array.from(stEl.selectedOptions || []).map(o => o.value).length ? Array.from(stEl.selectedOptions || []).map(o => o.value) : ['all'];
+
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
   updateStackFilterGeral();
   updateGroupingModeLabel();
@@ -1138,6 +1161,7 @@ document.getElementById('refresh-data-avaliacoes').addEventListener('click', () 
 
 // Eventos Roadmap Geral e Detalhamento
 document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
+document.getElementById('status-filter-geral').addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
 document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));

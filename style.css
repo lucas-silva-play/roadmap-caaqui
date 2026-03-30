@@ -137,7 +137,6 @@
     .zoom-btn:hover { background: var(--color-primary); color:#fff; border-color: var(--color-primary); }
     .zoom-btn:active { transform: scale(0.95); }
     
-    /* Para o Zoom do CTRL + Mouse funcionar direitinho sem quebrar layout */
     .visualization { 
       height:100%; 
       transform-origin: top left;
@@ -152,12 +151,11 @@
     .vis-panel.vis-background .vis-grid.vis-vertical,
     .vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid rgba(0,0,0,0.08) !important; }
 
-/* LINHA DE SEPARAÇÃO DA COLUNA SUTIL */
-.vis-panel.vis-left {
-  z-index: 10 !important;
-  border-right: 1px solid rgba(0,0,0,0.08) !important; /* Linha super fina e clara */
-  box-shadow: none !important; /* Removemos a sombra pesada */
-}
+    .vis-panel.vis-left {
+      z-index: 10 !important;
+      border-right: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important;
+    }
 
     .vis-current-time { display:none !important; }
 
@@ -168,19 +166,19 @@
       letter-spacing: 0.2px; user-select: none; cursor: help;
     }
 
-    /* --- ESTILIZAÇÃO DO TOOLTIP CUSTOMIZADO --- */
     .vis-tooltip {
       background-color: var(--color-text-primary) !important; color: #fff !important; border-radius: 8px !important;
       padding: 12px 16px !important; font-family: inherit !important; font-size: 0.9rem !important; border: none !important;
       box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important; z-index: 9999 !important; pointer-events: none; max-width: 350px;
     }
 
-    /* ZOOM GLOBAL DO COMPONENTE */
     .vis-item {
       border-radius: 6px; border-width: 2px;
       font-size: calc(0.9rem * var(--timeline-zoom, 1));
       min-height: calc(55px * var(--timeline-zoom, 1));
       cursor: pointer;
+      z-index: 5 !important;
+      pointer-events: auto !important;
     }
     
     .vis-item-content {
@@ -229,8 +227,37 @@
       .actions { flex-direction: column; } .btn { width:100%; } .panel { padding:16px; } .btn-source { width:100%; }
       :root { --stack-col-width: 180px; } .filters-grid { flex-direction: column; align-items: stretch; } .filters-grid .form-group { min-width: 100%; }
     }
-  
-    /* Detalhamento: cards mode toggle (right-aligned, label above, compact) */
+
+    /* =============================================
+       MULTI-SELECT — estilos globais (Geral + Detalhamento)
+       ============================================= */
+    .multi-select { position: relative; width: 100%; }
+    .multi-select-trigger {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px;
+      font-size: 0.95rem; background: var(--color-bg-primary); color: var(--color-text-primary);
+      transition: border-color 0.2s ease; display: flex; align-items: center;
+      justify-content: space-between; gap: 10px; cursor: pointer;
+      font-family: inherit;
+    }
+    .multi-select-trigger:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(236,103,24,0.12); }
+    .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
+    .multi-select-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: #fff; border: 1px solid var(--color-border); border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.10); padding: 6px;
+      max-height: 260px; overflow: auto; display: none; z-index: 1000;
+    }
+    .multi-select.is-open .multi-select-dropdown { display: block; }
+    .multi-select-option {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 8px; cursor: pointer; user-select: none;
+      color: var(--color-text-primary); font-size: 0.92rem;
+    }
+    .multi-select-option:hover { background: rgba(94,82,64,0.06); }
+    .multi-select-option input { width: 16px; height: 16px; }
+
+    /* Toggle switches — Detalhamento */
     #page-detalhamento .cards-mode-toggle-right { margin-left: auto; }
     #page-detalhamento .cards-mode-toggle { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 0; border: none; background: transparent; }
     #page-detalhamento .cards-mode-label { font-size: 0.92rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
@@ -241,32 +268,19 @@
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-detalhamento .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-    /* Spacer (only used in outdated mode) */
+    /* Spacer */
     #page-detalhamento .vis-item.spacer-item {
       opacity: 0 !important; background: transparent !important; border-color: transparent !important;
       min-height: calc(110px * var(--timeline-zoom, 1)) !important; height: calc(110px * var(--timeline-zoom, 1)) !important; pointer-events: none !important;
     }
 
-    /* Multi-select dropdown (Detalhamento filters) */
-    #page-detalhamento .multi-select { position: relative; width: 100%; }
-    #page-detalhamento .multi-select-trigger { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.95rem; background: var(--color-bg-primary); color: var(--color-text-primary); transition: border-color 0.2s ease; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
-    #page-detalhamento .multi-select-trigger:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(236,103,24,0.12); }
-    #page-detalhamento .multi-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #page-detalhamento .multi-select-arrow { opacity: 0.7; flex: 0 0 auto; }
-    #page-detalhamento .multi-select-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid var(--color-border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.10); padding: 6px; max-height: 260px; overflow: auto; display: none; z-index: 1000; }
-    #page-detalhamento .multi-select.is-open .multi-select-dropdown { display: block; }
-    #page-detalhamento .multi-select-option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; color: var(--color-text-primary); font-size: 0.92rem; }
-    #page-detalhamento .multi-select-option:hover { background: rgba(94,82,64,0.06); }
-    #page-detalhamento .multi-select-option input { width: 16px; height: 16px; }
-
-    /* Detalhamento: alinhar filtros (mesma altura/linha) */
+    /* Detalhamento: alinhar filtros */
     #page-detalhamento #filters-grid-detalhes { align-items: stretch; }
     #page-detalhamento #filters-grid-detalhes .form-group { display:flex; flex-direction:column; }
     #page-detalhamento #filters-grid-detalhes .hint { min-height: 18px; }
     #page-detalhamento #visualization-detalhes .vis-itemset { padding-top: 14px; box-sizing: border-box; }
     #page-detalhamento #visualization-detalhes .vis-labelset { padding-top: 14px; box-sizing: border-box; }
 
-    /* Detalhamento: melhora distribuição dos grupos (mínimo entre divisórias + itens mais centralizados) */
     #page-detalhamento #visualization-detalhes .vis-group {
       min-height: calc(96px * var(--timeline-zoom, 1)) !important;
       padding-top: calc(18px * var(--timeline-zoom, 1)) !important;
@@ -278,7 +292,25 @@
       min-height: calc(96px * var(--timeline-zoom, 1)) !important; display:flex; align-items:center; justify-content:center;
     }
 
-    /* Geral: toggle idêntico ao Detalhamento */
+    /* Epic item no Detalhamento */
+    #page-detalhamento .vis-item.epic-item {
+      min-height: calc(38px * var(--timeline-zoom, 1)) !important;
+      height: calc(38px * var(--timeline-zoom, 1)) !important;
+      border-radius: 4px !important;
+      cursor: pointer !important;
+    }
+    #page-detalhamento .vis-item.epic-item .vis-item-content {
+      width: 100% !important;
+      height: 100% !important;
+      padding: 0 16px !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      overflow: hidden !important;
+    }
+
+    /* Toggle switches — Geral */
     #page-geral .cards-mode-toggle-right { margin-left: auto; }
     #page-geral .cards-mode-toggle { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 0; border: none; background: transparent; }
     #page-geral .cards-mode-label { font-size: 0.92rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.1; }
@@ -289,70 +321,14 @@
     #page-geral .cards-switch input:checked ~ .cards-switch-track { background: rgba(236,103,24,0.95); border-color: rgba(236,103,24,1); box-shadow: 0 4px 12px rgba(236,103,24,0.18); }
     #page-geral .cards-switch input:checked ~ .cards-switch-thumb { transform: translateX(20px); }
 
-/* ============================================================================== */
-/* [CSS ATUALIZADO] ADICIONE ESTAS REGRAS NO FINAL DO ARQUIVO style.css */
-/* ============================================================================== */
-/* Força negrito nos resumos (strong) dentro dos cards normais */
-.vis-item-content strong {
-  font-weight: 700 !important;
-}
+    /* Geral: alinhar filtros */
+    #page-geral #filters-grid-geral { align-items: stretch; }
+    #page-geral #filters-grid-geral .form-group { display:flex; flex-direction:column; }
+    #page-geral #filters-grid-geral .hint { min-height: 18px; }
 
+    .vis-item-content strong { font-weight: 700 !important; }
 
-/* Força negrito nos resumos (strong) dentro dos cards normais */
-.vis-item-content strong {
-  font-weight: 700 !important;
-}
-
-/* Altura e Borda do Card do Epic */
-#page-detalhamento .vis-item.epic-item {
-  min-height: calc(38px * var(--timeline-zoom, 1)) !important;
-  height: calc(38px * var(--timeline-zoom, 1)) !important;
-  border-radius: 4px !important;
-  cursor: pointer !important;
-}
-
-/* Alinhamento nativo à esquerda, COM o espaçamento (padding) para não colar na borda */
-#page-detalhamento .vis-item.epic-item .vis-item-content {
-  width: 100% !important;
-  height: 100% !important;
-  
-  /* O 16px abaixo é o respiro! Desgruda o texto do limite esquerdo */
-  padding: 0 16px !important; 
-  
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important; /* Mantém tudo na esquerda */
-  overflow: hidden !important;
-}
-
-/* ============================================================== */
-/* ANTÍDOTO PARA O BUG DO MOUSE/SCROLL (ZONAS MORTAS)             */
-/* ============================================================== */
-
-/* 1. Impede que o fundo do grid ou a película nativa roubem o mouse */
-.vis-panel.vis-background,
-.vis-overlay {
-  pointer-events: none !important;
-}
-
-/* 2. Garante que o painel do topo (meses) não desça invisivelmente sobre os cards */
-.vis-panel.vis-top {
-  z-index: 4 !important;
-  pointer-events: none !important; /* Deixa o mouse "atravessar" se vazar */
-}
-
-/* 3. Garante que o painel principal (onde os cards ficam) seja a área prioritária do mouse */
-.vis-panel.vis-center {
-  z-index: 3 !important;
-  pointer-events: auto !important;
-}
-
-/* 4. "Blinda" os cards para garantirem que sempre leiam o Hover/Tooltip */
-.vis-item {
-  z-index: 5 !important;
-  pointer-events: auto !important;
-}
-/* ============================================================================== */
-/* [CSS ATUALIZADO FIM] */
-/* ============================================================================== */
+    /* ANTÍDOTO PARA ZONAS MORTAS */
+    .vis-panel.vis-background, .vis-overlay { pointer-events: none !important; }
+    .vis-panel.vis-top { z-index: 4 !important; pointer-events: none !important; }
+    .vis-panel.vis-center { z-index: 3 !important; pointer-events: auto !important; }
