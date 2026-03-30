@@ -509,7 +509,16 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
   }
 
   const projectsToShow = Array.from(includedProjects);
-  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+  const groups = projectsToShow.sort().map(p => ({ 
+    id: p, 
+    content: extractBracketText(p),
+    subgroupOrder: function (a, b) {
+      const valA = typeof a === 'object' ? (a?.subgroup || a?.id || a?.value) : a;
+      const valB = typeof b === 'object' ? (b?.subgroup || b?.id || b?.value) : b;
+      const orderMap = { 'epic': 0, 'child': 1, 'spacer': 2 };
+      return (orderMap[valA] ?? 99) - (orderMap[valB] ?? 99);
+    }
+  }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -640,17 +649,18 @@ function createTimeline(data, pageKey) {
   const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
   const container = document.getElementById(containerId);
   itemLinkMap[pageKey] = new Map(data.items.map(it => [it.id, it.linkUrl]));
-  const isDetalhes = (pageKey === 'detalhamento');
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
     subgroupOrder: function (a, b) {
-      const orderMap = isDetalhes ? { child: 0, epic: 1, spacer: 2 } : { epic: 0, child: 1, spacer: 2 };
-      return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
+      const valA = typeof a === 'object' ? (a?.subgroup || a?.id || a?.value) : a;
+      const valB = typeof b === 'object' ? (b?.subgroup || b?.id || b?.value) : b;
+      const orderMap = { 'epic': 0, 'child': 1, 'spacer': 2 };
+      return (orderMap[valA] ?? 99) - (orderMap[valB] ?? 99);
     },
-    groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
+    groupHeightMode: pageKey === 'detalhamento' ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
-    margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
+    margin: { axis: pageKey === 'detalhamento' ? 52 : 40, item: { horizontal: 10, vertical: pageKey === 'detalhamento' ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     verticalScroll: true, horizontalScroll: false, zoomable: false,
     tooltip: { followMouse: true, overflowMethod: 'cap' }
