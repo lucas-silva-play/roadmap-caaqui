@@ -334,7 +334,7 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const resumo = String(getCell(row, ['Resumo']) || '').trim();
-    let dataInicio = parseBRDate(getCell(row, ['Start date']));
+    let dataInicio = parseBRDate(getCell(row, ['Start date', 'Data de início']));
     const dataTarget = parseBRDate(getCell(row, ['Target end']));
     const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
     const status = String(getCell(row, ['Status']) || 'planejado').trim();
