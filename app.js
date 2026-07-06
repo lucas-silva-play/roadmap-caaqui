@@ -24,15 +24,15 @@ const LINKS_AVALIACOES = [
     nome: "Martech + CRM - Imp",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1217446178&single=true&output=csv" 
   },
-{
+  {
     nome: "Martech + Growth - Imp",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=497373877&single=true&output=csv" 
   },
-{
+  {
     nome: "Martech",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1909337235&single=true&output=csv" 
   },
-{
+  {
     nome: "CRM - Imp",
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLgWt2KoG47RZD1FvW4EMMFg8XXfAKWts_LXN2XZu0ibP_GpsaN1OU6un_UQ1bVg2ER5_ihYyoev-R/pub?gid=1290903938&single=true&output=csv" 
   }
@@ -45,8 +45,8 @@ let chartInstancesSat = {};
 
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
+let availableStatuses = { geral: new Set(), detalhamento: new Set() }; 
 let availableResponsaveis = { detalhamento: new Set() };
-let availableStatuses = { detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -56,7 +56,57 @@ const TODAYID = 'today';
 
 
 // ==========================================
-// 2. NAVEGAÇÃO E UI GERAL
+// 2. INJEÇÃO DE CSS DE EMERGÊNCIA (Filtros Seguros)
+// ==========================================
+if (!document.getElementById('dynamic-multi-select-styles')) {
+  const style = document.createElement('style');
+  style.id = 'dynamic-multi-select-styles';
+  style.innerHTML = `
+      .multi-select { position: relative; width: 100%; min-width: 200px; }
+      .multi-select-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; font-family: inherit; font-size: 0.95rem; color: #374151; box-sizing: border-box; }
+      .multi-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 9999; display: none; margin-top: 4px; }
+      .multi-select.is-open .multi-select-dropdown { display: block; }
+      .multi-select-option { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 8px !important; padding: 8px 12px !important; cursor: pointer; border-bottom: 1px solid #f3f4f6; background: #fff; }
+      .multi-select-option:hover { background: #f9fafb; }
+      .multi-select-option input[type="checkbox"] { margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }
+      .multi-select-option div { font-size: 0.9rem !important; line-height: 1 !important; color: #374151 !important; margin: 0 !important; padding: 0 !important; user-select: none; }
+      .vis-item.vis-background.spacer-ghost, .vis-item.spacer-ghost { border: none !important; opacity: 0 !important; height: 1px !important; min-height: 1px !important; line-height: 1px !important; font-size: 0 !important; padding: 0 !important; margin: 0 !important; background: transparent !important; pointer-events: none !important; }
+  `;
+  document.head.appendChild(style);
+}
+
+
+// ==========================================
+// 3. ZOOM VISUAL GLOBAL (Com Bloqueio de Scroll Único)
+// ==========================================
+let globalZoomBound = false;
+function setupGlobalZoom() {
+  if (globalZoomBound) return;
+  globalZoomBound = true;
+  
+  document.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault(); 
+      e.stopPropagation();
+
+      if (currentPage !== 'geral' && currentPage !== 'detalhamento') return;
+
+      let currentZ = componentZoom[currentPage];
+      const zoomStep = 0.05; 
+      if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
+      
+      currentZ = Math.max(0.5, Math.min(2.5, currentZ));
+      componentZoom[currentPage] = currentZ;
+      
+      document.documentElement.style.setProperty('--timeline-zoom', currentZ);
+      if (timelines[currentPage]) timelines[currentPage].redraw();
+    }
+  }, { passive: false, capture: true });
+}
+
+
+// ==========================================
+// 4. NAVEGAÇÃO E UI GERAL
 // ==========================================
 function switchPage(page) {
   currentPage = page;
@@ -68,18 +118,21 @@ function switchPage(page) {
   document.getElementById('link-detalhamento').classList.toggle('is-active', page === 'detalhamento');
   document.getElementById('link-avaliacoes').classList.toggle('is-active', page === 'avaliacoes');
 
-  const mainTitle = document.getElementById('main-title');
-  const mainSubtitle = document.getElementById('main-subtitle');
-  
-  if (page === 'geral') {
-    if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
-    if (mainSubtitle) mainSubtitle.textContent = 'Conecte sua planilha do Google Sheets e visualize seu roadmap interativo';
-  } else if (page === 'detalhamento') {
-    if (mainTitle) mainTitle.textContent = 'Roadmap - Detalhamento';
-    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os cards detalhados por projeto, responsável e status';
-  } else if (page === 'avaliacoes') {
-    if (mainTitle) mainTitle.textContent = 'Índices de satisfação - Caaqui';
-    if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
+  const headerEl = document.querySelector('header');
+  if (headerEl) {
+    const mainTitle = headerEl.querySelector('h1');
+    const mainSubtitle = headerEl.querySelector('p.subtitle') || headerEl.querySelector('p');
+    
+    if (page === 'geral') {
+      if (mainTitle) mainTitle.textContent = 'Roadmap - Geral';
+      if (mainSubtitle) mainSubtitle.textContent = 'Conecte sua planilha do Google Sheets e visualize seu roadmap interativo';
+    } else if (page === 'detalhamento') {
+      if (mainTitle) mainTitle.textContent = 'Roadmap - Detalhamento';
+      if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os cards detalhados por projeto, responsável e status';
+    } else if (page === 'avaliacoes') {
+      if (mainTitle) mainTitle.textContent = 'Índices de satisfação - Caaqui';
+      if (mainSubtitle) mainSubtitle.textContent = 'Acompanhe os resultados de NPS e pesquisas de satisfação das áreas';
+    }
   }
 
   setTimeout(() => {
@@ -109,22 +162,17 @@ function openItemLink(url) {
   window.open(u, '_blank', 'noopener,noreferrer');
 }
 
-function formatTodayTitle(now) {
-  const d = now.toLocaleDateString('pt-BR');
-  return `Hoje (${d})`;
-}
+function formatTodayTitle(now) { return `Hoje (${now.toLocaleDateString('pt-BR')})`; }
 
 function applyTodayStylingAndTooltip(titleText, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-
   let el = container.querySelector('.vis-custom-time[data-id="' + TODAYID + '"]') || container.querySelector('.vis-custom-time[data-custom-time="' + TODAYID + '"]');
   if (!el) {
     const all = container.querySelectorAll('.vis-custom-time');
     if (all && all.length > 0) el = all[all.length - 1];
   }
   if (el) { el.classList.add('today'); el.setAttribute('title', titleText); }
-
   const marker = container.querySelector('.vis-custom-time.today .vis-custom-time-marker');
   if (marker) marker.setAttribute('title', titleText);
 }
@@ -133,7 +181,6 @@ function ensureTodayMarker(pageKey) {
   if (!timelines[pageKey]) return;
   const now = new Date();
   const titleText = formatTodayTitle(now);
-
   try {
     timelines[pageKey].getCustomTime(TODAYID);
     timelines[pageKey].setCustomTime(now, TODAYID);
@@ -144,8 +191,7 @@ function ensureTodayMarker(pageKey) {
     timelines[pageKey].setCustomTimeMarker('HOJE', TODAYID, false);
     timelines[pageKey].setCustomTimeTitle(titleText, TODAYID);
   }
-  const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
-  setTimeout(() => applyTodayStylingAndTooltip(titleText, containerId), 0);
+  setTimeout(() => applyTodayStylingAndTooltip(titleText, pageKey === 'geral' ? 'visualization' : 'visualization-detalhes'), 0);
 }
 
 function startTodayMarkerClock(pageKey) {
@@ -156,12 +202,11 @@ function startTodayMarkerClock(pageKey) {
 
 
 // ==========================================
-// 3. UTILITÁRIOS E PARSERS
+// 5. UTILITÁRIOS E PARSERS DE DADOS
 // ==========================================
 function extractBracketText(text) {
-  const s = String(text || '').trim();
-  const m = s.match(/\[(.*?)\]/);
-  return m ? m[1].trim() : s;
+  const m = String(text || '').trim().match(/\[(.*?)\]/);
+  return m ? m[1].trim() : String(text || '').trim();
 }
 
 function getCardsModeDetalhamento() {
@@ -172,15 +217,11 @@ function getCardsModeDetalhamento() {
 function updateCardsModeLabel() {
   const el = document.getElementById('cards-mode-toggle-detalhes');
   const label = document.getElementById('cards-mode-text');
-  const wrap = document.getElementById('cards-mode-toggle-wrap');
   if (!el || !label) return;
   label.textContent = el.checked ? 'Cards atualizados' : 'Cards desatualizados';
-  if (wrap) wrap.querySelector('.cards-switch')?.setAttribute('title', el.checked ? 'Alternar para cards desatualizados' : 'Alternar para cards atualizados');
 }
 
-function getSelectedValues(selectEl) {
-  return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value);
-}
+function getSelectedValues(selectEl) { return Array.from(selectEl.options).filter(o => o.selected).map(o => o.value); }
 
 function formatSelectedLabel(selectEl) {
   const values = getSelectedValues(selectEl).filter(v => v !== 'all');
@@ -189,19 +230,9 @@ function formatSelectedLabel(selectEl) {
   return values.slice(0, 2).join(', ') + ` +${values.length - 2}`;
 }
 
-function splitPeople(text) {
-  const s = String(text || '').trim();
-  if (!s) return [];
-  return s.replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean);
-}
-
-function sameCI(a, b) {
-  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-}
-
-function normalizeList(list) {
-  return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all');
-}
+function splitPeople(text) { return String(text || '').trim().replace(/\n/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').split(',').map(x => x.trim()).filter(Boolean); }
+function sameCI(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+function normalizeList(list) { return (Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean).filter(v => v !== 'all'); }
 
 function getGroupingModeGeral() {
   const el = document.getElementById('grouping-toggle-geral');
@@ -213,20 +244,13 @@ function updateGroupingModeLabel() {
   const label = document.getElementById('grouping-mode-text');
   const groupForm = document.getElementById('stack-filter-group-geral');
   if (!el || !label) return;
-
   const mode = el.checked ? 'stack' : 'geral';
   label.textContent = (mode === 'stack') ? 'Por stack' : 'Geral';
   if (groupForm) groupForm.style.display = (mode === 'stack') ? '' : 'none';
-  if (mode !== 'stack') {
-    const sel = document.getElementById('stack-filter');
-    if (sel) sel.value = 'all';
-  }
+  if (mode !== 'stack') { const sel = document.getElementById('stack-filter'); if (sel) sel.value = 'all'; }
 }
 
-function parseCSV(csvText) {
-  const result = Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true });
-  return result.data || [];
-}
+function parseCSV(csvText) { return Papa.parse(String(csvText || '').trim(), { header: true, skipEmptyLines: true }).data || []; }
 
 function parseBRDate(dateValue) {
   if (!dateValue) return null;
@@ -234,14 +258,13 @@ function parseBRDate(dateValue) {
     const d = new Date((dateValue - 25569) * 86400 * 1000);
     return isNaN(d) ? null : d;
   }
-  const raw = String(dateValue).trim();
+  let raw = String(dateValue).trim();
   if (!raw) return null;
-  const s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
+  let s = raw.replace(/^"|"$/g, '').replace(/\u00A0/g, ' ').trim();
 
-  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  const shortDate = s.match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (shortDate) {
-    let p1 = parseInt(shortDate[1], 10);
-    let p2 = parseInt(shortDate[2], 10);
+    let p1 = parseInt(shortDate[1], 10); let p2 = parseInt(shortDate[2], 10);
     let year = new Date().getFullYear(); 
     let m = p1, d = p2;
     if (p1 > 12) { d = p1; m = p2; }
@@ -251,6 +274,7 @@ function parseBRDate(dateValue) {
   const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?.*$/);
   if (br) {
     let dd = parseInt(br[1], 10); let mm = parseInt(br[2], 10); let yyyy = parseInt(br[3], 10);
+    if (mm > 12) { let temp = dd; dd = mm; mm = temp; }
     if (yyyy < 100) yyyy = (yyyy >= 70) ? (1900 + yyyy) : (2000 + yyyy);
     const d = new Date(yyyy, mm - 1, dd);
     return isNaN(d) ? null : d;
@@ -269,43 +293,19 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
-function normalizeKeyName(name) {
-  return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '');
-}
+function normalizeKeyName(name) { return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u00A0]/g, ' ').replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, ''); }
 
 function getCell(row, candidates) {
   if (!row) return '';
   const keys = Object.keys(row);
   const normKeys = new Map(keys.map(k => [normalizeKeyName(k), k]));
-
   for (const c of candidates) {
     if (row[c] !== undefined) return row[c];
     const nk = normalizeKeyName(c);
     if (normKeys.has(nk)) return row[normKeys.get(nk)];
-    for (const [n, orig] of normKeys.entries()) {
-      if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig];
-    }
+    for (const [n, orig] of normKeys.entries()) { if (n === nk || n.includes(nk) || nk.includes(n)) return row[orig]; }
   }
   return '';
-}
-
-function updateZoomCSS(pageKey, newZoom) {
-   componentZoom[pageKey] = Math.max(0.5, Math.min(2.5, newZoom));
-   document.documentElement.style.setProperty('--timeline-zoom', componentZoom[pageKey]);
-   if (timelines[pageKey]) timelines[pageKey].redraw(); 
-}
-
-function bindCtrlWheelZoom(container, pageKey) {
-  if (!container) return;
-  container.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return; 
-    e.preventDefault(); 
-    e.stopPropagation(); 
-    let currentZ = componentZoom[pageKey];
-    const zoomStep = 0.1;
-    if (e.deltaY < 0) currentZ += zoomStep; else currentZ -= zoomStep;
-    updateZoomCSS(pageKey, currentZ);
-  }, { passive: false });
 }
 
 async function fetchCSV(url) {
@@ -318,22 +318,36 @@ async function fetchCSV(url) {
   return parseCSV(csvText);
 }
 
+// A REGRA DE ORDENAÇÃO SUPREMA DO ROADMAP
+const waterfallOrderFn = function (a, b) {
+  const valA = String(a && a.subgroup !== undefined ? a.subgroup : (a.id || a));
+  const valB = String(b && b.subgroup !== undefined ? b.subgroup : (b.id || b));
+  return valA.localeCompare(valB);
+};
+
 
 // ==========================================
-// 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
+// 6. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
   const items = []; const groups = []; const groupSet = new Set();
-  availableStacks.geral.clear();
+  availableStacks.geral.clear(); availableStatuses.geral.clear();
 
-  if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
+  const statusFilters = normalizeList(filterStatus);
+  let globalMin = Infinity; let globalMax = -Infinity;
+  const subgroupsData = [];
+
+  if (groupingMode === 'geral') { 
+    groups.push({ id: 'Geral', content: 'Geral', subgroupOrder: 'sgOrder' }); 
+    groupSet.add('Geral'); 
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const resumo = String(getCell(row, ['Resumo']) || '').trim();
     let dataInicio = parseBRDate(getCell(row, ['Start date']));
-    const dataTarget = parseBRDate(getCell(row, ['Target end']));
-    const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
+    let dataTarget = parseBRDate(getCell(row, ['Target end']));
+    let dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
     const status = String(getCell(row, ['Status']) || 'planejado').trim();
     const chave = String(getCell(row, ['Chave','Key','Link']) || '').trim();
 
@@ -343,12 +357,27 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
+    if (status) availableStatuses.geral.add(status);
 
-    if (!dataTarget && !dataFinishReal) continue;
+    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
+    if (!passStatus) continue;
 
-    if (!dataInicio) dataInicio = new Date(); 
+    if (!dataInicio && !dataTarget && !dataFinishReal) continue;
+    
+    if (!dataInicio) dataInicio = dataTarget || dataFinishReal || new Date();
+    if (!dataTarget && !dataFinishReal) {
+      dataTarget = new Date(dataInicio);
+      dataTarget.setDate(dataTarget.getDate() + 30);
+    }
+
     let dataFinalDoCard = dataFinishReal || dataTarget;
-    if (dataInicio > dataFinalDoCard) { dataInicio = new Date(dataFinalDoCard); dataInicio.setDate(dataInicio.getDate() - 15); }
+    if (dataInicio > dataFinalDoCard) { 
+      dataInicio = new Date(dataFinalDoCard); 
+      dataInicio.setDate(dataInicio.getDate() - 15); 
+    }
+
+    if (dataInicio.getTime() < globalMin) globalMin = dataInicio.getTime();
+    if (dataFinalDoCard.getTime() > globalMax) globalMax = dataFinalDoCard.getTime();
 
     let customStyle;
     if (dataTarget && dataFinalDoCard.getTime() > dataTarget.getTime()) {
@@ -377,6 +406,9 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
       </div>
     `;
 
+    const timestampStr = dataInicio.getTime().toString().padStart(15, '0');
+    const uniqueSubgroup = `sg_${timestampStr}_${i}`;
+
     const createItemObj = (idPrefix, grupo) => ({
       id: idPrefix,
       content: `
@@ -389,25 +421,53 @@ function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') 
         </div>
       `,
       start: dataInicio, end: dataFinalDoCard, group: grupo,
+      subgroup: uniqueSubgroup, 
+      sgOrder: dataInicio.getTime(), 
       className: `status-${statusNormalized}`, style: customStyle, title: tooltipHtml, linkUrl: chave
     });
 
     if (groupingMode === 'geral') {
       items.push(createItemObj(`geral-${i}`, 'Geral'));
+      subgroupsData.push({ group: 'Geral', subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime() });
       continue;
     }
 
     const stacksToShow = (filterStack === 'all') ? stacksArray : stacksArray.filter(s => s === filterStack);
     stacksToShow.forEach((stack, stackIdx) => {
-      if (!groupSet.has(stack)) { groupSet.add(stack); groups.push({ id: stack, content: stack }); }
+      if (!groupSet.has(stack)) { 
+        groupSet.add(stack); 
+        groups.push({ id: stack, content: stack, subgroupOrder: 'sgOrder' }); 
+      }
       items.push(createItemObj(`geral-${i}-${stackIdx}`, stack));
+      subgroupsData.push({ group: stack, subgroup: uniqueSubgroup, sgOrder: dataInicio.getTime() });
     });
   }
+
+  if (globalMin === Infinity) { globalMin = new Date().getTime(); globalMax = new Date().getTime() + 100000; }
+  const spacerStart = new Date(globalMin - 5 * 24 * 60 * 60 * 1000); 
+  const spacerEnd = new Date(globalMax + 5 * 24 * 60 * 60 * 1000);
+
+  const uniqueSgs = new Map();
+  subgroupsData.forEach(sg => uniqueSgs.set(`${sg.group}_${sg.subgroup}`, sg));
+
+  uniqueSgs.forEach(sg => {
+    items.push({
+      id: `spacer-${sg.group}-${sg.subgroup}`, content: '', start: spacerStart, end: spacerEnd,
+      group: sg.group, subgroup: sg.subgroup, sgOrder: sg.sgOrder,
+      className: 'spacer-ghost'
+    });
+  });
+
   return { items, groups };
 }
 
 function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsavel = ['all'], filterStatus = ['all'], cardsMode = 'updated') {
-  const items = []; const allProjects = new Set();
+  const epicItems = []; 
+  const childItems = []; 
+  let globalMin = Infinity; let globalMax = -Infinity;
+  const subgroupsData = [];
+  
+  const allProjects = new Set();
   const epicByProject = new Map(); const projectEpicLink = new Map();
   const respFilters = normalizeList(filterResponsavel); const statusFilters = normalizeList(filterStatus);
 
@@ -432,23 +492,33 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     if (!epicByProject.has(projetoRaw)) {
       let epicStart = parseBRDate(getCell(row, ['Start date (Epic)']));
-      if (epicStart) {
-        const epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
-        const epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
-        let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
-        if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 24 * 60 * 60 * 1000);
+      let epicTarget = parseBRDate(getCell(row, ['Target end (Epic)']));
+      let epicFinish = parseBRDate(getCell(row, ['Finish date (Epic)']));
 
-        const totalDuration = epicEnd - epicStart;
-        const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
-        const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
-
-        const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
-        let epicStyle = (epicTarget && epicTarget < epicEnd) 
-          ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
-          : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
-        
-        epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
+      if (!epicStart && !epicTarget && !epicFinish) {
+         epicStart = parseBRDate(getCell(row, ['Start date'])) || new Date();
+         epicTarget = new Date(epicStart);
+         epicTarget.setDate(epicTarget.getDate() + 30);
+      } else if (!epicStart) {
+         epicStart = epicTarget || epicFinish || new Date();
       }
+
+      let epicEnd = epicFinish || epicTarget || new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+      if (epicEnd <= epicStart) epicEnd = new Date(epicStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      if (epicStart.getTime() < globalMin) globalMin = epicStart.getTime();
+      if (epicEnd.getTime() > globalMax) globalMax = epicEnd.getTime();
+
+      const totalDuration = epicEnd - epicStart;
+      const targetDuration = epicTarget ? (epicTarget - epicStart) : totalDuration;
+      const targetPercent = totalDuration > 0 ? (targetDuration / totalDuration) * 100 : 100;
+
+      const green = '#34D399'; const greenBorder = '#065F46'; const orange = '#F97316';
+      let epicStyle = (epicTarget && epicTarget < epicEnd) 
+        ? `background: linear-gradient(to right, ${green} 0%, ${green} ${targetPercent}%, ${orange} ${targetPercent}%, ${orange} 100%) !important; border-color: ${greenBorder} !important;`
+        : `background-color: ${green} !important; border-color: ${greenBorder} !important;`;
+      
+      epicByProject.set(projetoRaw, { start: epicStart, target: epicTarget, end: epicEnd, style: epicStyle });
     }
   }
 
@@ -483,6 +553,9 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
 
     includedProjects.add(projetoRaw);
 
+    if (renderStart.getTime() < globalMin) globalMin = renderStart.getTime();
+    if (renderEnd.getTime() > globalMax) globalMax = renderEnd.getTime();
+
     const statusNormalized = status.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
     const targetPercent = childTarget ? Math.max(0, Math.min(100, ((childTarget - renderStart) / (renderEnd - renderStart)) * 100)) : 100;
 
@@ -499,7 +572,10 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    items.push({
+    const timestampStr = renderStart.getTime().toString().padStart(15, '0');
+    const uniqueWaterfallSubgroup = `1_child_${timestampStr}_${i}`;
+
+    childItems.push({
       id: `child-${i}`,
       content: `
         <div class="vis-item-content" style="display:flex; flex-direction:column; gap:3px;">
@@ -511,13 +587,22 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
           ${responsavelRaw ? `<div style="font-size:0.75rem; opacity:0.9;">Resp.: <strong>${responsavelRaw}</strong></div>` : ''}
         </div>
       `,
-      start: renderStart, end: renderEnd, group: projetoRaw, subgroup: 'child',
+      start: renderStart, end: renderEnd, group: projetoRaw, 
+      subgroup: uniqueWaterfallSubgroup, 
+      sgOrder: renderStart.getTime(), 
       className: `status-${statusNormalized}`, style, title: tooltipHtml, linkUrl: projectEpicLink.get(projetoRaw)
     });
+
+    subgroupsData.push({ group: projetoRaw, subgroup: uniqueWaterfallSubgroup, sgOrder: renderStart.getTime() });
   }
 
   const projectsToShow = Array.from(includedProjects);
-  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
+  
+  const groups = projectsToShow.sort().map(p => ({ 
+    id: p, 
+    content: extractBracketText(p),
+    subgroupOrder: 'sgOrder' 
+  }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -540,27 +625,56 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
       </div>
     `;
 
-    items.push({
-      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, subgroup: 'epic',
-      order: -1000, className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
+    epicItems.push({
+      id: `epic-${p}`, content: epicContent, start: info.start, end: info.end, group: p, 
+      subgroup: '0_epic', 
+      sgOrder: -1, 
+      className: 'epic-item', style: info.style, title: epicTooltip, linkUrl: projectEpicLink.get(p)
+    });
+
+    subgroupsData.push({ group: p, subgroup: '0_epic', sgOrder: -1 });
+  });
+
+  if (globalMin === Infinity) { globalMin = new Date().getTime(); globalMax = new Date().getTime() + 100000; }
+  const spacerStart = new Date(globalMin - 5 * 24 * 60 * 60 * 1000);
+  const spacerEnd = new Date(globalMax + 5 * 24 * 60 * 60 * 1000);
+
+  const uniqueSgs = new Map();
+  subgroupsData.forEach(sg => uniqueSgs.set(`${sg.group}_${sg.subgroup}`, sg));
+
+  uniqueSgs.forEach(sg => {
+    epicItems.push({
+      id: `spacer-${sg.group}-${sg.subgroup}`, content: '', start: spacerStart, end: spacerEnd,
+      group: sg.group, subgroup: sg.subgroup, sgOrder: sg.sgOrder,
+      className: 'spacer-ghost'
     });
   });
 
-  return { items, groups };
+  return { items: [...epicItems, ...childItems], groups };
 }
 
 
 // ==========================================
-// 5. CRIAÇÃO DOS ROADMAPS E FILTROS
+// 7. CRIAÇÃO DOS ROADMAPS E FILTROS
 // ==========================================
-function updateStackFilterGeral() {
-  const select = document.getElementById('stack-filter');
-  const current = select.value;
-  select.innerHTML = '<option value="all">Todos</option>';
+function updateGeralFilters() {
+  const selectStack = document.getElementById('stack-filter');
+  const currentStack = selectStack.value;
+  selectStack.innerHTML = '<option value="all">Todos</option>';
   Array.from(availableStacks.geral).sort().forEach(v => {
-    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; selectStack.appendChild(opt);
   });
-  if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
+  if (currentStack !== 'all' && availableStacks.geral.has(currentStack)) selectStack.value = currentStack;
+
+  const stSelect = document.getElementById('status-filter-geral');
+  if (stSelect) {
+    const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
+    stSelect.innerHTML = '<option value="all">Todos</option>';
+    Array.from(availableStatuses.geral).sort().forEach(v => {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; if (currentSt.has(v)) opt.selected = true; stSelect.appendChild(opt);
+    });
+    rebuildMultiSelect('status-filter-geral');
+  }
 }
 
 function updateDetalhamentoFilters() {
@@ -641,10 +755,9 @@ function createTimeline(data, pageKey) {
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
-    subgroupOrder: function (a, b) {
-      const orderMap = isDetalhes ? { child: 0, epic: 1, spacer: 2 } : { epic: 0, child: 1, spacer: 2 };
-      return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
-    },
+    
+    subgroupOrder: 'sgOrder', 
+    
     groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
     margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
@@ -654,8 +767,9 @@ function createTimeline(data, pageKey) {
   };
 
   if (timelines[pageKey]) {
-    timelines[pageKey].setItems(data.items);
+    timelines[pageKey].setOptions(options); 
     timelines[pageKey].setGroups(data.groups);
+    timelines[pageKey].setItems(data.items);
   } else {
     timelines[pageKey] = new vis.Timeline(container, data.items, data.groups, options);
   }
@@ -684,7 +798,7 @@ function changeViewMode(pageKey) {
   let start, end;
   switch (viewMode) {
     case 'week': start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14); end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14); break;
-    case 'month': start = new Date(now.getFullYear(), now.getMonth() - 2, 1); end = new Date(now.getFullYear(), now.getMonth() + 2, 0); break;
+    case 'month': start = new Date(now.getFullYear(), now.getMonth(), -5); end = new Date(now.getFullYear(), now.getMonth() + 1, 5); break;
     case 'quarter': start = new Date(now.getFullYear(), now.getMonth() - 4, 1); end = new Date(now.getFullYear(), now.getMonth() + 4, 0); break;
     case 'year': start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() + 1, 11, 31); break;
     default: return;
@@ -697,9 +811,13 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
+  
+  const stEl = document.getElementById('status-filter-geral');
+  const stFilters = (stEl && Array.from(stEl.selectedOptions || []).length > 0) ? Array.from(stEl.selectedOptions).filter(o=>o.selected).map(o => o.value) : ['all'];
+
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
   createTimeline(data, 'geral');
-  updateStackFilterGeral();
+  updateGeralFilters();
   updateGroupingModeLabel();
 }
 
@@ -718,7 +836,7 @@ function applyFilterDetalhamento() {
 
 
 // ==========================================
-// 6. DASHBOARD DE AVALIAÇÕES (GRÁFICOS)
+// 8. DASHBOARD DE AVALIAÇÕES
 // ==========================================
 function extractMonthYear(dateString) {
   const d = parseBRDate(dateString);
@@ -829,6 +947,7 @@ function renderGraficosAvaliacoes(rows) {
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
 
+
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -885,7 +1004,6 @@ function renderGraficosAvaliacoes(rows) {
 
   const satContainer = document.getElementById('sat-charts-container');
   if (!satContainer) return;
-  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -910,29 +1028,21 @@ function renderGraficosAvaliacoes(rows) {
 
     const headers = Object.keys(abaRows[0]);
     
-    let isRow0Questions = false;
-    headers.forEach(h => {
-      const val = abaRows[0][h];
-      if (val && isNaN(parseFloat(val)) && String(val).trim().length > 20) {
-        isRow0Questions = true;
-      }
-    });
-
-    const startIndex = isRow0Questions ? 1 : 0;
+    // A CORREÇÃO DA ABA MARTECH: Confia 100% no Google Sheets, sem tentar adivinhar a linha extra!
+    const startIndex = 0;
     const questionMap = {};
     headers.forEach(h => {
-      questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
+      questionMap[h] = String(h).trim();
     });
 
-    // O NOSSO RADAR DE SEGURANÇA BALANCEADO
+    const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
+    
     const validCols = [];
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
       if (!fullQ || fullQ.length < 5) return;
-      
-      // Checa palavras-chave individualmente (não usa .includes('data') para evitar cortar "banco de dados")
-      if (fullQ === 'data' || fullQ === '_abaorigin' || fullQ.includes('carimbo') || fullQ.includes('timestamp') || fullQ.includes('e-mail') || fullQ.includes('email') || fullQ.includes('empresa') || fullQ.includes('nome') || fullQ.includes('representa') || fullQ.includes('nps') || fullQ.includes('0 a 10') || fullQ.includes('recomend')) return;
+      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -948,7 +1058,6 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      // A CORREÇÃO: Se houver respostas válidas numéricas, ele constrói o gráfico, ignorando quem errou a digitação
       if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
@@ -1060,7 +1169,7 @@ function renderGraficosAvaliacoes(rows) {
 
 
 // ==========================================
-// 7. GERENCIADOR DE DADOS (FETCH/LOAD)
+// 9. GERENCIADOR DE DADOS (FETCH/LOAD)
 // ==========================================
 async function handleLoadData(pageKey) {
   const suffix = pageKey === 'geral' ? '' : '-detalhes';
@@ -1090,10 +1199,14 @@ async function handleLoadData(pageKey) {
       if (pageKey === 'geral') {
         updateGroupingModeLabel();
         createTimeline(parseSheetDataGeral(rows, 'all', getGroupingModeGeral()), 'geral');
-        updateStackFilterGeral();
+        updateGeralFilters();
+        
+        changeViewMode('geral');
       } else if (pageKey === 'detalhamento') {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
+        
+        changeViewMode('detalhamento');
       }
       const btnRefresh = document.getElementById('refresh-data' + suffix);
       if (btnRefresh) btnRefresh.style.display = 'inline-flex';
@@ -1123,7 +1236,7 @@ async function handleRefreshData(pageKey) {
 
 
 // ==========================================
-// 8. MODAL E BINDINGS (SÓ EXECUTADO 1 VEZ)
+// 10. MODAL E BINDINGS
 // ==========================================
 const modalOverlay = document.getElementById('source-modal');
 const closeBtn = document.getElementById('modal-close');
@@ -1154,6 +1267,9 @@ if(showExampleBtn) showExampleBtn.addEventListener('click', (e) => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
 });
 
+// INICIA O BLOQUEIO DE SCROLL PARA LUPA
+setupGlobalZoom();
+
 // Eventos Avaliações
 const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
 if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
@@ -1167,6 +1283,8 @@ if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshDat
 // Eventos Roadmap Geral e Detalhamento
 const stackFilterGeral = document.getElementById('stack-filter');
 if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
+const statusFilterGeral = document.getElementById('status-filter-geral');
+if (statusFilterGeral) statusFilterGeral.addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
 const viewModeGeral = document.getElementById('view-mode');
