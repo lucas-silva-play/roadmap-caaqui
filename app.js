@@ -46,7 +46,7 @@ let chartInstancesSat = {};
 // --- VARIÁVEIS DO ROADMAP ---
 let availableStacks = { geral: new Set(), detalhamento: new Set() };
 let availableResponsaveis = { detalhamento: new Set() };
-let availableStatuses = { geral: new Set(), detalhamento: new Set() };
+let availableStatuses = { detalhamento: new Set() };
 
 let itemLinkMap = { geral: new Map(), detalhamento: new Map() };
 let clickHandlerBound = { geral: false, detalhamento: false };
@@ -322,35 +322,27 @@ async function fetchCSV(url) {
 // ==========================================
 // 4. LÓGICAS DO ROADMAP (GERAL E DETALHES)
 // ==========================================
-function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack', filterStatus = ['all']) {
+function parseSheetDataGeral(rows, filterStack = 'all', groupingMode = 'stack') {
   const items = []; const groups = []; const groupSet = new Set();
-  const statusFilters = normalizeList(filterStatus);
-
   availableStacks.geral.clear();
-  availableStatuses.geral.clear();
 
   if (groupingMode === 'geral') { groups.push({ id: 'Geral', content: 'Geral' }); groupSet.add('Geral'); }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const resumo = String(getCell(row, ['Resumo']) || '').trim();
-    let dataInicio = parseBRDate(getCell(row, ['Start date', 'Data de início', 'Data de inicio', 'Inicio']));
-    const dataTarget = parseBRDate(getCell(row, ['Target end', 'Data alvo', 'Previsão']));
-    const dataFinishReal = parseBRDate(getCell(row, ['Finish Date', 'Finish date', 'Data de conclusão', 'Fim Real']));
+    let dataInicio = parseBRDate(getCell(row, ['Start date']));
+    const dataTarget = parseBRDate(getCell(row, ['Target end']));
+    const dataFinishReal = parseBRDate(getCell(row, ['Finish Date','Finish date']));
     const status = String(getCell(row, ['Status']) || 'planejado').trim();
     const chave = String(getCell(row, ['Chave','Key','Link']) || '').trim();
 
     if (!resumo) continue; 
 
-    if (status) availableStatuses.geral.add(status);
-
     const stacksRaw = String(getCell(row, ['Stacks','Stack']) || 'Sem Stack');
     const cleanedStacks = stacksRaw.replace(/\s*\n\s*/g, ',').replace(/\s*;\s*/g, ',').replace(/\s*\/\s*/g, ',').replace(/\s*\|\s*/g, ',');
     const stacksArray = cleanedStacks.split(',').map(s => s.trim()).filter(Boolean);
     stacksArray.forEach(st => availableStacks.geral.add(st));
-
-    const passStatus = (statusFilters.length === 0) ? true : statusFilters.some(f => sameCI(status, f));
-    if (!passStatus) continue;
 
     if (!dataTarget && !dataFinishReal) continue;
 
@@ -525,19 +517,7 @@ function parseSheetDataDetalhamento(rows, filterProjeto = 'all', filterResponsav
   }
 
   const projectsToShow = Array.from(includedProjects);
-  
-  // BLOQUEIO 1: Ordenação segura dentro do grupo 
-  const groups = projectsToShow.sort().map(p => ({ 
-    id: p, 
-    content: extractBracketText(p),
-    subgroupOrder: function (a, b) {
-      const valA = String(typeof a === 'object' ? (a.subgroup || a.id || '') : (a || ''));
-      const valB = String(typeof b === 'object' ? (b.subgroup || b.id || '') : (b || ''));
-      if (valA === 'epic' && valB !== 'epic') return -1;
-      if (valA !== 'epic' && valB === 'epic') return 1;
-      return 0;
-    }
-  }));
+  const groups = projectsToShow.sort().map(p => ({ id: p, content: extractBracketText(p) }));
 
   projectsToShow.forEach(p => {
     const info = epicByProject.get(p);
@@ -581,17 +561,6 @@ function updateStackFilterGeral() {
     const opt = document.createElement('option'); opt.value = v; opt.textContent = v; select.appendChild(opt);
   });
   if (current !== 'all' && availableStacks.geral.has(current)) select.value = current;
-
-  const stSelect = document.getElementById('status-filter-geral');
-  const currentSt = new Set(Array.from(stSelect.selectedOptions || []).map(o => o.value).filter(v => v !== 'all'));
-  stSelect.innerHTML = '<option value="all">Todos</option>';
-  Array.from(availableStatuses.geral).sort().forEach(v => {
-    const opt = document.createElement('option'); opt.value = v; opt.textContent = v; 
-    if (currentSt.has(v)) opt.selected = true; 
-    stSelect.appendChild(opt);
-  });
-
-  rebuildMultiSelect('status-filter-geral');
 }
 
 function updateDetalhamentoFilters() {
@@ -668,29 +637,17 @@ function createTimeline(data, pageKey) {
   const containerId = pageKey === 'geral' ? 'visualization' : 'visualization-detalhes';
   const container = document.getElementById(containerId);
   itemLinkMap[pageKey] = new Map(data.items.map(it => [it.id, it.linkUrl]));
+  const isDetalhes = (pageKey === 'detalhamento');
 
   const options = {
     width: '100%', height: '100%', orientation: 'top', stack: true, stackSubgroups: true,
-    
-    // BLOQUEIO 2: Força o grupo 'epic' a renderizar no topo das camadas do Subgroup
     subgroupOrder: function (a, b) {
-      const valA = String(typeof a === 'object' ? (a.subgroup || a.id || '') : (a || ''));
-      const valB = String(typeof b === 'object' ? (b.subgroup || b.id || '') : (b || ''));
-      if (valA === 'epic' && valB !== 'epic') return -1;
-      if (valA !== 'epic' && valB === 'epic') return 1;
-      return 0;
+      const orderMap = isDetalhes ? { child: 0, epic: 1, spacer: 2 } : { epic: 0, child: 1, spacer: 2 };
+      return (orderMap[a] ?? 99) - (orderMap[b] ?? 99);
     },
-    
-    // BLOQUEIO 3: Força a ordem absoluta de montagem visual (Epic no teto e tarefas descendo)
-    order: function (a, b) {
-      if (a.subgroup === 'epic' && b.subgroup !== 'epic') return -1;
-      if (a.subgroup !== 'epic' && b.subgroup === 'epic') return 1;
-      return new Date(a.start || 0).valueOf() - new Date(b.start || 0).valueOf();
-    },
-
-    groupHeightMode: pageKey === 'detalhamento' ? 'auto' : 'fitItems',
+    groupHeightMode: isDetalhes ? 'auto' : 'fitItems',
     groupWidth: getComputedStyle(document.documentElement).getPropertyValue('--stack-col-width').trim() || '220px',
-    margin: { axis: pageKey === 'detalhamento' ? 52 : 40, item: { horizontal: 10, vertical: pageKey === 'detalhamento' ? 26 : 18 } },
+    margin: { axis: isDetalhes ? 52 : 40, item: { horizontal: 10, vertical: isDetalhes ? 26 : 18 } },
     showCurrentTime: false, zoomMin: ZOOM_MIN_RANGE, zoomMax: ZOOM_MAX_RANGE, locale: 'pt-BR',
     verticalScroll: true, horizontalScroll: false, zoomable: false,
     tooltip: { followMouse: true, overflowMethod: 'cap' }
@@ -740,11 +697,7 @@ function applyFilterGeral() {
   if (!allParsedData.geral) return;
   const mode = getGroupingModeGeral();
   const stack = (mode === 'stack') ? document.getElementById('stack-filter').value : 'all';
-
-  const stEl = document.getElementById('status-filter-geral');
-  const stFilters = Array.from(stEl.selectedOptions || []).map(o => o.value).length ? Array.from(stEl.selectedOptions || []).map(o => o.value) : ['all'];
-
-  const data = parseSheetDataGeral(allParsedData.geral, stack, mode, stFilters);
+  const data = parseSheetDataGeral(allParsedData.geral, stack, mode);
   createTimeline(data, 'geral');
   updateStackFilterGeral();
   updateGroupingModeLabel();
@@ -846,19 +799,16 @@ function applyFilterAvaliacoes() {
 }
 
 function renderGraficosAvaliacoes(rows) {
-  // LÓGICA DE RESPONDENTES BLINDADA (Ignora cabeçalhos e linhas vazias)
   let totalRespondentes = 0;
   rows.forEach(row => {
     let isRealResponse = false;
     
-    // 1. Checa se tem alguma nota válida de NPS
     const npsRaw = getCell(row, ['NPS', '0 a 10', 'recomendaria', 'recomendar']);
     if (npsRaw !== undefined && npsRaw !== '') {
       const score = parseInt(npsRaw, 10);
       if (!isNaN(score) && score >= 0 && score <= 10) isRealResponse = true;
     }
     
-    // 2. Checa se tem alguma nota válida de Satisfação nas outras colunas
     if (!isRealResponse) {
       Object.values(row).forEach(val => {
         const s = String(val).trim();
@@ -879,8 +829,6 @@ function renderGraficosAvaliacoes(rows) {
   const satBadge = document.getElementById('sat-respondentes-badge');
   if (satBadge) satBadge.textContent = textoRespondentes;
 
-
-  // 1. CÁLCULO NPS (Média Exata)
   let npsCounts = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0};
   let sumNps = 0; let totalNps = 0;
 
@@ -896,13 +844,14 @@ function renderGraficosAvaliacoes(rows) {
 
   const npsAverage = totalNps > 0 ? parseFloat((sumNps / totalNps).toFixed(1)) : '-';
   const npsTextEl = document.getElementById('nps-score-text');
-  npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
-  
-  if (npsAverage !== '-') {
-    if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
-    else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
-    else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
-    else npsTextEl.style.color = '#d9534f';
+  if (npsTextEl) {
+    npsTextEl.textContent = npsAverage !== '-' ? npsAverage : '-';
+    if (npsAverage !== '-') {
+      if (npsAverage >= 8.5) npsTextEl.style.color = '#22c55e'; 
+      else if (npsAverage >= 7.0) npsTextEl.style.color = '#84cc16'; 
+      else if (npsAverage >= 5.0) npsTextEl.style.color = '#d1d5db'; 
+      else npsTextEl.style.color = '#d9534f';
+    }
   }
 
   if (chartInstances.nps) chartInstances.nps.destroy();
@@ -911,28 +860,32 @@ function renderGraficosAvaliacoes(rows) {
   const dataNeutros = npsLabels.map(l => parseInt(l) >= 7 && parseInt(l) <= 8 ? npsCounts[l] : null);
   const dataPromotores = npsLabels.map(l => parseInt(l) >= 9 ? npsCounts[l] : null);
 
-  chartInstances.nps = new Chart(document.getElementById('npsChart'), {
-    type: 'bar',
-    data: {
-      labels: npsLabels,
-      datasets: [
-        { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
-        { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
-        { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
-      ]
-    },
-    options: {
-      maintainAspectRatio: false, 
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { stacked: true, title: { display: true, text: 'Nota' } },
-        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+  const npsChartEl = document.getElementById('npsChart');
+  if (npsChartEl) {
+    chartInstances.nps = new Chart(npsChartEl, {
+      type: 'bar',
+      data: {
+        labels: npsLabels,
+        datasets: [
+          { label: '😡 Detratores', data: dataDetratores, backgroundColor: '#d9534f', borderRadius: 4 },
+          { label: '😐 Neutros', data: dataNeutros, backgroundColor: '#d1d5db', borderRadius: 4 },
+          { label: '🤩 Promotores', data: dataPromotores, backgroundColor: '#22c55e', borderRadius: 4 }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false, 
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          x: { stacked: true, title: { display: true, text: 'Nota' } },
+          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Qtd de Respostas' } }
+        }
       }
-    }
-  });
+    });
+  }
 
-  // 2. GRÁFICOS DE SATISFAÇÃO COM TÍTULOS PRETOS E MÉDIA COM COR INTELIGENTE
   const satContainer = document.getElementById('sat-charts-container');
+  if (!satContainer) return;
+  
   satContainer.innerHTML = ''; 
   Object.values(chartInstancesSat).forEach(c => c.destroy()); 
   chartInstancesSat = {};
@@ -971,14 +924,15 @@ function renderGraficosAvaliacoes(rows) {
       questionMap[h] = isRow0Questions ? String(abaRows[0][h] || '').trim() : String(h).trim();
     });
 
-    const excludeKeywords = ['carimbo', 'timestamp', 'data', 'e-mail', 'email', 'empresa', 'nome', 'representa', 'nps', '0 a 10', 'recomend', '_abaorigin'];
-    
+    // O NOSSO RADAR DE SEGURANÇA BALANCEADO
     const validCols = [];
     
     headers.forEach(h => {
       const fullQ = questionMap[h].toLowerCase();
       if (!fullQ || fullQ.length < 5) return;
-      if (excludeKeywords.some(kw => fullQ.includes(kw))) return;
+      
+      // Checa palavras-chave individualmente (não usa .includes('data') para evitar cortar "banco de dados")
+      if (fullQ === 'data' || fullQ === '_abaorigin' || fullQ.includes('carimbo') || fullQ.includes('timestamp') || fullQ.includes('e-mail') || fullQ.includes('email') || fullQ.includes('empresa') || fullQ.includes('nome') || fullQ.includes('representa') || fullQ.includes('nps') || fullQ.includes('0 a 10') || fullQ.includes('recomend')) return;
 
       let validCount = 0;
       let invalidCount = 0;
@@ -994,7 +948,8 @@ function renderGraficosAvaliacoes(rows) {
         }
       }
       
-      if (validCount > 0 && invalidCount === 0) {
+      // A CORREÇÃO: Se houver respostas válidas numéricas, ele constrói o gráfico, ignorando quem errou a digitação
+      if (validCount > 0 && validCount >= invalidCount) {
           validCols.push(h);
       }
     });
@@ -1123,7 +1078,9 @@ async function handleLoadData(pageKey) {
       }
       updateFiltersAvaliacoes(); 
       applyFilterAvaliacoes();
-      document.getElementById('refresh-data-avaliacoes').style.display = 'inline-flex';
+      
+      const btnRefresh = document.getElementById('refresh-data-avaliacoes');
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
     }
     else {
       if (!url) { showStatus('error', 'Configure a fonte de dados.', pageKey); return; }
@@ -1138,7 +1095,8 @@ async function handleLoadData(pageKey) {
         createTimeline(parseSheetDataDetalhamento(rows, 'all', 'all', 'all'), 'detalhamento');
         updateDetalhamentoFilters();
       }
-      document.getElementById('refresh-data' + suffix).style.display = 'inline-flex';
+      const btnRefresh = document.getElementById('refresh-data' + suffix);
+      if (btnRefresh) btnRefresh.style.display = 'inline-flex';
       setTimeout(() => { if (timelines[pageKey]) timelines[pageKey].redraw(); }, 80);
     }
     showStatus('success', 'Dados carregados com sucesso.', pageKey);
@@ -1180,52 +1138,75 @@ function openModal() {
 }
 
 function closeModal() { modalOverlay.classList.remove('is-open'); modalOverlay.setAttribute('aria-hidden', 'true'); }
-closeBtn.addEventListener('click', closeModal); cancelBtn.addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('is-open')) closeModal(); });
-saveBtn.addEventListener('click', () => {
+if(closeBtn) closeBtn.addEventListener('click', closeModal); 
+if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+if(modalOverlay) modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) closeModal(); });
+if(saveBtn) saveBtn.addEventListener('click', () => {
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = sourceInput.value.trim();
   closeModal(); handleLoadData(currentPage);
 });
-sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-document.getElementById('show-example').addEventListener('click', (e) => {
+if(sourceInput) sourceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+
+const showExampleBtn = document.getElementById('show-example');
+if(showExampleBtn) showExampleBtn.addEventListener('click', (e) => {
   e.preventDefault(); const exampleUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1XWEct_XM9RKexp9EDzkiW-VDsoQi6fS9m2qr36J2Kkih8ivQjhnWbdgOV8cgTH8vcqzGdObzTJWt/pub?gid=591233746&single=true&output=csv';
   document.getElementById(currentPage === 'geral' ? 'spreadsheet-url' : 'spreadsheet-url-detalhes').value = exampleUrl; sourceInput.value = exampleUrl;
 });
 
 // Eventos Avaliações
-document.getElementById('aba-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes);
-document.getElementById('mes-filter-avaliacoes').addEventListener('change', applyFilterAvaliacoes); 
-document.getElementById('load-data-avaliacoes').addEventListener('click', () => handleLoadData('avaliacoes'));
-document.getElementById('refresh-data-avaliacoes').addEventListener('click', () => handleRefreshData('avaliacoes'));
+const abaFilterAv = document.getElementById('aba-filter-avaliacoes');
+if(abaFilterAv) abaFilterAv.addEventListener('change', applyFilterAvaliacoes);
+const mesFilterAv = document.getElementById('mes-filter-avaliacoes');
+if(mesFilterAv) mesFilterAv.addEventListener('change', applyFilterAvaliacoes); 
+const loadDataAv = document.getElementById('load-data-avaliacoes');
+if(loadDataAv) loadDataAv.addEventListener('click', () => handleLoadData('avaliacoes'));
+const refreshDataAv = document.getElementById('refresh-data-avaliacoes');
+if(refreshDataAv) refreshDataAv.addEventListener('click', () => handleRefreshData('avaliacoes'));
 
 // Eventos Roadmap Geral e Detalhamento
-document.getElementById('stack-filter').addEventListener('change', applyFilterGeral);
-document.getElementById('status-filter-geral').addEventListener('change', applyFilterGeral);
+const stackFilterGeral = document.getElementById('stack-filter');
+if(stackFilterGeral) stackFilterGeral.addEventListener('change', applyFilterGeral);
 const groupingToggle = document.getElementById('grouping-toggle-geral');
 if (groupingToggle) groupingToggle.addEventListener('change', () => { updateGroupingModeLabel(); applyFilterGeral(); });
-document.getElementById('view-mode').addEventListener('change', () => changeViewMode('geral'));
+const viewModeGeral = document.getElementById('view-mode');
+if(viewModeGeral) viewModeGeral.addEventListener('change', () => changeViewMode('geral'));
 
-document.getElementById('stack-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('responsavel-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
-document.getElementById('status-filter-detalhes').addEventListener('change', applyFilterDetalhamento);
+const stackFilterDet = document.getElementById('stack-filter-detalhes');
+if(stackFilterDet) stackFilterDet.addEventListener('change', applyFilterDetalhamento);
+const respFilterDet = document.getElementById('responsavel-filter-detalhes');
+if(respFilterDet) respFilterDet.addEventListener('change', applyFilterDetalhamento);
+const statusFilterDet = document.getElementById('status-filter-detalhes');
+if(statusFilterDet) statusFilterDet.addEventListener('change', applyFilterDetalhamento);
 
 const cardsModeToggle = document.getElementById('cards-mode-toggle-detalhes');
-if (cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
-document.getElementById('view-mode-detalhes').addEventListener('change', () => changeViewMode('detalhamento'));
+if(cardsModeToggle) cardsModeToggle.addEventListener('change', () => { updateCardsModeLabel(); applyFilterDetalhamento(); });
+const viewModeDet = document.getElementById('view-mode-detalhes');
+if(viewModeDet) viewModeDet.addEventListener('change', () => changeViewMode('detalhamento'));
 
 // Botões de Zoom do Eixo X
-document.getElementById('zoom-in').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out').addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit').addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
-document.getElementById('zoom-in-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-out-detalhes').addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
-document.getElementById('zoom-fit-detalhes').addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+const zoomInBtn = document.getElementById('zoom-in');
+if(zoomInBtn) zoomInBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomOutBtn = document.getElementById('zoom-out');
+if(zoomOutBtn) zoomOutBtn.addEventListener('click', () => { const tl = timelines.geral; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomFitBtn = document.getElementById('zoom-fit');
+if(zoomFitBtn) zoomFitBtn.addEventListener('click', () => { if (timelines.geral) timelines.geral.fit({ animation: false }); });
 
-document.getElementById('load-data').addEventListener('click', () => handleLoadData('geral'));
-document.getElementById('refresh-data').addEventListener('click', () => handleRefreshData('geral'));
-document.getElementById('load-data-detalhes').addEventListener('click', () => handleLoadData('detalhamento'));
-document.getElementById('refresh-data-detalhes').addEventListener('click', () => handleRefreshData('detalhamento'));
+const zoomInDetBtn = document.getElementById('zoom-in-detalhes');
+if(zoomInDetBtn) zoomInDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.max(ZOOM_MIN_RANGE, (w.end.valueOf() - w.start.valueOf()) * 0.8); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomOutDetBtn = document.getElementById('zoom-out-detalhes');
+if(zoomOutDetBtn) zoomOutDetBtn.addEventListener('click', () => { const tl = timelines.detalhamento; if (!tl) return; const w = tl.getWindow(); const mid = (w.start.valueOf() + w.end.valueOf()) / 2; let range = Math.min(ZOOM_MAX_RANGE, (w.end.valueOf() - w.start.valueOf()) * 1.25); tl.setWindow(mid - range/2, mid + range/2, { animation: false }); });
+const zoomFitDetBtn = document.getElementById('zoom-fit-detalhes');
+if(zoomFitDetBtn) zoomFitDetBtn.addEventListener('click', () => { if (timelines.detalhamento) timelines.detalhamento.fit({ animation: false }); });
+
+const loadDataGeralBtn = document.getElementById('load-data');
+if(loadDataGeralBtn) loadDataGeralBtn.addEventListener('click', () => handleLoadData('geral'));
+const refreshDataGeralBtn = document.getElementById('refresh-data');
+if(refreshDataGeralBtn) refreshDataGeralBtn.addEventListener('click', () => handleRefreshData('geral'));
+const loadDataDetBtn = document.getElementById('load-data-detalhes');
+if(loadDataDetBtn) loadDataDetBtn.addEventListener('click', () => handleLoadData('detalhamento'));
+const refreshDataDetBtn = document.getElementById('refresh-data-detalhes');
+if(refreshDataDetBtn) refreshDataDetBtn.addEventListener('click', () => handleRefreshData('detalhamento'));
 
 // Auto-load Inicial
 window.addEventListener('DOMContentLoaded', () => {
